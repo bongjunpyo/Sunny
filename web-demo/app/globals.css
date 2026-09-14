@@ -1,0 +1,304 @@
+:root {
+  --paper: #f3eee5;
+  --paper-2: #e9e2d5;
+  --ink: #1b1714;
+  --muted: #6d655c;
+  --line: #d4cabb;
+  --sun: #ff7a2f;
+  --sun-deep: #e0461d;
+  --radius: 18px;
+  --gutter: clamp(20px, 6vw, 88px);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  line-height: 1.7;
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 종이 질감 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+a {
+  color: inherit;
+}
+
+.serif {
+  font-family: var(--font-serif), serif;
+}
+
+/* ───── 목차(표지) ───── */
+.cover {
+  padding: 9vh var(--gutter) 12vh;
+}
+.cover-meta {
+  display: flex;
+  justify-content: space-between;
+  border-top: 2px solid var(--ink);
+  padding-top: 12px;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cover-title {
+  font-family: var(--font-serif), serif;
+  font-weight: 900;
+  font-size: clamp(64px, 12vw, 190px);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  margin: 6vh 0 2vh;
+}
+.cover-title em {
+  font-style: normal;
+  color: var(--sun-deep);
+}
+.cover-dek {
+  max-width: 640px;
+  font-size: 18px;
+  color: var(--muted);
+}
+.toc {
+  list-style: none;
+  margin-top: 9vh;
+  border-top: 1px solid var(--ink);
+}
+.toc a {
+  display: grid;
+  grid-template-columns: 90px 1.1fr 2fr 40px;
+  gap: 24px;
+  align-items: baseline;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  transition: background 0.3s ease, padding 0.3s ease;
+}
+.toc a:hover {
+  background: var(--paper-2);
+  padding-left: 14px;
+}
+.toc-no {
+  font-family: var(--font-serif), serif;
+  font-weight: 900;
+  font-size: 44px;
+  color: var(--sun-deep);
+  line-height: 1;
+}
+.toc-tech {
+  font-family: var(--font-serif), serif;
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.2;
+}
+.toc-what {
+  color: var(--muted);
+}
+.toc-what strong {
+  display: block;
+  color: var(--ink);
+  font-weight: 500;
+}
+.toc-arrow {
+  font-size: 24px;
+  text-align: right;
+}
+
+/* ───── 예제 공통 틀 ───── */
+.demo-head {
+  padding: 6vh var(--gutter) 5vh;
+  border-bottom: 1px solid var(--line);
+}
+.back {
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.kicker {
+  margin-top: 4vh;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sun-deep);
+  font-weight: 700;
+}
+.demo-head h1 {
+  font-family: var(--font-serif), serif;
+  font-weight: 900;
+  font-size: clamp(40px, 6vw, 84px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin: 1.5vh 0 2vh;
+}
+.lede {
+  max-width: 760px;
+  font-size: 18px;
+  color: var(--muted);
+}
+.demo-body {
+  padding: 5vh var(--gutter);
+}
+.demo-body--bleed {
+  padding: 0;
+}
+.points,
+.source {
+  padding: 6vh var(--gutter);
+  border-top: 1px solid var(--line);
+}
+.points h2,
+.source h2 {
+  font-family: var(--font-serif), serif;
+  font-size: 28px;
+  margin-bottom: 18px;
+}
+.points ol {
+  display: grid;
+  gap: 12px;
+  padding-left: 22px;
+  max-width: 860px;
+}
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.88em;
+  background: var(--paper-2);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+pre {
+  background: #1b1714;
+  color: #f3eee5;
+  border-radius: 14px;
+  padding: 20px 22px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+.source details {
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+}
+.source summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.source summary span {
+  color: var(--muted);
+  font-size: 13px;
+  margin-left: 8px;
+}
+.source pre {
+  margin-top: 12px;
+  max-height: 70vh;
+}
+
+/* ───── 3D 무대 + 자외선 조절판 ───── */
+.stage {
+  position: relative;
+  height: 76vh;
+  min-height: 520px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 72% 18%, #3b2012 0%, #150c08 58%, #0a0605 100%);
+}
+.stage-mount {
+  position: absolute;
+  inset: 0;
+}
+.stage-mount canvas {
+  display: block;
+}
+.stage--loading {
+  display: grid;
+  place-items: center;
+  color: #efe6d8;
+  font-size: 15px;
+}
+.uv-panel {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  color: #f7efe2;
+  background: rgba(20, 12, 8, 0.55);
+  border: 1px solid rgba(255, 220, 180, 0.18);
+  backdrop-filter: blur(10px);
+  font-size: 14px;
+}
+.uv-panel strong {
+  font-family: var(--font-serif), serif;
+  font-size: 30px;
+  line-height: 1;
+  min-width: 56px;
+  display: inline-block;
+}
+.uv-panel input {
+  width: 180px;
+  accent-color: var(--sun);
+}
+.uv-panel button {
+  border: 1px solid rgba(255, 220, 180, 0.35);
+  background: transparent;
+  color: inherit;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font: inherit;
+}
+.uv-panel button[aria-pressed="true"] {
+  background: var(--sun);
+  border-color: var(--sun);
+  color: #1b1714;
+}
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  max-width: 860px;
+}
+.compare th,
+.compare td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+@media (max-width: 760px) {
+  .toc a {
+    grid-template-columns: 56px 1fr;
+  }
+  .toc-what,
+  .toc-arrow {
+    grid-column: 2;
+  }
+  .uv-panel {
+    flex-wrap: wrap;
+    right: 20px;
+  }
+}

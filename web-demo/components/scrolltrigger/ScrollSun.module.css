@@ -1,0 +1,213 @@
+.intro,
+.outro {
+  min-height: 70vh;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 10vh var(--gutter);
+}
+.intro h2 {
+  font-size: clamp(44px, 7vw, 96px);
+  line-height: 1.05;
+  margin: 12px 0 18px;
+}
+.intro p:last-child,
+.outro p {
+  color: var(--muted);
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.stage {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sky {
+  --sky-top: #cdc6bc;
+  --sky-bottom: #e9e3d9;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 100%);
+}
+
+/* 태양: 그라데이션 3겹 + 빛 번짐 + 회전하는 광선 + 표면 질감 */
+.sun {
+  --glow: 0.25;
+  position: absolute;
+  left: 56%;
+  top: 14%;
+  width: min(30vw, 400px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  visibility: hidden;
+  background: radial-gradient(circle at 42% 38%, #fff9ea 0%, #ffe3a3 20%, #ffb35c 46%, #ff7a2f 72%, #e0461d 100%);
+  box-shadow: 0 0 60px 20px rgba(255, 170, 80, calc(0.6 * var(--glow))),
+    0 0 180px 70px rgba(255, 140, 60, calc(0.45 * var(--glow))),
+    0 0 360px 160px rgba(255, 196, 120, calc(0.3 * var(--glow)));
+}
+.sun::before {
+  content: "";
+  position: absolute;
+  inset: -38%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 214, 160, 0) 0deg 7deg, rgba(255, 214, 160, 0.28) 9deg 11deg);
+  mask: radial-gradient(circle, transparent 36%, #000 40%, transparent 70%);
+  opacity: var(--glow);
+  animation: spin 80s linear infinite;
+}
+.sun::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.045' numOctaves='4'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: cover;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ground {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 30%;
+  background: linear-gradient(180deg, rgba(80, 45, 20, 0) 0%, rgba(80, 45, 20, 0.22) 100%);
+}
+
+/* 창문: 바깥 그림자로 벽을 만들고, 스크롤하면 사라지며 '밖으로 나가는' 느낌 */
+.window {
+  position: absolute;
+  inset: 12vh 14vw 34vh;
+  border: 14px solid #b8ae9f;
+  border-radius: 4px;
+  box-shadow: 0 0 0 100vmax #d8d1c5, inset 0 0 40px rgba(0, 0, 0, 0.08);
+}
+.window::before,
+.window::after {
+  content: "";
+  position: absolute;
+  background: #b8ae9f;
+}
+.window::before {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  transform: translateX(-50%);
+}
+.window::after {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 12px;
+  transform: translateY(-50%);
+}
+
+.meta {
+  position: absolute;
+  left: var(--gutter);
+  top: 5vh;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  border-top: 2px solid var(--ink);
+  padding-top: 10px;
+}
+.uvBox {
+  position: absolute;
+  right: var(--gutter);
+  top: 4vh;
+  text-align: right;
+  line-height: 1;
+}
+.uvBox span {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+}
+.uvNumber {
+  font-family: var(--font-serif), serif;
+  font-weight: 900;
+  font-size: clamp(80px, 12vw, 170px);
+  letter-spacing: -0.04em;
+}
+
+.captions {
+  position: absolute;
+  left: var(--gutter);
+  bottom: 30vh;
+  width: min(420px, 80vw);
+  height: 120px;
+}
+.caption {
+  position: absolute;
+  inset: 0;
+}
+.caption b {
+  font-family: var(--font-serif), serif;
+  font-size: 30px;
+}
+.caption p {
+  margin-top: 6px;
+}
+
+.strip {
+  position: absolute;
+  left: 50%;
+  bottom: 5vh;
+  transform: translateX(-50%);
+  display: flex;
+  padding: 22px 26px 14px;
+  border-radius: 20px;
+  background: rgba(255, 252, 246, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(60, 30, 10, 0.15);
+}
+.slot {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.slot small {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.beadRow {
+  display: flex;
+  align-items: center;
+}
+.bead {
+  width: clamp(38px, 5vw, 66px);
+  aspect-ratio: 1;
+  border-radius: 24%;
+  background-color: #f7f4ee;
+  position: relative;
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.9), inset 0 -8px 12px rgba(0, 0, 0, 0.09),
+    0 12px 22px rgba(60, 30, 10, 0.2);
+}
+.bead::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  top: 9%;
+  width: 55%;
+  height: 28%;
+  border-radius: 10px;
+  background: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0));
+}
+.spacer {
+  width: clamp(9px, 1vw, 14px);
+  aspect-ratio: 1;
+  margin: 0 clamp(4px, 0.6vw, 8px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #d4cabb);
+}
