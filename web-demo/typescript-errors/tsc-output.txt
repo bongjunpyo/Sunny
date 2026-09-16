@@ -1,0 +1,4 @@
+typescript-errors/wrong-bead.ts(5,38): error TS2322: Type '"lavendar"' is not assignable to type 'PhotochromicColor'.
+typescript-errors/wrong-bead.ts(8,68): error TS2322: Type '5' is not assignable to type 'Concentration'.
+typescript-errors/wrong-bead.ts(11,14): error TS2741: Property 'id' is missing in type '{ color: "sky"; concentration: 9; }' but required in type 'Bead'.
+typescript-errors/wrong-bead.ts(14,87): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
