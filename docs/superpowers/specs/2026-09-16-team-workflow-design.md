@@ -2,6 +2,23 @@
 
 작성: 2026-09-16, 준표. brainstorming 대화에서 결정한 것을 정리했다. 결정은 모두 준표가 A/B/C 중에서 골랐다.
 
+> ## 2026-09-17 변경 — 이 절이 아래 본문보다 우선한다
+>
+> 아래 본문과 다르면 이 절과 실제 규칙 파일([`AGENTS.md`](../../../AGENTS.md), [`docs/`](../../))이 맞다.
+>
+> | 항목 | 본문 (09-16) | 변경 (09-17) | 근거 |
+> |---|---|---|---|
+> | AI 도구 | 수희 = Claude Code 전제 | **이재원·조수희 = Codex, 봉준표만 Claude Code** | 준표 확인 |
+> | 규칙 파일 | `CLAUDE.md` 원본 + `(site)/CLAUDE.md` | **`AGENTS.md` 원본**, `CLAUDE.md`는 `@AGENTS.md`만 | Codex는 `AGENTS.md`를 읽는다 |
+> | 조수희 역할 | `app/(site)/` 페이지 | **`components/interaction/`** — GSAP 스크롤 · 발색 비교 · 씬 파라미터 (3D 뼈대는 준표가 먼저) | 기획서 수정본 5-2 · 결정 1C |
+> | 봉준표 역할 | 공통 · 3D 스토리 씬 | 정보구조 · Figma · **페이지** · WebGL 뼈대 · 이슈 · 머지 | 기획서 수정본 5-2 |
+> | 백엔드 | 별도 서비스 · Docker · 8080 | **Next.js 서버 API(`frontend/app/api/`) + Sanity + Supabase + Vercel**, `backend/` = Sanity Studio · Supabase 마이그레이션 | 기획서 수정본 5-1 · 결정 2A |
+> | Docker | 백엔드·DB용 | **불필요** (호스팅 서비스). 로컬 Supabase는 이재원 선택 | 위 변경의 결과 |
+> | 브랜치 이름 | `jp/` · `sh/` · `jw/` | **`<종류>/<영역>-<설명>`** (영역 `front`·`interaction`·`back`) | graduation_cap 방식 |
+> | 작업 요청 | C형 이슈 | C형 이슈 + **이슈 없이 시작 금지** + 이슈 닫힘 = 브랜치 삭제(`delete_branch_on_merge`) | 준표 지시 |
+> | main 보호 | 규칙 문서 | **`.githooks/` pre-push**가 main 직접 push · force push 거부. 서버 보호는 Pro 인증 후 | 2026-09-16 main 직접 push 사고 |
+> | 머지 | 준표만 | **준표 단독, 대신 머지하는 사람 없음** | 준표 지시 |
+
 ## 배경
 
 - 과제 "빛이 남기는 색"의 범위가 **팔찌에서 팔찌 + 목걸이**로 넓어졌다.
