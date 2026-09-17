@@ -1,0 +1,16 @@
+.link {
+  display: inline-flex;
+  justify-content: space-between;
+  gap: 60px;
+  padding: 12px 0;
+  border-bottom: 1px solid currentColor;
+  font-size: 12px;
+  min-width: 180px;
+}
+
+@media (max-width: 700px) {
+  .link {
+    min-width: 140px;
+    gap: 20px;
+  }
+}

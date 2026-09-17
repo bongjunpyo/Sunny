@@ -1,0 +1,86 @@
+.track {
+  /* 연출이 붙기 전에는 한 화면. 스크롤 연출 이슈에서 255svh(모바일 195svh)로 늘린다
+     → docs/superpowers/specs/2026-09-18-main-page-design.md */
+  height: var(--hero-track, 100svh);
+  background: var(--night);
+}
+
+.hero {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--night);
+  color: var(--paper);
+}
+
+.copy {
+  position: absolute;
+  z-index: 2;
+  left: 8vw;
+  top: 31%;
+  max-width: 55vw;
+}
+
+.copy h1 {
+  font-size: clamp(65px, 10.4vw, 155px);
+  font-weight: 400;
+  line-height: 0.94;
+  letter-spacing: -0.065em;
+  margin: 32px 0;
+}
+
+.copy p {
+  font-size: var(--step-2);
+  letter-spacing: 0.1em;
+  margin: 30px 0;
+}
+
+.bottom {
+  position: absolute;
+  bottom: 30px;
+  left: 4vw;
+  right: 4vw;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: var(--step-1);
+  letter-spacing: 1px;
+  color: #cbc6bc;
+}
+
+.skip {
+  position: absolute;
+  top: -100px;
+  left: 4vw;
+  z-index: 50;
+  padding: var(--step-1);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.skip:focus {
+  top: var(--step-1);
+}
+
+@media (max-width: 700px) {
+  .copy {
+    left: 7vw;
+    top: 33%;
+    max-width: 90vw;
+  }
+  .copy h1 {
+    font-size: 20vw;
+  }
+  .copy p {
+    font-size: 13px;
+  }
+  .bottom {
+    left: 7vw;
+    right: 7vw;
+    font-size: 9px;
+  }
+  .bottom > span {
+    max-width: 150px;
+  }
+}
