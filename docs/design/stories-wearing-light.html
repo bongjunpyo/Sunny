@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wearing Light Archive</title>
+<style>
+:root{--paper:#f3f0e9;--ink:#292923;--muted:#66645a;--line:#cfcbc1;--panel:#e9e4da}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.7 Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+a{color:inherit;text-decoration:none}
+a:focus-visible{outline:2px solid #896849;outline-offset:4px}
+.bar{position:sticky;top:0;z-index:30;background:var(--ink);color:#e8e3d8;display:flex;gap:16px;align-items:center;justify-content:space-between;padding:12px 5vw;flex-wrap:wrap;font-size:12px}
+.bar small{font-size:10px;color:#b6b1a5;letter-spacing:.4px}
+header{padding:22px 5vw;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+.logo{font-size:29px;font-weight:600;letter-spacing:-2px}
+nav{display:flex;gap:24px;font-size:12px}
+main{padding:60px 6vw;max-width:1550px;margin:auto}
+h1{font-size:clamp(42px,6vw,85px);line-height:1.1;letter-spacing:-3px;font-weight:400;margin:18px 0 26px}
+h2{font-size:26px;letter-spacing:-1px;font-weight:400;margin:18px 0 2px}
+p{color:var(--muted)}
+.eyebrow{font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.intro{display:flex;justify-content:space-between;align-items:end;margin-bottom:45px;gap:30px}
+.intro p{max-width:330px;font-size:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:40px 25px}
+.cover{position:relative;height:390px;overflow:hidden;background:#3d4247}
+.cover canvas{display:block;width:100%;height:100%}
+.cover .eyebrow{position:absolute;left:22px;bottom:20px;color:#fff8ec;z-index:1;text-shadow:0 0 12px #0004}
+.card p{margin:0;font-size:12px}
+.card .word{color:var(--ink);font-size:13px;margin-top:6px}
+.note{font-size:10px;letter-spacing:.4px;color:#8a8579;margin-top:40px}
+@media(max-width:640px){nav{display:none}.intro{display:block}.grid{grid-template-columns:1fr}.cover{height:300px}}
+</style>
+</head>
+<body>
+
+<div class="bar" role="region" aria-label="시안 안내">
+  <span>Our Stories — 빛을 입는 기록 · A안 카드 커버</span>
+  <small>코드로 그린 시안 · 실제 촬영·AI 영상 아님</small>
+</div>
+
+<header>
+  <a class="logo" href="#">SUNNY</a>
+  <nav><a href="#">Collections</a><a href="#">Our stories</a><a href="#">Solar journal</a><a href="#">Support</a></nav>
+</header>
+
+<main>
+  <div class="intro">
+    <div><span class="eyebrow">OUR STORIES / ARCHIVE</span><h1>The light behind.</h1></div>
+    <p>모든 것은 저마다의 방식으로 빛을 입는다. 바다는 윤슬로. SUNNY가 모아가는 빛을 입는 기록. <small>(예시 카피)</small></p>
+  </div>
+
+  <div class="grid">
+    <a class="card" href="#">
+      <div class="cover"><canvas data-scene="yunseul" data-seed="7" aria-hidden="true"></canvas><span class="eyebrow">STORY 01 / 바다</span></div>
+      <h2>바다가 빛을 입다</h2>
+      <p class="word">윤슬</p><p>햇빛에 비치어 반짝이는 잔물결</p>
+    </a>
+  </div>
+
+  <p class="note">커버는 코드로 그린 분위기 시안이다. 최종은 실제 촬영 또는 AI 생성 영상(생성물 표기)으로 바꾼다.</p>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TAU = Math.PI * 2;
+
+  // 장면마다 init(c) · draw(c, t). c = { ctx, W, H, r(i) }
+  const SCENES = {
+    // 바다 — 태양 아래 세로 띠로 모이는 짧은 반사광
+    yunseul: {
+      init(c) {
+        const n = Math.round(c.W * c.H / 330);
+        c.parts = Array.from({ length: n }, (_, i) => {
+          const d = Math.pow(c.r(i), 1.5), g = (c.r(i + .5) + c.r(i + .7) + c.r(i + .9)) / 3 - .5;
+          return { d, g, s: .35 + d * 2.1, ph: c.r(i + .3) * TAU, f: 1.2 + c.r(i + .1) * 3.6 };
+        });
+      },
+      draw(c, t) {
+        const { ctx, W, H } = c, sx = W * .58;
+        const wg = ctx.createLinearGradient(0, 0, 0, H); wg.addColorStop(0, '#8d7a64'); wg.addColorStop(1, '#2d2c2b');
+        ctx.fillStyle = wg; ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = 'lighter';
+        const cg = ctx.createRadialGradient(sx, 0, 0, sx, 0, H * 1.05); cg.addColorStop(0, 'rgba(243,178,100,.34)'); cg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = 'rgba(255,225,190,.07)';
+        for (let i = 1; i < 40; i++) {
+          const d = Math.pow(i / 40, 1.5), y = d * H; ctx.beginPath();
+          for (let x = 0; x <= W + 20; x += 20) ctx.lineTo(x, y + Math.sin(x * .018 / (.25 + d) + i * 1.7 + t * .5) * (.6 + 3 * d));
+          ctx.stroke();
+        }
+        ctx.globalCompositeOperation = 'lighter';
+        for (const p of c.parts) {
+          const a = Math.pow(Math.max(0, Math.sin(t * p.f + p.ph)), 9); if (a < .03) continue;
+          const spread = (.03 + .5 * p.d) * W * .62, x = sx + p.g * 2 * spread, y = p.d * H, r = p.s * (.55 + a * .8);
+          ctx.fillStyle = `rgba(255,220,160,${a})`; ctx.beginPath(); ctx.ellipse(x, y, r * 2.3, r * .62, 0, 0, TAU); ctx.fill();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    },
+
+  };
+
+  class Cover {
+    constructor(cv) {
+      this.cv = cv; this.ctx = cv.getContext('2d'); this.scene = SCENES[cv.dataset.scene];
+      const seed = +cv.dataset.seed || 1; this.r = i => { const x = Math.sin(i * 127.1 + seed * 311.7) * 43758.5453; return x - Math.floor(x); };
+      this.visible = false;
+      new ResizeObserver(() => this.resize()).observe(cv);
+      new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; }).observe(cv);
+    }
+    resize() {
+      const b = this.cv.getBoundingClientRect(); if (!b.width) return;
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      this.W = b.width; this.H = b.height; this.cv.width = b.width * dpr; this.cv.height = b.height * dpr;
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); this.scene.init(this); this.draw(2.4);
+    }
+    draw(t) { if (this.W) this.scene.draw(this, t); }
+  }
+
+  const covers = [...document.querySelectorAll('.cover canvas')].map(cv => new Cover(cv));
+  if (!reduced) (function loop(ms) { const t = ms / 1000; covers.forEach(c => c.visible && c.draw(t)); requestAnimationFrame(loop); })(0);
+})();
+</script>
+</body>
+</html>
