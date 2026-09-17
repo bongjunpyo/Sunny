@@ -1,0 +1,46 @@
+# 헬로 썬라이즈 — 코드 소유자
+#
+# 여기 적힌 사람은 해당 경로가 바뀌는 PR에 리뷰어로 붙는다.
+# "자기 영역만 만진다"는 규칙의 표시다. 첫 번째 방어층은 각 폴더의 AGENTS.md 다.
+#
+# 팀원 GitHub 아이디 (2026-09-17 저장소 협업자 목록으로 확인)
+#   @bongjunpyo    봉준표  admin  · 페이지 · 3D 뼈대 · 팀장 · main 머지(단독)
+#   @whtngml18     조수희  write  · frontend/components/interaction
+#   @leejaewon23   이재원  write  · backend · frontend/app/api · frontend/lib/server
+#
+# 주의
+# - 무료 요금제 비공개 저장소에서는 CODEOWNERS 자동 리뷰어 지정이 동작하지 않을 수 있다 (Pro 이후 확인).
+# - 아래로 갈수록 우선한다. 넓은 규칙을 위에, 좁은 규칙을 아래에 둔다.
+
+# 기본 — 지정되지 않은 모든 것은 팀장
+*                                   @bongjunpyo
+
+# 영역
+/frontend/                          @bongjunpyo
+/frontend/components/interaction/   @whtngml18 @bongjunpyo
+/frontend/e2e/interaction/          @whtngml18 @bongjunpyo
+/frontend/app/api/                  @leejaewon23 @bongjunpyo
+/frontend/lib/server/               @leejaewon23 @bongjunpyo
+/frontend/lib/types.ts              @bongjunpyo @leejaewon23
+/frontend/.env.example              @leejaewon23 @bongjunpyo
+/backend/                           @leejaewon23 @bongjunpyo
+/web-demo/                          @bongjunpyo
+
+# 계약 — 양쪽이 함께 승인
+/docs/CONTRACT_API.md               @bongjunpyo @leejaewon23
+
+# 거버넌스 — 팀장만 (영역 규칙 파일 포함)
+/AGENTS.md                          @bongjunpyo
+/CLAUDE.md                          @bongjunpyo
+/README.md                          @bongjunpyo
+**/AGENTS.md                        @bongjunpyo
+**/CLAUDE.md                        @bongjunpyo
+/.github/                           @bongjunpyo
+/.githooks/                         @bongjunpyo
+/.claude/                           @bongjunpyo
+/.gitignore                         @bongjunpyo
+/.gitattributes                     @bongjunpyo
+/docs/GIT_RULES.md                  @bongjunpyo
+/docs/ISSUE_GUIDE.md                @bongjunpyo
+/docs/PR_GUIDE.md                   @bongjunpyo
+/docs/superpowers/                  @bongjunpyo

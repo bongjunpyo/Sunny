@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# main 직접 push 차단 + force push 차단 + main 삭제 차단
+#
+# 켜기 (클론 후 한 번, 전원 — PowerShell·터미널 동일):
+#   git config core.hooksPath .githooks
+#
+# 팀장만 (main 머지 권한은 봉준표 단독):
+#   git config --local sunny.allowMainPush true
+#
+# 규칙은 ../AGENTS.md "절대 하지 말 것", 상세는 ../docs/GIT_RULES.md
+
+PROTECTED="main"
+ALLOW=$(git config --get sunny.allowMainPush)
+ZERO="0000000000000000000000000000000000000000"
+
+RED=''
+BOLD=''
+OFF=''
+if [ -t 2 ]; then RED='\033[31m'; BOLD='\033[1m'; OFF='\033[0m'; fi
+
+fail() {
+  printf "\n${RED}${BOLD}  push 를 막았습니다${OFF}\n\n" >&2
+  printf "  %s\n\n" "$1" >&2
+  shift
+  for line in "$@"; do printf "  %s\n" "$line" >&2; done
+  printf "\n" >&2
+  exit 1
+}
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  short="${remote_ref#refs/heads/}"
+
+  # 1. 원격 브랜치 삭제
+  if [ "$local_sha" = "$ZERO" ]; then
+    if [ "$short" = "$PROTECTED" ]; then
+      fail "main 브랜치를 지우려 하고 있습니다." \
+           "되돌릴 수 없습니다. 팀장(봉준표)에게 말하십시오."
+    fi
+    continue
+  fi
+
+  # 2. main 직접 push
+  if [ "$short" = "$PROTECTED" ] && [ "$ALLOW" != "true" ]; then
+    fail "main 에 직접 push 할 수 없습니다." \
+         "작업은 이슈에 적힌 브랜치에서 하고 PR 로 올립니다." \
+         "" \
+         "  git switch -c <이슈에 적힌 브랜치 이름>" \
+         "  git push -u origin <이슈에 적힌 브랜치 이름>" \
+         "" \
+         "이미 main 에 커밋했다면 브랜치로 옮기십시오." \
+         "" \
+         "  git branch <이슈에 적힌 브랜치 이름>     # 지금 커밋을 브랜치로 복사" \
+         "  git reset --keep origin/main             # main 은 원격 상태로 되돌림" \
+         "  git switch <이슈에 적힌 브랜치 이름>" \
+         "" \
+         "머지는 팀장(봉준표)만 합니다."
+  fi
+
+  # 3. force push (원격 커밋이 사라지는 경우)
+  if [ "$remote_sha" != "$ZERO" ]; then
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      fail "force push 입니다. 원격의 커밋이 사라집니다." \
+           "브랜치: $short" \
+           "" \
+           "그 사이에 올라온 작업이 통째로 없어집니다." \
+           "원격을 따라가려면 merge 를 쓰십시오." \
+           "" \
+           "  git fetch origin" \
+           "  git merge origin/$short" \
+           "" \
+           "정말 필요하면 팀장(봉준표)에게 말하십시오."
+    fi
+  fi
+done
+
+exit 0

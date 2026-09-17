@@ -1,0 +1,46 @@
+# 비밀정보 — 절대 커밋 금지
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+
+# 개인정보 — 기획서 원본(학번·멘토 연락처), 리서치 캡처(타 브랜드 저작물), 수집 자료
+*.hwp
+*.hwpx
+리서치/
+자료수집/
+
+# Node · Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+
+# 테스트 산출물
+coverage/
+playwright-report/
+test-results/
+frontend/e2e/shots/
+
+# Sanity · Supabase
+.sanity/
+backend/sanity/dist/
+backend/supabase/.temp/
+backend/supabase/.branches/
+
+# OS · 편집기
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# 도구 캐시
+.playwright-mcp/
+.superpowers/
+.claude/settings.local.json
+.codex/
