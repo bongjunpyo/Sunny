@@ -1,0 +1,30 @@
+# 줄바꿈 — 저장소 안은 전부 LF 로 통일한다
+# Windows 1명 / macOS 2명 섞인 팀이라 이게 없으면 diff 가 파일 전체로 뜬다
+* text=auto eol=lf
+
+# 셸 스크립트와 훅은 반드시 LF (CRLF 면 "\r: command not found" 로 죽는다)
+*.sh        text eol=lf
+.githooks/* text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# Windows 전용 배치는 CRLF
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# 바이너리 — diff·머지 시도하지 않는다
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.gif   binary
+*.mp4   binary
+*.webm  binary
+*.glb   binary
+*.pdf   binary
+*.zip   binary
+*.ttf   binary
+*.woff2 binary
+*.hwp   binary
+*.hwpx  binary
