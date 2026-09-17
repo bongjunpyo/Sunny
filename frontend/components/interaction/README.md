@@ -1,6 +1,6 @@
 # interaction — 스크롤 연출 · 발색 비교 · 씬 파라미터
 
-담당: **조수희**
+담당: **조수희** · GitHub `whtngml18` · Codex · Windows
 
 작업 규칙은 [`AGENTS.md`](AGENTS.md). **작업은 팀장이 올린 이슈로만 시작한다.**
 
