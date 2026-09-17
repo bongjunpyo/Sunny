@@ -1,0 +1,72 @@
+/* 디자인 토큰 — 원본은 docs/design/brand-preview.html
+   화면 코드는 색·간격을 직접 쓰지 않고 이 토큰만 쓴다. */
+:root {
+  --paper: #eeeae2;
+  --paper-2: #f3f0e9;
+  --ink: #242420;
+  --muted: #65645d;
+  --line: #cbc7bf;
+  --night: #090a09;
+  --gold: #d7af76;
+  --amber: #b47e40;
+
+  --font-sans: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+
+  --step-1: 10px;
+  --step-2: 15px;
+  --step-3: 25px;
+  --step-4: 40px;
+  --step-5: 65px;
+  --step-6: 100px;
+
+  --page-x: 7vw;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 90px;
+  /* sticky 구간에서 스크롤이 되돌아가는 것을 막는다 */
+  overflow-anchor: none;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.7 var(--font-sans);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 7px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

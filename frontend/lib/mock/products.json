@@ -1,0 +1,18 @@
+[
+  {
+    "slug": "light-study-01",
+    "kind": "bracelet",
+    "name": "Light study 01",
+    "summary": "손목의 움직임과 빛의 관계를 탐색하는 형태 연구입니다.",
+    "colors": ["violet", "blue"],
+    "status": "planning"
+  },
+  {
+    "slug": "light-study-02",
+    "kind": "necklace",
+    "name": "Light study 02",
+    "summary": "목선을 따라 이어지는 빛과 균형을 탐색하는 형태 연구입니다.",
+    "colors": ["orange", "yellow"],
+    "status": "planning"
+  }
+]
