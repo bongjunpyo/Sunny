@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# 비밀정보·개인정보 커밋 차단
+# 켜기: git config core.hooksPath .githooks
+
+RED=''
+BOLD=''
+OFF=''
+if [ -t 2 ]; then RED='\033[31m'; BOLD='\033[1m'; OFF='\033[0m'; fi
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$STAGED" ] && exit 0
+
+BAD=""
+for f in $STAGED; do
+  case "$f" in
+    *.env|*.env.*|.env|.env.*)   [ "${f##*/}" = ".env.example" ] || BAD="$BAD $f" ;;
+    *.key|*.pem|*.p12)           BAD="$BAD $f" ;;
+    *.hwp|*.hwpx)                BAD="$BAD $f" ;;   # 기획서 원본에 학번·연락처가 있다
+    secrets/*|*/secrets/*)       BAD="$BAD $f" ;;
+  esac
+done
+
+if [ -n "$BAD" ]; then
+  printf "\n${RED}${BOLD}  커밋을 막았습니다 — 비밀정보·개인정보로 보이는 파일${OFF}\n\n" >&2
+  for f in $BAD; do printf "    %s\n" "$f" >&2; done
+  printf "\n  한 번 올라가면 히스토리에 남습니다.\n" >&2
+  printf "  키는 폐기하고 새로 발급받는 것 말고는 되돌릴 방법이 없습니다.\n\n" >&2
+  printf "    git restore --staged <파일>\n\n" >&2
+  printf "  정말 필요하면 팀장(봉준표)에게 말하십시오.\n\n" >&2
+  exit 1
+fi
+exit 0
