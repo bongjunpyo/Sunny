@@ -14,7 +14,8 @@
 | `app/page.tsx` | 봉준표 (조립) | 메인 — 태양 스토리텔링. 조수희의 연출 부품을 가져다 조립한다 |
 | `app/(site)/` | 봉준표 | 브랜드 소개 · 컬렉션 · 커스텀 · 제작 기록 페이지 |
 | `components/common/` | 봉준표 | 헤더 · 푸터 · 레이아웃 부품 |
-| `components/scene/` | 봉준표 | **WebGL 뼈대** — 태양 셰이더 · 씬 구조 · 보드 좌표 |
+| `components/main/` | 봉준표 | 메인(`/`) 구간 부품 — 히어로 · 이야기 · 컬렉션 · 매니페스토 · 태양 기록 |
+| `components/scene/` | 봉준표 | **씬 부품** — 태양(`Sun`: 입력은 `progress` · `reduced`) · 셰이더 · 보드 좌표. 속을 바꿔도 바깥 코드가 바뀌지 않게 입력을 고정한다 |
 | **`components/interaction/`** | **조수희** | **GSAP 스크롤 연출 · 발색 비교 · 씬 파라미터** → [README](components/interaction/README.md) |
 | `lib/api.ts` · `lib/mock/` · `lib/types.ts` | 봉준표 (`types.ts`는 이재원과 공동) | 화면이 부르는 데이터 함수 · 가짜 데이터 · 계약 타입 |
 | `app/api/` | **이재원** | Next.js 서버 API → [`../backend/`](../backend/) |

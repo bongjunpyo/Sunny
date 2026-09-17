@@ -1,0 +1,300 @@
+/* 메인 페이지 구간 공통 — 색·간격은 globals.css 토큰만 쓴다 */
+
+.wrap {
+  padding: var(--step-6) var(--page-x);
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  gap: 20px;
+}
+
+.sectionHead span {
+  font-size: var(--step-1);
+  letter-spacing: 1.8px;
+}
+
+.eyebrow {
+  font-size: var(--step-1);
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+}
+
+.headline {
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  font-size: clamp(34px, 4.5vw, 68px);
+  line-height: 1.28;
+  margin: var(--step-2) 0 30px;
+}
+
+.bodyCopy {
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 370px;
+  line-height: 2;
+}
+
+.caption {
+  font-size: var(--step-1);
+  color: var(--muted);
+  margin-top: var(--step-1);
+  letter-spacing: 0.4px;
+}
+
+/* 01 이야기 */
+.storyGrid {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 10vw;
+  margin-top: var(--step-5);
+  align-items: center;
+}
+
+.lightStudy {
+  height: 520px;
+  background: #b8ac97;
+  position: relative;
+  overflow: hidden;
+}
+
+.lightStudy::before {
+  content: "";
+  position: absolute;
+  width: 80%;
+  height: 180%;
+  top: -40%;
+  left: 5%;
+  transform: rotate(30deg);
+  background: linear-gradient(90deg, #665847 0%, #d8c6a7 30%, #f6e8cb 40%, #e6d1ad 57%, #8f7c60 62%, #b4a68c 68%);
+  filter: blur(2px);
+}
+
+.lightStudy::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, #29251f75, transparent 60%);
+}
+
+.imageLabel {
+  position: absolute;
+  bottom: 20px;
+  left: 23px;
+  color: #fff8ec;
+  font-size: var(--step-1);
+  letter-spacing: 2px;
+  z-index: 1;
+}
+
+/* 02 컬렉션 */
+.collections {
+  padding-top: var(--step-3);
+}
+
+.collectionTitle {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  margin: var(--step-4) 0 35px;
+  gap: var(--step-3);
+}
+
+.collectionTitle .headline {
+  margin: 0;
+}
+
+.collectionTitle p {
+  max-width: 270px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--step-3);
+}
+
+.productArt {
+  aspect-ratio: 1 / 1.13;
+  background: #dfd9ce;
+  overflow: hidden;
+  position: relative;
+}
+
+.productArt svg {
+  width: 100%;
+  height: 100%;
+}
+
+.artNote {
+  position: absolute;
+  left: 20px;
+  top: 18px;
+  color: #55534c;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+}
+
+.productMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.productMeta h3 {
+  font-size: 22px;
+  font-weight: 400;
+  margin: 0;
+  letter-spacing: -0.7px;
+}
+
+.productMeta span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.productNote {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: var(--step-2);
+  max-width: 34rem;
+}
+
+/* 매니페스토 */
+.manifesto {
+  margin: var(--step-5) 0 0;
+  background: #292a25;
+  color: #eeeadf;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 520px;
+}
+
+.manifestoArt {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 25% 30%, #9e8b65, #3e3d30 70%);
+}
+
+.manifestoArt::before {
+  content: "";
+  position: absolute;
+  width: 75%;
+  height: 140%;
+  border: 2px solid #ddcfad60;
+  border-radius: 50%;
+  top: -25%;
+  left: 12%;
+  transform: rotate(33deg);
+  box-shadow: 25px 0 60px #d6be8450, inset -10px 0 30px #d6be8440;
+}
+
+.manifestoCopy {
+  padding: 80px 6vw;
+  align-self: center;
+}
+
+.manifestoCopy .headline {
+  font-size: clamp(30px, 3.7vw, 53px);
+}
+
+.manifestoCopy p {
+  color: #c9c5b8;
+  font-size: 13px;
+  max-width: 330px;
+}
+
+/* 03 태양 기록 */
+.journalGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8vw;
+  align-items: center;
+  margin-top: 50px;
+}
+
+.observation {
+  aspect-ratio: 1;
+  background: #080908;
+  display: grid;
+  place-items: center;
+  padding: 8%;
+  text-align: center;
+  color: #b9b4a8;
+  font-size: 12px;
+}
+
+.obsIcon {
+  display: block;
+  border: 1px solid #8b7960;
+  border-radius: 50%;
+  width: 130px;
+  height: 130px;
+  margin: 0 auto var(--step-3);
+  background: radial-gradient(circle at 40% 35%, #c2a16b30, #080908 70%);
+}
+
+.status {
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 22px;
+}
+
+.credits {
+  font-size: var(--step-1);
+  color: var(--muted);
+  line-height: 1.8;
+  margin-top: var(--step-3);
+}
+
+@media (max-width: 700px) {
+  .wrap {
+    padding: var(--step-5) var(--page-x);
+  }
+  .storyGrid,
+  .journalGrid {
+    grid-template-columns: 1fr;
+    gap: 35px;
+    margin-top: 35px;
+  }
+  .lightStudy {
+    height: 370px;
+  }
+  .collectionTitle {
+    display: block;
+  }
+  .collectionTitle p {
+    margin-top: 20px;
+  }
+  .productGrid {
+    gap: 14px;
+  }
+  .productArt {
+    aspect-ratio: 1 / 1.45;
+  }
+  .artNote {
+    font-size: 8px;
+    left: var(--step-1);
+  }
+  .productMeta {
+    display: block;
+  }
+  .manifesto {
+    grid-template-columns: 1fr;
+    margin-top: 20px;
+  }
+  .manifestoArt {
+    min-height: 310px;
+  }
+  .manifestoCopy {
+    padding: 45px var(--page-x);
+  }
+}

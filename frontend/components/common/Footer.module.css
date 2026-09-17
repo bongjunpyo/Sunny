@@ -1,0 +1,40 @@
+.closing {
+  padding: 70px var(--page-x) var(--step-3);
+  border-top: 1px solid var(--line);
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--step-3);
+}
+
+.wordmark {
+  font-size: clamp(95px, 24.5vw, 390px);
+  letter-spacing: -0.09em;
+  line-height: 1.15;
+  margin-left: -0.015em;
+  font-weight: 500;
+}
+
+.bottom {
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding: 22px 0;
+  font-size: var(--step-1);
+  color: var(--muted);
+  gap: 20px;
+}
+
+@media (max-width: 700px) {
+  .top {
+    align-items: start;
+    gap: 20px;
+  }
+  .bottom {
+    flex-direction: column;
+    gap: 5px;
+  }
+}

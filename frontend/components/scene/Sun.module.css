@@ -1,0 +1,27 @@
+.sun {
+  position: absolute;
+  width: min(76vw, 83svh);
+  height: min(76vw, 83svh);
+  top: 47%;
+  left: var(--sun-x);
+  transform: translate(-50%, -50%) scale(var(--sun-scale));
+  will-change: transform, left;
+  filter: drop-shadow(0 0 30px #bb6e2528);
+}
+
+.sun svg {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 700px) {
+  .sun {
+    width: 95vw;
+    height: 95vw;
+    top: 42%;
+  }
+  /* 움직이기 전이면 모바일 시작 위치로 */
+  .sun[data-static="true"] {
+    left: 92%;
+  }
+}

@@ -1,19 +1,23 @@
-import styles from "./page.module.css";
+import { Hero } from "../components/main/Hero.tsx";
+import { StorySection } from "../components/main/StorySection.tsx";
+import { CollectionsSection } from "../components/main/CollectionsSection.tsx";
+import { ManifestoSection } from "../components/main/ManifestoSection.tsx";
+import { SolarJournalSection } from "../components/main/SolarJournalSection.tsx";
+import { Footer } from "../components/common/Footer.tsx";
 
+/** 메인 — 시안 docs/design/brand-preview.html 의 구간을 순서대로 조립한다.
+ *  스크롤 연출은 다음 이슈에서 components/interaction 이 이 구조 위에 얹는다. */
 export default function HomePage() {
   return (
-    <main className={styles.placeholder}>
-      <span className={styles.eyebrow}>Jewelry, in a different light.</span>
-      <h1 className={styles.title}>
-        Wear
-        <br />
-        the light.
-      </h1>
-      <p className={styles.note}>
-        앱 뼈대만 세운 자리표시 화면이다. 메인 구성은 다음 이슈에서
-        <code> docs/design/brand-preview.html </code>
-        시안대로 채운다.
-      </p>
-    </main>
+    <>
+      <main>
+        <Hero />
+        <StorySection />
+        <CollectionsSection />
+        <ManifestoSection />
+        <SolarJournalSection />
+      </main>
+      <Footer />
+    </>
   );
 }
