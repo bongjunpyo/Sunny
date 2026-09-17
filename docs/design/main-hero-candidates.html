@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>메인 히어로 시안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3eee5; --paper-2: #e9e2d5; --ink: #1b1714; --muted: #6d655c; --line: #d4cabb;
+    --sun: #ff7a2f; --sun-deep: #e0461d;
+    --stage-h: min(620px, 72vh);
+    --serif: "Noto Serif KR", serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    line-height: 1.65; word-break: keep-all; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 16px 80px; }
+  .meta { display: flex; justify-content: space-between; gap: 12px; font: 500 12px var(--mono); letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(28px, 4.4vw, 44px); line-height: 1.2; margin: 22px 0 10px; }
+  .lede { color: var(--muted); max-width: 760px; }
+
+  .tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin: 26px 0 14px; }
+  .tab { appearance: none; border: 1px solid var(--line); background: transparent; border-radius: 14px; padding: 12px 14px; text-align: left; cursor: pointer; color: var(--ink); font: inherit; display: flex; gap: 12px; align-items: flex-start; transition: background .2s, border-color .2s, color .2s; }
+  .tab:hover { border-color: var(--ink); }
+  .tab .l { font: 700 13px var(--mono); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 1px solid currentColor; flex: none; }
+  .tab b { display: block; font-size: 15px; }
+  .tab small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.45; margin-top: 2px; }
+  .tab .rec { font: 700 10.5px var(--mono); letter-spacing: .06em; color: var(--sun-deep); margin-left: 6px; }
+  .tab.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .tab.on small { color: #cfc6b8; }
+  .tab.on .rec { color: var(--sun); }
+
+  .stage { position: relative; height: var(--stage-h); border-radius: 18px; overflow: hidden; background: #0e0b09; isolation: isolate; }
+  /* overflow-anchor: none — sticky 내용이 매 프레임 바뀌면 브라우저 스크롤 앵커링이 scrollTop을 되돌린다 */
+  .scroller { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; scrollbar-width: none; }
+  .scroller::-webkit-scrollbar { display: none; }
+  .track { height: 600%; }
+  .sticky { position: sticky; top: 0; height: var(--stage-h); overflow: hidden; }
+  .sticky canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .ov { position: absolute; inset: 0; pointer-events: none; }
+
+  .ov-title { position: absolute; left: 6%; top: 14%; color: #f3eee5; max-width: 46%; }
+  .ov-title .kicker { font: 500 11px var(--mono); letter-spacing: .14em; opacity: .7; }
+  .ov-title h2 { font-family: var(--serif); font-size: clamp(30px, 5.2vw, 58px); line-height: 1.1; margin: 10px 0 12px; font-weight: 700; }
+  .ov-title p { opacity: .8; font-size: clamp(13px, 1.4vw, 16px); }
+  .ov-chapter { position: absolute; inset: 0; background: var(--paper); display: grid; place-content: center; text-align: center; opacity: 0; color: var(--ink); padding: 16px; }
+  .ov-chapter span { font: 500 12px var(--mono); letter-spacing: .2em; color: var(--sun-deep); }
+  .ov-chapter h3 { font-family: var(--serif); font-size: clamp(28px, 4.6vw, 52px); margin-top: 10px; }
+  .ov-chapter p { color: var(--muted); margin-top: 8px; }
+  .ov-card { position: absolute; left: 18px; bottom: 26px; background: rgba(17, 24, 20, .92); border: 1px solid rgba(160, 200, 170, .25); color: #dfe8e1; border-radius: 10px; padding: 12px 14px; max-width: 320px; font-size: 13px; opacity: 0; }
+  .ov-card b { color: #9ed3a8; font: 700 12px var(--mono); letter-spacing: .04em; display: block; margin-bottom: 4px; }
+  .ov-brand { position: absolute; left: 5%; top: 7%; font-family: var(--serif); font-weight: 700; font-size: 15px; color: #efe7da; }
+  .ov-cap { position: absolute; left: 6%; top: 15%; font-family: var(--serif); font-size: clamp(20px, 3vw, 34px); line-height: 1.35; color: #f3eee5; opacity: 0; text-shadow: 0 1px 18px rgba(0, 0, 0, .18); }
+  .grain { position: absolute; inset: -50%; pointer-events: none; opacity: 0; mix-blend-mode: overlay; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+  .sty { position: absolute; right: 12px; bottom: 14px; z-index: 4; display: none; gap: 2px; align-items: center; background: rgba(14, 11, 9, .6); border-radius: 999px; padding: 4px; backdrop-filter: blur(6px); }
+  .sty span { font: 500 11px var(--mono); color: #cfc6b8; padding: 0 8px; }
+  .sty button { appearance: none; border: 0; background: transparent; color: #f3eee5; border-radius: 999px; padding: 5px 11px; font: 500 12px var(--mono); cursor: pointer; }
+  .sty button.on { background: var(--sun); color: var(--ink); }
+  .sstyles { margin-top: 16px; display: grid; gap: 8px; }
+  .sstyles div { font-size: 13.5px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .sstyles div.on { border-color: var(--sun-deep); background: #fff6ec; }
+  .sstyles b { font: 700 12px var(--mono); margin-right: 8px; }
+  .ov-ai { position: absolute; left: 34%; bottom: 3%; transform: translateX(-50%); font: 500 11px var(--mono); color: #fff; border: 1px dashed rgba(255, 255, 255, .75); background: rgba(0, 0, 0, .28); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  .ov-uv { position: absolute; right: 5%; bottom: 8%; font: 500 13px var(--mono); color: #efe7da; border: 1px solid currentColor; border-radius: 999px; padding: 3px 12px; }
+
+  .hud { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, .12); pointer-events: none; z-index: 3; }
+  .hud i { display: block; height: 100%; width: 0; background: var(--sun); }
+  .ctrl { position: absolute; right: 12px; top: 12px; display: flex; gap: 6px; z-index: 4; align-items: center; }
+  .ctrl .pct { font: 500 12px var(--mono); color: #f3eee5; background: rgba(14, 11, 9, .55); border-radius: 999px; padding: 6px 10px; min-width: 52px; text-align: center; }
+  .ctrl button { appearance: none; border: 1px solid rgba(255, 255, 255, .3); background: rgba(14, 11, 9, .55); color: #f3eee5; border-radius: 999px; padding: 6px 12px; font: 500 12px var(--mono); cursor: pointer; backdrop-filter: blur(6px); }
+  .ctrl button:hover { border-color: #fff; }
+  .hint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 4; font: 500 12px var(--mono); color: #f3eee5; background: rgba(14, 11, 9, .6); padding: 7px 14px; border-radius: 999px; pointer-events: none; transition: opacity .4s; white-space: nowrap; }
+
+  .timeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 12px 0 28px; }
+  .ph { border-top: 2px solid var(--line); padding-top: 8px; font-size: 13px; color: var(--muted); transition: color .2s, border-color .2s; }
+  .ph em { font-style: normal; font: 500 11px var(--mono); display: block; }
+  .ph.on { border-color: var(--sun-deep); color: var(--ink); }
+
+  .detail { display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; border-top: 1px solid var(--line); padding-top: 24px; }
+  .detail h2 { font-family: var(--serif); font-size: 24px; margin-bottom: 8px; }
+  .pc { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pc h4 { font: 700 11px var(--mono); letter-spacing: .12em; margin-bottom: 6px; }
+  .pc ul { padding-left: 18px; font-size: 14px; }
+  .pc li { margin-bottom: 4px; }
+  .pros h4 { color: #2f7a4b; }
+  .cons h4 { color: var(--sun-deep); }
+  .impl { margin-top: 16px; font-size: 14px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 12px; }
+
+  .confirm { margin-top: 30px; background: var(--ink); color: var(--paper); border-radius: 18px; padding: 22px; display: grid; gap: 12px; }
+  .confirm label { font: 500 12px var(--mono); letter-spacing: .08em; color: #cfc6b8; }
+  .confirm textarea { width: 100%; min-height: 84px; border-radius: 10px; border: 1px solid #3a332d; background: #241f1b; color: var(--paper); padding: 10px 12px; font: inherit; resize: vertical; }
+  .confirm .row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .go { appearance: none; border: 0; background: var(--sun); color: var(--ink); font-weight: 700; border-radius: 999px; padding: 12px 20px; cursor: pointer; font-size: 15px; }
+  .go:hover { background: #ff8f4d; }
+  .sent { font-size: 13px; color: #cfc6b8; }
+
+  @media (max-width: 820px) {
+    .detail, .pc { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .tabs { grid-template-columns: 1fr; }
+    .timeline { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta"><span>SUNNY · 메인 히어로 후보 모음</span><span>후보 4개 · D 실사 · 전환 3안 · 2026-09-16</span></div>
+  <h1>스크롤하면 태양 속으로</h1>
+  <p class="lede">첫 화면의 주인공은 태양이고 팔찌는 작게 둡니다. 스크롤할수록 태양이 움직이다가 브랜드 이야기가 시작됩니다. 후보를 계속 모으는 중입니다 — 새 후보는 터미널에 말하면 이 페이지에 탭으로 추가됩니다. 각 후보는 <b>검은 화면 안에서 직접 스크롤</b>하거나 자동 재생으로 보세요.</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" data-k="a" data-choice="view-a" role="tab"><span class="l">A</span><span><b>정면 다이브</b><small>옆에서 들어온 태양이 가운데를 차지하고 그대로 표면 속으로 낙하</small></span></button>
+    <button class="tab" data-k="b" data-choice="view-b" role="tab"><span class="l">B</span><span><b>궤도 하강 → 스토리 보드</b><small>태양 궤도를 도는 팔찌를 따라 옆으로 돌며 낙하, 보드 위로 빠져나옴</small></span></button>
+    <button class="tab" data-k="c" data-choice="view-c" role="tab"><span class="l">C</span><span><b>해의 하루 → 발색</b><small>새벽에서 정오까지 태양이 하늘을 가로지르며 흰 비즈에 색이 피어남</small></span></button>
+    <button class="tab" data-k="d" data-choice="view-d" role="tab"><span class="l">D</span><span><b>사람이 올려다본 태양 → 낙하 → 스토리 보드<span class="rec">실사</span></b><small>태양이 점점 가까워지다 들판에 떨어지며 스토리 보드로 넘어감 (사람=AI 영상)</small></span></button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="scroller" id="scroller">
+      <div class="track">
+        <div class="sticky" id="sticky">
+          <canvas id="back"></canvas>
+          <canvas id="gl"></canvas>
+          <canvas id="front"></canvas>
+          <div class="grain" id="grain"></div>
+          <div class="ov" id="overlay"></div>
+        </div>
+      </div>
+    </div>
+    <div class="ctrl"><span class="pct" id="pct">0%</span><button id="play">▶ 자동 재생</button><button id="reset">처음부터</button></div>
+    <div class="sty" id="sty"><span>전환</span><button data-s="0" data-choice="trans-flash">섬광</button><button data-s="1" data-choice="trans-ripple">파문</button><button data-s="2" data-choice="trans-camera">카메라</button></div>
+    <div class="hint" id="hint">↓ 이 화면 안에서 스크롤하세요</div>
+    <div class="hud"><i id="bar"></i></div>
+  </div>
+  <div class="timeline" id="timeline"></div>
+
+  <div class="detail">
+    <div>
+      <h2 id="d-name"></h2>
+      <p id="d-flow"></p>
+      <p class="impl" id="d-impl"></p>
+      <div id="d-style"></div>
+    </div>
+    <div class="pc">
+      <div class="pros"><h4>장점</h4><ul id="d-pros"></ul></div>
+      <div class="cons"><h4>단점</h4><ul id="d-cons"></ul></div>
+    </div>
+  </div>
+
+  <div class="confirm">
+    <label for="note">최종 선택 — 후보를 다 모은 뒤에 누르세요. 보완할 점 (선택) — 예: "D로 가되 초반은 C처럼 발색 보여주기"</label>
+    <textarea id="note" placeholder="고치고 싶은 점을 적으면 최종 선택과 함께 전달됩니다."></textarea>
+    <div class="row"><button class="go" id="go">D안으로 최종 선택</button><span class="sent" id="sent"></span></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- 수학 도우미 ----------
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const seg = (p, a, b) => clamp((p - a) / (b - a));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const ease = t => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+  const easeIn = t => t * t * t;
+  const expo = t => (t <= 0 ? 0 : (Math.pow(2, 10 * t) - 1) / 1023);
+  const hexToRgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const mixRgb = (a, b, t) => { const A = hexToRgb(a), B = hexToRgb(b), k = clamp(t); return A.map((v, i) => v + (B[i] - v) * k); };
+  const rgb = (c, k = 1) => `rgb(${c.map(v => Math.round(clamp(v * k, 0, 255))).join(",")})`;
+  const mixHex = (a, b, t) => rgb(mixRgb(a, b, t));
+  const set = (el, op, tf) => { if (!el) return; el.style.opacity = op; if (tf !== undefined) el.style.transform = tf; };
+
+  // ---------- 광변색 비즈 (web-demo lib/bead.ts 와 같은 계산) ----------
+  const BASE = "#f7f4ee";
+  const BEAD_HEX = { violet: "#7b5cff", coral: "#ff5a4f", sky: "#2f98ff" };
+  const STRENGTH = { 3: .45, 6: .72, 9: 1 };
+  const BEADS = Array.from({ length: 9 }, (_, i) => ({ color: ["violet", "coral", "sky"][i % 3], conc: [3, 6, 9][Math.floor(i / 3)] }));
+  const activation = uv => 1 - Math.exp(-clamp(uv, 0, 11) / 3);
+
+  function drawBracelet(ctx, { cx, cy, R, tilt = .4, rot = 0, uv = 0, alpha = 1, dark = false }) {
+    if (alpha <= .01 || R <= .5) return;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, R, R * tilt, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = dark ? "rgba(60,50,40,.35)" : "rgba(255,240,220,.3)";
+    ctx.lineWidth = Math.max(1, R * .03);
+    ctx.stroke();
+    const N = BEADS.length, items = [];
+    for (let i = 0; i < N; i++) {
+      const a = rot + (i / N) * Math.PI * 2;
+      items.push({ a, bead: BEADS[i] });
+      items.push({ a: a + Math.PI / N, bead: null });
+    }
+    items.forEach(it => (it.d = Math.sin(it.a)));
+    items.sort((x, y) => x.d - y.d);
+    const act = activation(uv);
+    for (const it of items) {
+      const x = cx + Math.cos(it.a) * R, y = cy + Math.sin(it.a) * R * tilt;
+      const shade = .72 + .28 * (it.d + 1) / 2;
+      const s = R * .46 * (.9 + .1 * it.d);
+      if (it.bead) {
+        const w = s * (.28 + .72 * Math.abs(Math.sin(it.a))), h = s;
+        const c = mixRgb(BASE, BEAD_HEX[it.bead.color], act * STRENGTH[it.bead.conc]);
+        const g = ctx.createLinearGradient(x, y - h / 2, x, y + h / 2);
+        g.addColorStop(0, rgb(c, shade * 1.06));
+        g.addColorStop(1, rgb(c, shade * .84));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.roundRect(x - w / 2, y - h / 2, w, h, Math.min(w, h) * .24);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,.18)";
+        ctx.lineWidth = .75;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = rgb([201, 168, 106], shade);
+        ctx.beginPath();
+        ctx.arc(x, y, s * .14, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawNecklace(ctx, { x, y, s, uv = 9, alpha = 1 }) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    const p0 = [x - s, y - s * .7], p1 = [x, y + s * .9], p2 = [x + s, y - s * .7];
+    ctx.beginPath();
+    ctx.moveTo(p0[0], p0[1]);
+    ctx.quadraticCurveTo(p1[0], p1[1], p2[0], p2[1]);
+    ctx.strokeStyle = "#b89456";
+    ctx.lineWidth = Math.max(1, s * .06);
+    ctx.stroke();
+    const q = t => [(1 - t) * (1 - t) * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0], (1 - t) * (1 - t) * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]];
+    const act = activation(uv);
+    [.2, .33, .67, .8].forEach((t, i) => {
+      const [bx, by] = q(t), b = BEADS[(i * 2) % 9];
+      ctx.fillStyle = rgb(mixRgb(BASE, BEAD_HEX[b.color], act * STRENGTH[b.conc]));
+      ctx.beginPath();
+      ctx.roundRect(bx - s * .12, by - s * .12, s * .24, s * .24, s * .05);
+      ctx.fill();
+    });
+    const [px, py] = q(.5);
+    ctx.fillStyle = rgb(mixRgb(BASE, BEAD_HEX.coral, act));
+    ctx.beginPath();
+    ctx.roundRect(px - s * .22, py - s * .02, s * .44, s * .5, s * .1);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.2)";
+    ctx.lineWidth = .75;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const STARS = Array.from({ length: 80 }, (_, i) => {
+    const r = n => { const v = Math.sin(i * 127.1 + n * 311.7) * 43758.5453; return v - Math.floor(v); };
+    return [r(1), r(2), r(3)];
+  });
+  function drawStars(ctx, W, H, a) {
+    if (a <= .01) return;
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    for (const [x, y, s] of STARS) { ctx.globalAlpha = a * (.12 + .45 * s); ctx.fillRect(x * W, y * H, 1 + s, 1 + s); }
+    ctx.restore();
+  }
+
+  // ---------- B안 스토리 보드 ----------
+  const MARKERS = [
+    { u: -.62, v: -.62, kind: "bracelet", label: "A" }, { u: 0, v: -.74, kind: "necklace", label: "B" },
+    { u: .62, v: -.62, kind: "bracelet", label: "C" }, { u: .74, v: 0, kind: "necklace", label: "A" },
+    { u: .62, v: .62, kind: "bracelet", label: "B" }, { u: 0, v: .74, kind: "necklace", label: "C" },
+    { u: -.62, v: .62, kind: "bracelet", label: "A" }, { u: -.74, v: 0, kind: "necklace", label: "B" },
+  ];
+  function drawBoard(bc, fc, W, H, k, t, mk = k, opt = {}) {
+    const sc = opt.sc ?? lerp(1.3, 1, k);
+    // bw·bh는 보드 마름모의 반폭·반높이
+    // opt.flat: 카메라가 누운 정도 (작을수록 보드가 지평선처럼 납작하게 보인다)
+    const cx = opt.cx ?? W * .5, cy = opt.cy ?? H * .55, bw = Math.min(W * .44, H * .9) * sc, bh = bw * (opt.flat ?? .46);
+    const P = (u, v) => [cx + (u - v) * bw / 2, cy + (u + v) * bh / 2];
+    const poly = pts => { bc.beginPath(); pts.forEach((q, i) => (i ? bc.lineTo(q[0], q[1]) : bc.moveTo(q[0], q[1]))); bc.closePath(); };
+    const line = (a, b) => { bc.beginPath(); bc.moveTo(a[0], a[1]); bc.lineTo(b[0], b[1]); bc.stroke(); };
+    bc.save();
+    bc.globalAlpha = k;
+    poly([P(-1, -1), P(1, -1), P(1, 1), P(-1, 1)]);
+    bc.fillStyle = "#e7e5df";
+    bc.fill();
+    poly([P(-.9, -.9), P(.9, -.9), P(.9, .9), P(-.9, .9)]);
+    bc.strokeStyle = "rgba(110,140,125,.45)";
+    bc.lineWidth = 1;
+    bc.stroke();
+    bc.strokeStyle = "rgba(110,140,125,.2)";
+    for (let i = -2; i <= 2; i++) { const u = i * .4; line(P(u, -.8), P(u, .8)); line(P(-.8, u), P(.8, u)); }
+    bc.beginPath();
+    for (let i = 0; i <= 64; i++) { const a = (i / 64) * Math.PI * 2, q = P(Math.cos(a) * .2, Math.sin(a) * .2); i ? bc.lineTo(q[0], q[1]) : bc.moveTo(q[0], q[1]); }
+    bc.strokeStyle = "rgba(236,214,150,.6)";
+    bc.lineWidth = Math.max(4, bw * .012);
+    bc.stroke();
+    bc.setLineDash([4, 6]);
+    bc.lineWidth = 1;
+    bc.strokeStyle = "rgba(110,140,125,.35)";
+    MARKERS.forEach(mk => line(P(0, 0), P(mk.u, mk.v)));
+    bc.setLineDash([]);
+    bc.restore();
+
+    fc.save();
+    fc.globalAlpha = mk;
+    [...MARKERS].sort((a, b) => a.u + a.v - (b.u + b.v)).forEach(mk => {
+      const [x, y] = P(mk.u, mk.v), sz = bw * .065;
+      if (mk.kind === "bracelet") drawBracelet(fc, { cx: x, cy: y - sz * .6, R: sz, tilt: .45, rot: t * .4 + mk.u * 3, uv: 9, dark: true });
+      else drawNecklace(fc, { x, y: y - sz * 1.2, s: sz * 1.1, uv: 9 });
+      fc.font = `700 ${Math.round(sz * .95)}px "IBM Plex Mono", monospace`;
+      fc.fillStyle = "rgba(118,140,128,.9)";
+      fc.fillText(mk.label, x - sz * 2, y - sz * 1.1);
+    });
+    fc.restore();
+    return { sx: cx, sy: cy - bh * .25, sr: bw * .1 };
+  }
+
+  // ---------- 장면 3개 ----------
+  function sceneA(p, t, W, H, bc, fc, ov) {
+    const m = ease(seg(p, 0, .45)), dive = seg(p, .45, .86);
+    bc.fillStyle = mixHex("#120e0c", "#2b170c", m * .7 + dive * .3);
+    bc.fillRect(0, 0, W, H);
+    const x = lerp(W * .92, W * .5, m), y = H * .52;
+    const r = lerp(H * .3, H * .4, m) * (1 + expo(dive) * 50);
+    const fly = easeIn(seg(p, .38, .7));
+    drawBracelet(fc, { cx: lerp(W * .2, -W * .1, fly), cy: lerp(H * .72, H * 1.3, fly), R: lerp(H * .07, H * .95, fly), tilt: .42, rot: t * .35, uv: 3 * m, alpha: 1 - seg(p, .6, .7) });
+    const f = seg(p, .08, .3);
+    set(ov.title, 1 - f, `translateX(${-40 * f}px)`);
+    set(ov.chapter, seg(p, .9, .98));
+    return { x, y, r, heat: lerp(.45, .75, m) + .25 * dive, glow: .9, white: seg(p, .8, .9) };
+  }
+
+  function sceneB(p, t, W, H, bc, fc, ov) {
+    const m = ease(seg(p, 0, .55)), dive = seg(p, .55, .8);
+    const f = seg(p, .08, .3);
+    set(ov.title, 1 - f, `translateX(${-40 * f}px)`);
+    set(ov.card, seg(p, .94, 1));
+    if (p >= .86) {
+      const rv = ease(seg(p, .86, 1));
+      bc.fillStyle = "#111814";
+      bc.fillRect(0, 0, W, H);
+      const s = drawBoard(bc, fc, W, H, rv, t);
+      return { x: s.sx, y: s.sy, r: s.sr, heat: .85, glow: .9, white: 1 - rv };
+    }
+    bc.fillStyle = mixHex("#0b0a10", "#23130c", m * .7 + dive * .3);
+    bc.fillRect(0, 0, W, H);
+    drawStars(bc, W, H, 1 - dive);
+    const x = lerp(lerp(W * .34, W * .62, m), W * .5, ease(dive)), y = H * .5;
+    const r = lerp(H * .14, H * .28, m) * (1 + expo(dive) * 60);
+    const orb = lerp(H * .36, H * .3, m), tilt = lerp(.34, .1, m);
+    const rx = orb * 1.55, ry = orb * tilt;
+    const oa = .22 * (1 - seg(p, .5, .62));
+    for (const [ctx, a0, a1] of [[bc, Math.PI, Math.PI * 2], [fc, 0, Math.PI]]) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,220,180,${oa})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx, ry, 0, a0, a1);
+      ctx.stroke();
+      ctx.restore();
+    }
+    const th = t * .35 + p * 10;
+    const R = lerp(H * .032, H * .06, m) * (1 + .25 * Math.sin(th));
+    drawBracelet(Math.sin(th) >= 0 ? fc : bc, { cx: x + Math.cos(th) * rx, cy: y + Math.sin(th) * ry, R, tilt: .45, rot: t * .8, uv: 6 * m, alpha: 1 - seg(p, .56, .66) });
+    return { x, y, r, heat: lerp(.5, .8, m) + .2 * dive, glow: .95, white: seg(p, .72, .84) };
+  }
+
+  function sceneC(p, t, W, H, bc, fc, ov) {
+    const day = seg(p, 0, .6), m = ease(day), dive = seg(p, .6, .86);
+    const top = day < .5 ? mixHex("#0f121c", "#3b2b3f", day * 2) : mixHex("#3b2b3f", "#efd9bb", (day - .5) * 2);
+    const bot = day < .5 ? mixHex("#272a3a", "#b9735a", day * 2) : mixHex("#b9735a", "#f6eee2", (day - .5) * 2);
+    const g = bc.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, top);
+    g.addColorStop(1, bot);
+    bc.fillStyle = g;
+    bc.fillRect(0, 0, W, H);
+    const hy = H * .8;
+    const ang = lerp(Math.PI, Math.PI * .42, m);
+    const d = ease(dive);
+    const x = lerp(W * .5 + Math.cos(ang) * W * .46, W * .5, d);
+    const y = lerp(hy - Math.sin(ang) * H * .62, H * .45, d);
+    const r = lerp(H * .09, H * .16, m) * (1 + expo(dive) * 110);
+    const uv = 11 * seg(p, .05, .6);
+    // 땅은 앞 캔버스에 그려야 떠오르는 태양의 아랫부분을 가린다
+    fc.save();
+    fc.globalAlpha = 1 - seg(p, .6, .7);
+    fc.fillStyle = mixHex("#0b0c12", "#d8ccb8", m);
+    fc.fillRect(0, hy, W, H - hy);
+    fc.fillStyle = `rgba(255,255,255,${.08 + .1 * m})`;
+    fc.fillRect(0, hy, W, 1);
+    fc.restore();
+    drawBracelet(fc, { cx: W * .3, cy: H * .66, R: H * .085, tilt: .4, rot: t * .3, uv, alpha: 1 - seg(p, .7, .8), dark: day > .6 });
+    const txt = day < .72 ? "#f3eee5" : "#1b1714";
+    for (const el of [ov.cap1, ov.cap2, ov.brand, ov.uv]) if (el) el.style.color = txt;
+    set(ov.cap1, 1 - seg(p, .16, .26));
+    set(ov.cap2, seg(p, .28, .38) * (1 - seg(p, .62, .7)));
+    set(ov.uv, 1 - seg(p, .7, .8));
+    set(ov.brand, 1 - seg(p, .7, .8));
+    if (ov.uv) ov.uv.textContent = `UV ${uv.toFixed(1)}`;
+    set(ov.chapter, seg(p, .9, .98));
+    return { x, y, r, heat: lerp(.25, .85, m) + .15 * dive, glow: lerp(.55, 1, m), white: seg(p, .8, .9) };
+  }
+
+  // ---------- D안: 사람이 올려다본 태양이 가까워지다 들판에 떨어지며 스토리 보드로 넘어간다 ----------
+  const TRANS_NAMES = ["섬광", "파문", "카메라"];
+  const TRANS_INFO = [
+    ["섬광", "태양이 들판에 떨어지는 순간 하얀 섬광 → 빛이 걷히며 보드가 나타나고 태양이 중앙에 자리 잡음. 가장 단순하고 확실함 / 섬광에서 장면이 한 번 끊겨 이어지는 느낌은 약함"],
+    ["파문", "태양이 떨어진 자리에서 금빛 파문이 들판을 따라 퍼지고, 파문 안쪽이 보드로 바뀜. 착지한 태양이 그대로 보드의 중심이 됨 / 파문 경계를 다듬는 작업이 필요함"],
+    ["카메라", "카메라가 떨어지는 태양을 따라 아래로 기울고, 들판이 누우며 보드 격자로 바뀜. 가장 영화적이고 이어짐이 자연스러움 / 원근 전환이 복잡해 작업량이 가장 큼"],
+  ];
+  let dTrans = 1;
+
+  // 여러 조각을 같은 감김 방향으로 넣어야 겹친 곳이 구멍 나지 않는다 (nonzero 규칙)
+  function addPoly(path, pts) {
+    let area = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % pts.length];
+      area += x0 * y1 - x1 * y0;
+    }
+    const ps = area < 0 ? [...pts].reverse() : pts;
+    path.moveTo(ps[0][0], ps[0][1]);
+    for (let i = 1; i < ps.length; i++) path.lineTo(ps[i][0], ps[i][1]);
+    path.closePath();
+  }
+  function addLimb(path, pts, ws) {
+    for (let i = 0; i < pts.length; i++) {
+      path.moveTo(pts[i][0] + ws[i], pts[i][1]);
+      path.arc(pts[i][0], pts[i][1], ws[i], 0, Math.PI * 2);
+      if (i === 0) continue;
+      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+      const len = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / len, ny = (x1 - x0) / len;
+      addPoly(path, [[x0 + nx * ws[i - 1], y0 + ny * ws[i - 1]], [x1 + nx * ws[i], y1 + ny * ws[i]], [x1 - nx * ws[i], y1 - ny * ws[i]], [x0 - nx * ws[i - 1], y0 - ny * ws[i - 1]]]);
+    }
+  }
+  // 뒷모습 사람 실루엣 (키 100 단위, 발끝이 원점)
+  function personPath(x, y, u, lift) {
+    const P = (px, py) => [x + px * u, y + py * u];
+    const path = new Path2D();
+    const [hx, hy] = P(0, -90);
+    path.moveTo(hx + 7.4 * u, hy);
+    path.ellipse(hx, hy, 7.4 * u, 8.6 * u, 0, 0, Math.PI * 2);
+    addPoly(path, [P(-7.4, -90), P(7.4, -90), P(7.2, -84), P(4.5, -80.5), P(-4.5, -80.5), P(-7.2, -84)]);
+    addPoly(path, [P(-3.2, -82), P(3.2, -82), P(3.6, -76), P(-3.6, -76)]);
+    addPoly(path, [P(-4, -77), P(-10, -76.5), P(-13.5, -74), P(-14.5, -70), P(-13.5, -63), P(-11.5, -56), P(-12, -50), P(-13.2, -44), P(13.2, -44), P(12, -50), P(11.5, -56), P(13.5, -63), P(14.5, -70), P(13.5, -74), P(10, -76.5), P(4, -77)]);
+    addPoly(path, [P(-12, -45), P(-0.8, -45), P(-2, -20), P(-3, -2), P(-8.5, -1.5), P(-9.5, -20)]);
+    addPoly(path, [P(0.8, -45), P(12, -45), P(9.5, -20), P(8.5, -1.5), P(3, -2), P(2, -20)]);
+    for (const s of [-1, 1]) {
+      const [fx, fy] = P(s * 5.8, -0.6);
+      path.moveTo(fx + 4.6 * u, fy);
+      path.ellipse(fx, fy, 4.6 * u, 1.9 * u, 0, 0, Math.PI * 2);
+    }
+    addLimb(path, [P(-12.5, -71), P(-15.8, -57), P(-14.8, -43)], [3.1 * u, 2.6 * u, 2.3 * u]);
+    const elbow = P(lerp(15.8, 21, lift), lerp(-57, -79, lift));
+    const hand = P(lerp(14.8, 4.5, lift), lerp(-43, -92.5, lift));
+    addLimb(path, [P(12.5, -71), elbow, hand], [3.1 * u, 2.6 * u, 2.3 * u]);
+    return { path, elbow, hand };
+  }
+
+  // 사람 자리표시 — 실제로는 AI 생성 영상 레이어로 교체한다
+  function drawPerson(ctx, { x, y, h, lift, rim, alpha, sun, style }) {
+    if (alpha <= .01) return;
+    const u = h / 100;
+    const { path, elbow, hand } = personPath(x, y, u, lift);
+    const cx = x, cy = y - 60 * u;
+    let dx = sun[0] - cx, dy = sun[1] - cy;
+    const L = Math.hypot(dx, dy) || 1;
+    dx /= L; dy /= L;
+    const B = [x - 40 * u, y - 108 * u, 80 * u, 114 * u];
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+
+    // 태양 반대편(관람자 쪽)으로 번지는 그림자
+    const sg = ctx.createLinearGradient(x, y, x - dx * 40 * u, y + 45 * u);
+    sg.addColorStop(0, `rgba(20,14,10,${.2 + .35 * rim})`);
+    sg.addColorStop(1, "rgba(20,14,10,0)");
+    ctx.fillStyle = sg;
+    ctx.beginPath();
+    ctx.moveTo(x - 9 * u, y);
+    ctx.lineTo(x + 9 * u, y);
+    ctx.lineTo(x - dx * 55 * u + 16 * u, y + 45 * u);
+    ctx.lineTo(x - dx * 55 * u - 22 * u, y + 45 * u);
+    ctx.closePath();
+    ctx.fill();
+
+    // AI 영상이 들어갈 자리
+    ctx.save();
+    ctx.globalAlpha *= .35;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(...B);
+    ctx.restore();
+
+    const ink = style === 2 ? "#1b1714" : mixHex("#4a4038", "#140f0c", .35 + .65 * rim);
+    // 바깥으로 번지는 역광
+    ctx.save();
+    ctx.shadowColor = style === 2 ? "rgba(0,0,0,0)" : `rgba(255,176,100,${.25 + .6 * rim})`;
+    ctx.shadowBlur = (8 + 26 * rim) * DPR;
+    ctx.fillStyle = ink;
+    ctx.fill(path);
+    ctx.restore();
+
+    ctx.save();
+    ctx.clip(path);
+    if (style !== 2) {
+      // 역광 테두리: 밝게 칠한 뒤, 태양 반대쪽으로 민 실루엣으로 덮어 가장자리만 남긴다
+      ctx.fillStyle = `rgba(255,196,130,${.35 + .6 * rim})`;
+      ctx.fillRect(...B);
+      ctx.save();
+      const k = (1 + 1.4 * rim) * u;
+      ctx.translate(-dx * k, -dy * k);
+      ctx.fillStyle = ink;
+      ctx.fill(path);
+      ctx.restore();
+      // 몸의 입체감: 태양 쪽은 따뜻하게, 반대쪽은 어둡게
+      const vg = ctx.createLinearGradient(cx + dx * 20 * u, cy + dy * 20 * u, cx - dx * 20 * u, cy - dy * 20 * u);
+      vg.addColorStop(0, "rgba(140,100,70,.28)");
+      vg.addColorStop(1, "rgba(0,0,0,.35)");
+      ctx.fillStyle = vg;
+      ctx.fillRect(...B);
+    }
+    // 옷 주름과 바지 솔기
+    ctx.strokeStyle = style === 2 ? "rgba(243,238,229,.25)" : "rgba(0,0,0,.3)";
+    ctx.lineWidth = .7 * u;
+    for (const [a, b, c, d, e, f] of [[-6, -70, -3, -58, -7, -46], [5, -68, 8, -57, 4, -46], [-1, -44, -1.5, -30, -2.5, -8], [9, -60, 11, -52, 10, -46]]) {
+      ctx.beginPath();
+      ctx.moveTo(x + a * u, y + b * u);
+      ctx.quadraticCurveTo(x + c * u, y + d * u, x + e * u, y + f * u);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    if (style !== 2) {
+      // 역광에 빛나는 머리카락 몇 가닥
+      ctx.strokeStyle = `rgba(255,200,140,${.25 + .5 * rim})`;
+      ctx.lineWidth = .35 * u;
+      for (const [a, b, c, d] of [[-5, -97, -8.5, -101], [-1, -98.5, -1.8, -103], [4, -97.5, 7.5, -101.5], [6.5, -93, 9.5, -95]]) {
+        ctx.beginPath();
+        ctx.moveTo(x + a * u, y + b * u);
+        ctx.quadraticCurveTo(x + ((a + c) / 2) * u, y + (Math.min(b, d) - 1.5) * u, x + c * u, y + d * u);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function sceneD(p, t, W, H, bc, fc, ov) {
+    const cross = ease(seg(p, 0, .28));                         // 태양이 하늘을 옆으로 가로지름
+    const nt = seg(p, .28, .55), f = nt * nt * (3 - 2 * nt);    // 점점 가까워짐
+    const fall = seg(p, .55, .72), fe = fall * fall;            // 가속하며 들판으로 낙하
+    const LX = W * .6, LY = H * .8;                              // 들판 위 착지점
+    const camera = dTrans === 2;
+    const shake = Math.sin(Math.PI * seg(p, .69, .8)) * 3;
+    const tf = shake > .05 ? `translate(${shake * Math.sin(t * 53)}px,${shake * Math.cos(t * 41)}px)` : "";
+    for (const el of [back, glc, front]) el.style.transform = tf;
+    set(ov.brand, 1 - seg(p, .28, .36));
+    set(ov.cap1, 1 - seg(p, .18, .26));
+    set(ov.cap2, seg(p, .3, .38) * (1 - seg(p, .5, .56)));
+    set(ov.cap3, seg(p, .56, .62) * (1 - seg(p, .7, .74)));
+    set(ov.ai, 1 - seg(p, .62, .7));
+    set(ov.card, seg(p, .94, 1));
+
+    let x = lerp(lerp(W * .82, W * .62, cross), W * .56, f);
+    let y = lerp(lerp(H * .2, H * .26, cross), H * .34, f);
+    const r = lerp(H * .065, H * .08, cross) * (1 + f * 2.6);
+    // 카메라 안: 떨어지는 태양을 따라 아래로 기울어 풍경이 위로 밀려난다 (태양은 화면 가운데 근처에 남음)
+    const shift = camera ? ease(seg(p, .55, .8)) * .5 : 0;
+    if (camera) { x = lerp(x, W * .54, fe); y = lerp(y, H * .52, fe); }
+    else { x = lerp(x, LX, fe); y = lerp(y, LY - r * .3, fe); }
+    const env = { near: f, drift: cross * .9 + t * .008, shift, wipe: -1, hitX: LX, hitY: LY, contact: !camera, burst: 0, fade: 1 };
+
+    if (p < .76) {
+      // 낙하 꼬리
+      if (fall > 0 && fall < 1) {
+        const g = fc.createLinearGradient(x, y - r * 3, x, y);
+        g.addColorStop(0, "rgba(255,200,120,0)");
+        g.addColorStop(1, `rgba(255,190,110,${Math.sin(Math.PI * fall) * .45})`);
+        fc.fillStyle = g;
+        fc.fillRect(x - r * .55, y - r * 3, r * 1.1, r * 3);
+      }
+      drawPerson(fc, { x: W * .34, y: H * .92 - shift * H, h: H * .42, lift: ease(seg(p, .36, .56)), rim: Math.max(f, fe), alpha: 1 - seg(p, camera ? .62 : .7, camera ? .72 : .76), sun: [x, y] });
+    }
+
+    if (p < .72) return { x, y, r, heat: lerp(.55, 1, f), glow: lerp(.8, 1, f), white: 0, env };
+
+    if (dTrans === 0) {
+      // 섬광: 착지 순간 하얗게 → 걷히며 보드
+      if (p < .76) {
+        env.burst = seg(p, .72, .76);
+        return { x, y, r, heat: 1, glow: 1, white: seg(p, .72, .76), env };
+      }
+      const lv = ease(seg(p, .76, .96));
+      bc.fillStyle = "#111814";
+      bc.fillRect(0, 0, W, H);
+      const b = drawBoard(bc, fc, W, H, lv, t, seg(lv, .55, 1));
+      return { x: lerp(x, b.sx, lv), y: lerp(y, b.sy, lv), r: lerp(r, b.sr, lv), heat: lerp(1, .85, lv), glow: .9, white: 1 - ease(seg(p, .76, .84)) };
+    }
+
+    if (dTrans === 1) {
+      // 파문: 착지점에서 금빛 파문이 퍼지며 안쪽이 보드로 바뀌고, 보드는 제자리(가운데)로 미끄러진다
+      const settle = ease(seg(p, .76, 1));
+      const bh0 = Math.min(W * .44, H * .9) * 1.15 * .46;
+      bc.fillStyle = "#111814";
+      bc.fillRect(0, 0, W, H);
+      const b = drawBoard(bc, fc, W, H, 1, t, seg(p, .86, .97), { sc: lerp(1.15, 1, settle), cx: lerp(x, W * .5, settle), cy: lerp(y + bh0 * .25, H * .55, settle) });
+      env.wipe = easeOut(seg(p, .72, .88)) * 1.6;
+      env.burst = 1 - seg(p, .72, .84);
+      return { x: b.sx, y: b.sy, r: lerp(r, b.sr, ease(seg(p, .72, .9))), heat: lerp(1, .85, settle), glow: .95, white: 0, env };
+    }
+
+    // 카메라: 들판이 누우며(납작한 보드 → 비스듬한 보드) 격자로 바뀐다
+    const k = ease(seg(p, .72, .92));
+    bc.fillStyle = "#111814";
+    bc.fillRect(0, 0, W, H);
+    const b = drawBoard(bc, fc, W, H, k, t, seg(p, .86, .97), { sc: lerp(1.25, 1, k), cy: lerp(H * .66, H * .55, k), flat: lerp(.1, .46, k) });
+    env.fade = 1 - k;
+    return { x: lerp(x, b.sx, k), y: lerp(y, b.sy, k), r: lerp(r, b.sr, k), heat: lerp(1, .85, k), glow: .95, white: 0, env };
+  }
+
+  const TITLE = `<div class="ov-title" data-r="title"><span class="kicker">SUNNY · PHOTOCHROMIC BEADS</span><h2>빛이 남기는 색</h2><p>햇빛을 만나면 색이 피어나는<br>비즈 팔찌와 목걸이</p></div>`;
+  const SCENES = {
+    a: {
+      name: "A · 정면 다이브",
+      run: sceneA,
+      overlay: TITLE + `<div class="ov-chapter" data-r="chapter"><span>CHAPTER 01</span><h3>빛을 만나다</h3><p>햇빛은 비즈에 색을 남깁니다.</p></div>`,
+      flow: "태양이 오른쪽 끝에 걸려 있고 작은 팔찌가 앞에 떠 있습니다. 스크롤하면 태양이 옆으로 미끄러져 가운데를 차지하며 커지고, 팔찌가 카메라 앞을 스쳐 지나간 뒤 태양 표면 속으로 곧장 떨어집니다. 하얗게 타오른 화면이 종이색으로 바뀌며 Chapter 01이 열립니다.",
+      phases: [[0, "오른쪽 끝의 태양 · 작은 팔찌 · 브랜드명"], [45, "태양이 가운데로 이동하며 커짐, 제목 사라짐"], [70, "팔찌가 카메라 앞을 스침, 표면 속으로 낙하"], [90, "하얗게 타오른 뒤 Chapter 01"]],
+      pros: ["\"빠져든다\"는 느낌이 가장 직관적", "요소가 적어 첫 화면이 가볍고 빠름", "web-demo 태양 셰이더를 거의 그대로 사용"],
+      cons: ["팔찌의 발색은 스치듯 보일 뿐 메시지로 전달되지 않음", "줌 인 다이브는 다른 사이트에서도 흔한 연출"],
+      impl: "구성: 태양 1 + 팔찌 1 + 스크롤 진행도. 작업량 작음.",
+    },
+    b: {
+      name: "B · 궤도 하강 → 스토리 보드",
+      run: sceneB,
+      overlay: TITLE.replace('class="ov-title"', 'class="ov-title" style="top:7%"') + `<div class="ov-card" data-r="card"><b>스토리 보드</b>팔찌와 목걸이가 태양을 둘러쌉니다. 오브제를 누르면 그 비즈의 이야기가 열립니다.</div>`,
+      flow: "작은 팔찌가 행성처럼 태양 궤도를 돕니다. 스크롤하면 카메라가 궤도를 따라 옆으로 돌며 궤도면으로 내려가고, 태양이 커지다가 그 속으로 떨어집니다. 빛을 빠져나오면 태양이 가운데 놓인 스토리 보드(참고 이미지 구도) 위에 팔찌와 목걸이 오브제가 펼쳐집니다.",
+      phases: [[0, "태양 궤도를 도는 작은 팔찌"], [50, "궤도를 따라 옆으로 이동, 궤도면으로 하강"], [72, "태양 속으로 낙하"], [86, "스토리 보드 등장 (태양 + 팔찌·목걸이)"]],
+      pros: ["스토리 보드 씬과 끊김 없이 한 흐름으로 이어짐", "\"빛을 도는 액세서리\"라는 상징이 분명함"],
+      cons: ["궤도·카메라·보드 전환까지 3D 작업량이 가장 큼", "모바일 성능 부담이 가장 큼", "첫 화면에서 팔찌가 가장 작아 제품이 잘 안 보임"],
+      impl: "구성: 태양 + 궤도 팔찌 + 보드 씬 전환. 작업량 큼. 스토리 보드 설계와 한 번에 묶어야 함.",
+    },
+    c: {
+      name: "C · 해의 하루 → 발색",
+      run: sceneC,
+      overlay: `<div class="ov-brand" data-r="brand">빛이 남기는 색</div><div class="ov-cap" data-r="cap1">빛이 닿기 전,<br>모든 비즈는 흰색입니다.</div><div class="ov-cap" data-r="cap2">햇빛이 닿으면<br>색이 피어납니다.</div><div class="ov-uv" data-r="uv">UV 0.0</div><div class="ov-chapter" data-r="chapter"><span>CHAPTER 01</span><h3>햇빛이 남긴 색</h3><p>그날의 빛이 비즈에 남았습니다.</p></div>`,
+      flow: "새벽, 지평선 왼쪽에서 태양이 떠오르고 작은 흰 팔찌가 있습니다. 스크롤하면 태양이 하늘을 옆으로 가로지르며 높이 뜨고, 자외선이 강해질수록 흰 비즈에 바이올렛·코랄·스카이 색이 피어납니다. 정오의 태양이 다가와 화면을 삼키고 Chapter 01이 열립니다.",
+      phases: [[0, "새벽 · 흰 팔찌 · UV 0"], [35, "태양이 하늘을 가로지르며 비즈 발색 시작"], [60, "정오 UV 11 · 태양이 다가와 삼킴"], [90, "하얗게 타오른 뒤 Chapter 01"]],
+      pros: ["옆으로 움직이는 이유(해의 경로)가 자연스러움", "스크롤만으로 광변색 원리를 보여줘 브랜드 핵심 메시지가 첫 화면에 있음", "web-demo bead.ts의 발색 계산을 그대로 재사용"],
+      cons: ["설명 요소(UV 수치·문장)가 많아 A보다 몰입감이 약할 수 있음", "새벽→정오 하늘색 전환이 패션 브랜드 톤과 맞는지 검증 필요"],
+      impl: "구성: 태양 + 하늘 그라데이션 + 발색 팔찌. 작업량 중간.",
+    },
+    d: {
+      name: "D · 사람이 올려다본 태양 → 낙하 → 스토리 보드",
+      run: sceneD,
+      overlay: `<div class="ov-brand" data-r="brand" style="color:#fff">빛이 남기는 색</div><div class="ov-cap" data-r="cap1" style="color:#fff;text-shadow:0 2px 22px rgba(30,50,80,.45)">지구에서 우리는<br>늘 태양을 올려다봅니다.</div><div class="ov-cap" data-r="cap2" style="color:#fff;text-shadow:0 2px 22px rgba(120,50,10,.45)">어느 날,<br>태양이 점점 가까워졌습니다.</div><div class="ov-cap" data-r="cap3" style="color:#fff;text-shadow:0 2px 22px rgba(120,50,10,.5)">그리고 빛이 내려앉은 자리에서<br>이야기가 시작됩니다.</div><div class="ov-ai" data-r="ai">AI 영상 자리 · 사람이 태양을 올려다봄</div><div class="ov-card" data-r="card"><b>스토리 보드</b>태양이 내려앉은 자리가 이야기의 중심이 됩니다. 팔찌와 목걸이를 누르면 그 비즈의 이야기가 열립니다.</div>`,
+      flow: "언덕 위에 선 사람이 하늘의 태양을 올려다봅니다. 스크롤하면 태양이 구름 사이로 옆으로 흐르다가 점점 가까워지고, 하늘이 달아오르며 사람은 역광 실루엣이 되어 손으로 눈을 가립니다. 이어서 태양이 들판으로 떨어지고, 착지하는 순간 아래 전환 방식으로 스토리 보드가 되어 태양이 보드 한가운데에 자리 잡습니다. 메인 화면에는 팔찌를 두지 않고, 팔찌와 목걸이는 보드에서 처음 등장합니다. 질감은 실사로 확정했습니다.",
+      phases: [[0, "언덕 위 사람이 태양을 올려다봄"], [28, "태양이 점점 가까워짐 · 역광 실루엣"], [55, "태양이 들판으로 낙하"], [72, "착지 → 전환 (섬광 / 파문 / 카메라)"], [94, "스토리 보드 완성"]],
+      pros: ["사람이 바라보는 시점이라 감정 이입이 가장 강하고 영화 같은 첫 장면", "역광 실루엣 + 거대한 태양 구도는 그 한 장면만으로 키 비주얼(포스터·출품 이미지)로 쓸 수 있음", "떨어진 태양이 그대로 보드의 중심이 되어 스토리 보드와 의미가 이어짐"],
+      cons: ["AI 영상 제작 + 웹 합성(배경 제거, 브라우저별 투명 영상 호환) 작업이 추가됨", "영상 용량 때문에 첫 화면 로딩이 무거워질 수 있음", "배경까지 셰이더로 계산해 GPU 부담이 가장 큼 — 저사양·모바일은 해상도를 낮춰야 함"],
+      impl: "구성: 하늘·구름·들판·태양을 한 셰이더에서 실사로 계산 + 사람(AI 영상) + 낙하 + 전환 + 보드. 사람 영상도 같은 WebGL 합성에 텍스처로 넣어 색보정·그레인을 한 번에 맞춘다. 작업량 큼.",
+    },
+  };
+
+  // ---------- 태양 셰이더 (web-demo lib/sunShader.ts 를 화면용 2D로 옮김) ----------
+  const NOISE = `
+vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 permute(vec4 x){return mod289(((x*34.0)+10.0)*x);}
+vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
+float snoise(vec3 v){
+  const vec2 C=vec2(1.0/6.0,1.0/3.0);
+  const vec4 D=vec4(0.0,0.5,1.0,2.0);
+  vec3 i=floor(v+dot(v,C.yyy));
+  vec3 x0=v-i+dot(i,C.xxx);
+  vec3 g=step(x0.yzx,x0.xyz);
+  vec3 l=1.0-g;
+  vec3 i1=min(g.xyz,l.zxy);
+  vec3 i2=max(g.xyz,l.zxy);
+  vec3 x1=x0-i1+C.xxx;
+  vec3 x2=x0-i2+C.yyy;
+  vec3 x3=x0-D.yyy;
+  i=mod289(i);
+  vec4 p=permute(permute(permute(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
+  float n_=0.142857142857;
+  vec3 ns=n_*D.wyz-D.xzx;
+  vec4 j=p-49.0*floor(p*ns.z*ns.z);
+  vec4 x_=floor(j*ns.z);
+  vec4 y_=floor(j-7.0*x_);
+  vec4 x=x_*ns.x+ns.yyyy;
+  vec4 y=y_*ns.x+ns.yyyy;
+  vec4 h=1.0-abs(x)-abs(y);
+  vec4 b0=vec4(x.xy,y.xy);
+  vec4 b1=vec4(x.zw,y.zw);
+  vec4 s0=floor(b0)*2.0+1.0;
+  vec4 s1=floor(b1)*2.0+1.0;
+  vec4 sh=-step(h,vec4(0.0));
+  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;
+  vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
+  vec3 p0=vec3(a0.xy,h.x);
+  vec3 p1=vec3(a0.zw,h.y);
+  vec3 p2=vec3(a1.xy,h.z);
+  vec3 p3=vec3(a1.zw,h.w);
+  vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
+  vec4 m=max(0.5-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);
+  m=m*m;
+  return 105.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+}
+float fbm(vec3 p){float f=0.0;float a=0.5;for(int i=0;i<4;i++){f+=a*snoise(p);p*=2.02;a*=0.5;}return f;}
+`;
+  const FRAG = `precision highp float;
+uniform vec2 uCenter; uniform float uRadius; uniform float uTime; uniform float uHeat; uniform float uGlow; uniform float uWhite;
+${NOISE}
+void main(){
+  vec2 p=(gl_FragCoord.xy-uCenter)/uRadius;
+  float d=length(p);
+  float edge=max(1.5/uRadius,0.00005);
+  float a=1.0-smoothstep(1.0-edge,1.0,d);
+  vec3 col=vec3(0.0);
+  if(d<1.0){
+    float z=sqrt(max(1.0-d*d,0.0));
+    vec3 sp=vec3(p,z);
+    float t=uTime*0.06;
+    float cells=fbm(sp*3.0+vec3(t,-t*0.7,t*0.4));
+    float fine=fbm(sp*9.0-vec3(t*1.6));
+    float n=cells*0.7+fine*0.3;
+    float limb=pow(z,0.45);
+    vec3 deep=vec3(0.55,0.12,0.02); vec3 mid=vec3(1.0,0.45,0.08); vec3 hot=vec3(1.0,0.86,0.55);
+    float k=clamp(0.5+n*0.9,0.0,1.0);
+    col=mix(deep,mid,smoothstep(0.0,0.6,k));
+    col=mix(col,hot,smoothstep(0.55,1.0,k));
+    col*=limb*(0.6+uHeat*1.4);
+    col+=hot*pow(1.0-z,3.0)*0.25*uHeat;
+  }
+  float o=max(d-1.0,0.0);
+  float g=exp(-o*3.0)*uGlow*(1.0-a);
+  vec3 gc=mix(vec3(1.0,0.35,0.08),vec3(1.0,0.8,0.45),exp(-o*8.0));
+  vec3 c=min(col*a+gc*g,vec3(1.0));
+  float al=a; // 코로나는 알파 0으로 더해 배경을 밝히기만 한다 (밝은 하늘에서 탁한 테두리 방지)
+  c=mix(c,vec3(1.0,0.98,0.93),uWhite);
+  al=mix(al,1.0,uWhite);
+  gl_FragColor=vec4(c,al);
+}`;
+
+  // ---------- D안 배경 셰이더: 하늘·구름·들판·태양을 실사 밀도로 한 번에 계산 ----------
+  // uShift: 카메라가 아래로 기운 만큼 풍경을 위로 민다 / uHit: 착지점 / uWipe: 파문 반경 / uFade: 풍경 투명도
+  const ENV_FRAG = `precision highp float;
+uniform vec2 uRes; uniform float uTime; uniform vec2 uSun; uniform float uSunR; uniform float uNear; uniform float uDrift;
+uniform float uShift; uniform float uWipe; uniform vec2 uHit; uniform float uContact; uniform float uBurst; uniform float uFade; uniform float uWhite;
+${NOISE}
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float ridge(float x,float base,float amp,float freq,float seed){
+  return base+amp*(0.6*sin(x*freq+seed)+0.4*sin(x*freq*2.3+seed*1.7))+amp*0.35*snoise(vec3(x*freq*1.5,seed,0.0));
+}
+vec3 sunSurface(vec2 p,float d){
+  float z=sqrt(max(1.0-d*d,0.0));
+  vec3 sp=vec3(p,z);
+  float t=uTime*0.06;
+  float cells=fbm(sp*3.0+vec3(t,-t*0.7,t*0.4));
+  float fine=fbm(sp*9.0-vec3(t*1.6));
+  float n=cells*0.7+fine*0.3;
+  float limb=pow(z,0.45);
+  vec3 deep=vec3(0.55,0.12,0.02); vec3 mid=vec3(1.0,0.45,0.08); vec3 hot=vec3(1.0,0.86,0.55);
+  float k=clamp(0.5+n*0.9,0.0,1.0);
+  vec3 col=mix(deep,mid,smoothstep(0.0,0.6,k));
+  col=mix(col,hot,smoothstep(0.55,1.0,k));
+  float heat=mix(0.55,1.0,uNear);
+  col*=limb*(0.6+heat*1.4);
+  col+=hot*pow(1.0-z,3.0)*0.25*heat;
+  return col;
+}
+void main(){
+  vec2 frag=gl_FragCoord.xy;
+  vec2 q=frag/uRes.y;
+  vec2 L=vec2(q.x,q.y-uShift);
+  vec2 hit=uHit/uRes.y;
+  vec2 sq=uSun/uRes.y;
+  float sunRn=max(uSunR/uRes.y,0.00001);
+  vec2 dv=q-sq;
+  float dist=length(dv);
+  float d=dist/sunRn;
+  float horizon=0.28;
+
+  // 하늘: 천정~지평선 대기색 + 태양 주변 산란광 + 빛줄기
+  float hgt=clamp((L.y-horizon)/(1.0-horizon),0.0,1.0);
+  vec3 zenith=mix(vec3(0.30,0.50,0.80),vec3(0.95,0.45,0.22),uNear);
+  vec3 horiz=mix(vec3(0.92,0.88,0.82),vec3(1.0,0.82,0.58),uNear);
+  vec3 land=mix(horiz,zenith,pow(hgt,0.7));
+  land+=vec3(1.0,0.72,0.42)*exp(-dist*mix(5.0,1.6,uNear))*mix(0.35,0.9,uNear);
+  float rays=snoise(vec3(atan(dv.y,dv.x)*7.0,uTime*0.05,0.0))*0.5+0.5;
+  land+=vec3(1.0,0.8,0.55)*pow(rays,4.0)*exp(-dist*2.2)*mix(0.12,0.35,uNear);
+  float occ=0.0;
+
+  // 구름: 태양 쪽 가장자리가 빛나고, 태양이 다가오면 타서 사라짐
+  float band=smoothstep(horizon+0.1,horizon+0.32,L.y);
+  float burn=1.0-smoothstep(0.15,0.5,uNear);
+  if(band*burn>0.001){
+    vec2 cq=vec2(L.x*1.3+uDrift,L.y*3.2);
+    float warp=fbm(vec3(cq*0.8,uTime*0.01));
+    float cn=fbm(vec3(cq+warp*0.6,uTime*0.015));
+    float cloudA=smoothstep(0.02,0.42,cn)*band*burn*0.92;
+    float thick=smoothstep(0.2,0.7,cn);
+    vec3 lit=mix(vec3(0.98,0.97,0.95),vec3(1.0,0.9,0.78),uNear);
+    vec3 shade=mix(vec3(0.60,0.66,0.77),vec3(0.8,0.55,0.45),uNear);
+    vec3 cc=mix(lit,shade,thick*0.7);
+    cc+=vec3(1.0,0.85,0.6)*exp(-dist*4.0)*(1.0-thick)*0.8;
+    land=mix(land,cc,cloudA);
+    occ=max(occ,cloudA);
+  }
+
+  // 들판: 먼 언덕(공기 원근) → 가까운 풀밭(풀잎·들꽃·바람), 역광이라 능선이 빛남
+  float over=smoothstep(0.18,0.42,uNear);
+  vec3 sunLight=mix(vec3(1.0,0.95,0.85),vec3(1.0,0.62,0.3),uNear);
+  float farTop=ridge(L.x,horizon+0.05,0.03,3.0,1.0);
+  float nearTop=ridge(L.x,horizon-0.02,0.035,2.1,4.0);
+  if(L.y<farTop){
+    float gx=fbm(vec3(L.x*18.0,L.y*60.0,2.0));
+    vec3 farCol=mix(vec3(0.40,0.49,0.38),vec3(0.53,0.57,0.42),gx*0.5+0.5);
+    farCol=mix(farCol,horiz,0.45);
+    float rimF=1.0-smoothstep(0.0,0.012,farTop-L.y);
+    farCol*=mix(vec3(1.0),sunLight*1.05,uNear*0.6);
+    farCol+=sunLight*rimF*mix(0.12,0.55,uNear);
+    land=farCol;
+    occ=max(occ,1.0-over);
+  }
+  if(L.y<nearTop){
+    float depth=clamp((nearTop-L.y)/nearTop,0.0,1.0);
+    float patches=fbm(vec3(L*3.0,5.0));
+    vec3 g=mix(vec3(0.27,0.37,0.20),vec3(0.50,0.52,0.27),patches*0.5+0.5);
+    float sx=mix(300.0,110.0,depth), sy=mix(60.0,18.0,depth);
+    float sway=sin(uTime*1.3+L.x*5.0)*0.0015*(0.3+depth);
+    vec2 bq=vec2((L.x+sway)*sx,L.y*sy);
+    float blades=snoise(vec3(bq,3.0))*0.6+snoise(vec3(bq*vec2(1.9,2.3)+vec2(4.1,7.3),8.0))*0.4;
+    g*=0.78+0.32*smoothstep(-0.6,0.8,blades);
+    vec2 fq=L*vec2(70.0,46.0)*mix(2.2,1.0,depth);
+    vec2 cell=floor(fq);
+    vec2 off=vec2(hash(cell+3.7),hash(cell+9.1))*0.6+0.2;
+    float fl=step(0.93,hash(cell))*(1.0-smoothstep(0.08,0.2,length(fract(fq)-off)));
+    g=mix(g,mix(vec3(0.97,0.95,0.86),vec3(0.98,0.85,0.45),hash(cell+1.3)),fl*0.8*depth);
+    float rimN=1.0-smoothstep(0.0,0.01,nearTop-L.y);
+    g*=mix(0.95,0.55,uNear*0.8);
+    g=mix(g,g*sunLight*1.4,uNear*0.5);
+    g+=sunLight*rimN*mix(0.18,0.75,uNear);
+    g=mix(g,horiz*0.9,(1.0-depth)*0.12);
+    // 착지 충격광: 떨어진 자리 주변 풀밭이 달아오른다
+    g+=vec3(1.0,0.72,0.38)*exp(-length((L-hit)*vec2(1.0,2.4))*5.0)*uBurst*1.4;
+    land=g;
+    // 착지선보다 앞쪽(아래) 풀은 태양을 가려 태양이 들판에 박힌 것처럼 보이게 한다
+    float cline=hit.y+snoise(vec3(L.x*40.0,1.0,2.0))*0.004;
+    float frontGrass=uContact*(1.0-smoothstep(cline-0.004,cline+0.004,L.y));
+    occ=max(occ,max(1.0-over,frontGrass));
+  }
+
+  // 파문: 착지점에서 원근 타원으로 퍼지며 안쪽 풍경을 걷어낸다 (아래 보드가 드러남)
+  float wipeMask=0.0;
+  float ring=0.0;
+  if(uWipe>0.0){
+    float wd=length((q-hit)*vec2(1.0,1.6))-uWipe;
+    wipeMask=1.0-smoothstep(-0.004,0.004,wd);
+    ring=exp(-abs(wd)*35.0);
+  }
+  float landA=uFade*(1.0-wipeMask);
+
+  float edge=max(1.5/uSunR,0.00005);
+  float sunA=1.0-smoothstep(1.0-edge,1.0,d);
+  vec3 sunCol=vec3(0.0);
+  if(d<1.0) sunCol=sunSurface(dv/sunRn,d);
+  float sunVis=sunA*(1.0-occ*landA);
+  vec3 c=land*landA*(1.0-sunVis)+sunCol*sunVis;
+  float a=landA*(1.0-sunVis)+sunVis;
+
+  // 코로나와 파문 빛은 알파 0으로 더해 아래 보드까지 밝힌다
+  float o=max(d-1.0,0.0);
+  vec3 gc=mix(vec3(1.0,0.35,0.08),vec3(1.0,0.8,0.45),exp(-o*8.0));
+  // 풀에 가려진 태양 부분도 빛이 새어 나와 풀잎이 달아오른다
+  float glowAmt=(1.0-sunA)+(sunA-sunVis)*0.55;
+  c+=gc*exp(-o*3.0)*glowAmt*mix(0.7,1.0,uNear)*0.9;
+  c+=vec3(1.0,0.8,0.45)*ring*1.3;
+  c+=(hash(frag+fract(uTime*7.0)*91.7)-0.5)*0.035*a;
+  c=mix(c,vec3(1.0,0.98,0.93),uWhite);
+  a=mix(a,1.0,uWhite);
+  gl_FragColor=vec4(clamp(c,0.0,1.0),clamp(a,0.0,1.0));
+}`;
+
+  const stage = document.getElementById("stage");
+  const scroller = document.getElementById("scroller");
+  const sticky = document.getElementById("sticky");
+  const back = document.getElementById("back"), front = document.getElementById("front"), glc = document.getElementById("gl");
+  const overlay = document.getElementById("overlay");
+  const bctx = back.getContext("2d"), fctx = front.getContext("2d");
+  const DPR = Math.min(window.devicePixelRatio || 1, 1.5), GDPR = Math.min(window.devicePixelRatio || 1, 1.25);
+  const size = { w: 1, h: 1 };
+
+  let gl = null, SUN = null, ENV = null;
+  function makeProgram(fragSrc, names) {
+    const sh = (type, src) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, "attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}"));
+    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fragSrc));
+    gl.bindAttribLocation(prog, 0, "a");
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    const u = {};
+    for (const n of names) u[n] = gl.getUniformLocation(prog, n);
+    return { prog, u };
+  }
+  try {
+    gl = glc.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: false });
+    SUN = makeProgram(FRAG, ["uCenter", "uRadius", "uTime", "uHeat", "uGlow", "uWhite"]);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  } catch (e) {
+    console.warn("WebGL 사용 불가 — 2D 태양으로 대체", e);
+    gl = null;
+  }
+  if (gl) {
+    try {
+      ENV = makeProgram(ENV_FRAG, ["uRes", "uTime", "uSun", "uSunR", "uNear", "uDrift", "uShift", "uWipe", "uHit", "uContact", "uBurst", "uFade", "uWhite"]);
+    } catch (e) {
+      console.error("D안 배경 셰이더 컴파일 실패", e);
+    }
+  }
+
+  function resize() {
+    const r = sticky.getBoundingClientRect();
+    size.w = Math.max(1, r.width);
+    size.h = Math.max(1, r.height);
+    for (const c of [back, front]) { c.width = Math.round(size.w * DPR); c.height = Math.round(size.h * DPR); }
+    glc.width = Math.round(size.w * GDPR);
+    glc.height = Math.round(size.h * GDPR);
+  }
+  new ResizeObserver(resize).observe(sticky);
+  resize();
+
+  function drawSun(s, t) {
+    const W = size.w, H = size.h;
+    if (!gl) {
+      const g = bctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 1.6);
+      g.addColorStop(0, "#ffe2a8"); g.addColorStop(.6, "#ff7a2f"); g.addColorStop(1, "rgba(255,122,47,0)");
+      bctx.fillStyle = g;
+      bctx.beginPath(); bctx.arc(s.x, s.y, s.r * 1.6, 0, Math.PI * 2); bctx.fill();
+      if (s.white > 0) { bctx.fillStyle = `rgba(255,250,237,${s.white})`; bctx.fillRect(0, 0, W, H); }
+      return;
+    }
+    gl.viewport(0, 0, glc.width, glc.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (s.env && ENV) {
+      gl.useProgram(ENV.prog);
+      gl.uniform2f(ENV.u.uRes, glc.width, glc.height);
+      gl.uniform1f(ENV.u.uTime, t);
+      gl.uniform2f(ENV.u.uSun, s.x * GDPR, (H - s.y) * GDPR);
+      gl.uniform1f(ENV.u.uSunR, Math.max(s.r * GDPR, 1));
+      gl.uniform1f(ENV.u.uNear, s.env.near);
+      gl.uniform1f(ENV.u.uDrift, s.env.drift);
+      const e = s.env;
+      gl.uniform1f(ENV.u.uShift, e.shift || 0);
+      gl.uniform1f(ENV.u.uWipe, e.wipe ?? -1);
+      gl.uniform2f(ENV.u.uHit, e.hitX * GDPR, (H - e.hitY) * GDPR);
+      gl.uniform1f(ENV.u.uContact, e.contact ? 1 : 0);
+      gl.uniform1f(ENV.u.uBurst, e.burst || 0);
+      gl.uniform1f(ENV.u.uFade, e.fade ?? 1);
+      gl.uniform1f(ENV.u.uWhite, clamp(s.white || 0));
+    } else {
+      gl.useProgram(SUN.prog);
+      gl.uniform2f(SUN.u.uCenter, s.x * GDPR, (H - s.y) * GDPR);
+      gl.uniform1f(SUN.u.uRadius, Math.max(s.r * GDPR, 1));
+      gl.uniform1f(SUN.u.uTime, t);
+      gl.uniform1f(SUN.u.uHeat, clamp(s.heat));
+      gl.uniform1f(SUN.u.uGlow, s.r > 1 ? s.glow : 0);
+      gl.uniform1f(SUN.u.uWhite, clamp(s.white || 0));
+    }
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  // ---------- 탭 · 설명 · 타임라인 ----------
+  const tabs = [...document.querySelectorAll(".tab")];
+  const timeline = document.getElementById("timeline");
+  const goBtn = document.getElementById("go"), sent = document.getElementById("sent"), note = document.getElementById("note");
+  const playBtn = document.getElementById("play");
+  const sty = document.getElementById("sty"), dStyleEl = document.getElementById("d-style"), grain = document.getElementById("grain");
+  function renderStyle() {
+    const on = cur === "d";
+    sty.style.display = on ? "flex" : "none";
+    sty.querySelectorAll("button").forEach(b => b.classList.toggle("on", +b.dataset.s === dTrans));
+    dStyleEl.innerHTML = on ? `<div class="sstyles">${TRANS_INFO.map(([n, d], i) => `<div class="${i === dTrans ? "on" : ""}"><b>${n}</b>${d}</div>`).join("")}</div>` : "";
+    goBtn.textContent = on ? `D안 (실사 · ${TRANS_NAMES[dTrans]} 전환)으로 최종 선택` : `${cur.toUpperCase()}안으로 최종 선택`;
+  }
+  sty.querySelectorAll("button").forEach(b => b.addEventListener("click", () => { dTrans = +b.dataset.s; renderStyle(); }));
+  let cur = "d", ov = {}, prog = 0, playing = false, playPos = 0;
+
+  function li(items) { return items.map(s => `<li>${s}</li>`).join(""); }
+  function select(k) {
+    cur = k;
+    for (const el of [back, glc, front]) el.style.transform = "";
+    tabs.forEach(b => b.classList.toggle("on", b.dataset.k === k));
+    const S = SCENES[k];
+    overlay.innerHTML = S.overlay;
+    ov = {};
+    overlay.querySelectorAll("[data-r]").forEach(el => (ov[el.dataset.r] = el));
+    document.getElementById("d-name").textContent = S.name;
+    document.getElementById("d-flow").textContent = S.flow;
+    document.getElementById("d-impl").textContent = S.impl;
+    document.getElementById("d-pros").innerHTML = li(S.pros);
+    document.getElementById("d-cons").innerHTML = li(S.cons);
+    timeline.innerHTML = S.phases.map(([at, text]) => `<div class="ph" data-at="${at}"><em>${at}%</em>${text}</div>`).join("");
+    renderStyle();
+    scroller.scrollTop = 0;
+    prog = 0;
+    playing = false;
+    updatePlay();
+  }
+  tabs.forEach(b => b.addEventListener("click", () => select(b.dataset.k)));
+
+  function updatePlay() { playBtn.textContent = playing ? "❚❚ 멈춤" : "▶ 자동 재생"; }
+  const maxScroll = () => Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+  playBtn.addEventListener("click", () => {
+    if (!playing && scroller.scrollTop >= maxScroll() - 2) scroller.scrollTop = 0;
+    playing = !playing;
+    playPos = scroller.scrollTop;
+    updatePlay();
+  });
+  document.getElementById("reset").addEventListener("click", () => { playing = false; updatePlay(); scroller.scrollTop = 0; });
+  const stopPlay = () => { if (playing) { playing = false; updatePlay(); } };
+  scroller.addEventListener("wheel", stopPlay, { passive: true });
+  scroller.addEventListener("touchstart", stopPlay, { passive: true });
+
+  goBtn.addEventListener("click", () => {
+    const payload = { label: SCENES[cur].name, note: note.value.trim(), style: cur === "d" ? `실사 · ${TRANS_NAMES[dTrans]} 전환` : null };
+    if (window.brainstorm) {
+      window.brainstorm.choice(cur, payload);
+      sent.textContent = `${cur.toUpperCase()}안 확정을 보냈습니다. 터미널에서 다음 단계로 넘어갑니다.`;
+    } else {
+      sent.textContent = "서버에 연결되지 않아 전송하지 못했습니다. 터미널에 선택을 적어 주세요.";
+    }
+  });
+
+  // ---------- 루프: 시계는 rAF 인자 하나만 쓴다 (web-demo PITFALLS) ----------
+  let last = null, time = 0, grainTick = 0;
+  const bar = document.getElementById("bar"), pct = document.getElementById("pct"), hint = document.getElementById("hint");
+  function frame(ts) {
+    if (last === null) last = ts;
+    let dt = (ts - last) / 1000;
+    last = ts;
+    if (!(dt > 0)) dt = 0;
+    dt = Math.min(dt, .05);
+    time += dt;
+    if (playing) {
+      const max = maxScroll();
+      playPos = Math.min(max, playPos + (max / 11) * dt);
+      scroller.scrollTop = playPos;
+      if (playPos >= max - 1) { playing = false; updatePlay(); }
+    }
+    const max = maxScroll();
+    const target = max > 0 ? clamp(scroller.scrollTop / max) : 0;
+    prog += (target - prog) * (1 - Math.exp(-dt * 10));
+    const W = size.w, H = size.h;
+    bctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    bctx.clearRect(0, 0, W, H);
+    fctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    fctx.clearRect(0, 0, W, H);
+    const s = SCENES[cur].run(prog, time, W, H, bctx, fctx, ov);
+    drawSun(s, time);
+    bar.style.width = `${prog * 100}%`;
+    pct.textContent = `${Math.round(prog * 100)}%`;
+    hint.style.opacity = prog < .02 && !playing ? 1 : 0;
+    if (grainTick++ % 3 === 0) {
+      grain.style.opacity = cur === "d" && prog < .72 ? .22 : 0;
+      grain.style.transform = `translate(${(-Math.random() * 25).toFixed(1)}%,${(-Math.random() * 25).toFixed(1)}%)`;
+    }
+    timeline.querySelectorAll(".ph").forEach((el, i, all) => {
+      const at = +el.dataset.at / 100, next = all[i + 1] ? +all[i + 1].dataset.at / 100 : 2;
+      el.classList.toggle("on", prog + .001 >= at && prog + .001 < next);
+    });
+    requestAnimationFrame(frame);
+  }
+
+  select("d");
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
