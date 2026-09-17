@@ -121,6 +121,16 @@ AGENTS.md와 <내 영역 AGENTS.md 경로>를 먼저 읽고 규칙을 따라줘.
 이슈 본문을 읽고, 브랜치 이름과 수정 허용 파일을 확인한 뒤 계획부터 3줄로 보여줘.
 ```
 
+### 이슈 만들기 (이재원 — `back` 영역만)
+
+```
+AGENTS.md와 backend/AGENTS.md를 먼저 읽고 규칙을 따라줘.
+<무엇을 만들지 한두 문장> 작업의 이슈 초안을 .github/ISSUE_TEMPLATE/task.md 양식으로 써줘.
+브랜치 이름은 <종류>/back-<설명>, 수정 허용 파일은 backend/ · frontend/app/api/ · frontend/lib/server/ 안에서만.
+계약(docs/CONTRACT_API.md)이 바뀌면 알려줘. 초안을 내가 확인한 뒤에
+gh issue create --assignee leejaewon23 --label back 으로 올려줘. 머지는 하지 마.
+```
+
 ### 에러가 났을 때
 
 ```
