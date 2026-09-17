@@ -30,7 +30,7 @@
 |---|------|----------|
 | 1 | **AI나 초보가 main에 직접 push** — 2026-09-16 실제 발생 | **[`.githooks/`](.githooks/)가 거부** + 머지는 팀장만 + [`docs/GIT_RULES.md`](docs/GIT_RULES.md) · [`docs/PITFALLS.md`](docs/PITFALLS.md) |
 | 2 | `force push`·`reset --hard`로 작업 소실 | `.githooks/pre-push` + 아래 "절대 하지 말 것" |
-| 3 | 이슈 없이 시작한 작업이 범위를 넘음 | **팀원 작업은 이슈로만 요청하고 이슈로만 시작한다** → [`docs/ISSUE_GUIDE.md`](docs/ISSUE_GUIDE.md) |
+| 3 | 이슈 없이 시작한 작업이 범위를 넘음 | **모든 작업은 이슈로 시작한다.** 이슈는 팀장이 쓰고, `back` 영역은 이재원도 쓴다 → [`docs/ISSUE_GUIDE.md`](docs/ISSUE_GUIDE.md) |
 | 4 | 남의 영역을 잘못 건드림 | 영역 `AGENTS.md` "하지 말 것" + [`.github/CODEOWNERS`](.github/CODEOWNERS) |
 | 5 | 팀원마다 AI 도구가 다름 (Codex 2 · Claude Code 1) | 규칙 원본은 `AGENTS.md` 하나. `CLAUDE.md`는 불러오기만 |
 | 6 | 계약 없이 병렬 작업 → 서로 기다림 | [`docs/CONTRACT_API.md`](docs/CONTRACT_API.md) + mock 데이터로 먼저 개발 |
@@ -45,7 +45,7 @@
 |------|--------|----|------|------|
 | **봉준표** (팀장) | `bongjunpyo` | Claude Code | `frontend/` 공통 · 페이지 · 3D 뼈대 | 정보구조·Figma, 브랜드 소개·컬렉션·제작 기록 페이지, WebGL 핵심(태양 셰이더·씬 구조·보드 좌표), **이슈 작성 · 리뷰 · main 머지(단독)** |
 | **조수희** | `whtngml18` | Codex | `frontend/components/interaction/` | GSAP 스크롤 연출, 실내·햇빛 발색 비교 콘텐츠, 씬 파라미터 조정. **팀장이 올린 이슈로만 작업** |
-| **이재원** | `leejaewon23` | Codex | `backend/` + `frontend/app/api/` + `frontend/lib/server/` | Next.js 서버 API, Sanity CMS, Supabase, 자외선지수 API, 환경변수, Vercel 배포 |
+| **이재원** | `leejaewon23` | Codex | `backend/` + `frontend/app/api/` + `frontend/lib/server/` | Next.js 서버 API, Sanity CMS, Supabase, 자외선지수 API, 환경변수, Vercel 배포. **`back` 영역 이슈·브랜치를 직접 만든다** (머지는 팀장) |
 
 **3D는 순서가 있다.** 준표가 `frontend/components/scene/`에 WebGL 뼈대를 먼저 세우고, 수희는 그 공개 부품 위에 스크롤 연출과 파라미터를 얹는다.
 
@@ -81,11 +81,11 @@
 
 ## 작업 흐름
 
-1. **팀장이 이슈를 올린다.** 담당자·브랜치 이름·수정 허용 파일을 이슈에 적는다 → [`docs/ISSUE_GUIDE.md`](docs/ISSUE_GUIDE.md)
+1. **이슈를 올린다.** 팀장이 쓴다. **이재원은 `back` 영역 이슈를 직접 쓰고 자신에게 배정한다.** 담당자·브랜치 이름·수정 허용 파일을 이슈에 적는다 → 권한 표는 [`docs/GIT_RULES.md`](docs/GIT_RULES.md) "누가 무엇을 하나"
 2. 담당자는 **이슈에 적힌 브랜치 이름 그대로** main에서 브랜치를 딴다
 3. 작게 작업하고 PR을 연다. **PR 본문 첫 줄은 `Closes #이슈번호`**
 4. **팀장만 squash merge 한다.** 팀원은 GitHub 웹의 Merge 버튼, `gh pr merge`, AI 도구의 머지 기능을 쓰지 않는다
-5. 머지되면 이슈가 자동으로 닫히고 **원격 브랜치가 자동으로 삭제**된다. PR 없이 닫는 이슈는 팀장이 브랜치를 함께 지운다
+5. 머지되면 이슈가 자동으로 닫히고 **원격 브랜치가 자동으로 삭제**된다. PR 없이 닫는 이슈(취소·중복)는 닫는 사람이 브랜치를 함께 지운다 — 팀장, 또는 자기 `back` 이슈의 이재원
 6. 담당자는 로컬 브랜치를 정리한다 — `git switch main` → `git pull` → `git branch -d <브랜치>`
 
 브랜치 이름은 `<종류>/<영역>-<짧은-설명>`, 영문 소문자와 `-`만 쓴다.
@@ -105,7 +105,7 @@ chore/gitignore-vercel           잡일
 1. **main에 직접 commit·push** — `pre-push` 훅이 거부한다. 팀장만 예외
 2. **PR 머지** — 팀장(봉준표)만 한다. Merge 버튼 · `gh pr merge` · AI 도구의 머지 기능 전부 금지
 3. **`git push --force` · `git reset --hard` · `git branch -D` · `git clean -fd`** — 되돌릴 수 없다. 필요하면 팀장에게
-4. **이슈 없이 작업 시작** (팀원) — 이슈가 없으면 멈추고 팀장에게 이슈를 요청한다
+4. **이슈 없이 작업 시작** — 조수희는 멈추고 팀장에게 이슈를 요청한다. 이재원은 `back` 영역이면 이슈를 먼저 쓰고 시작한다
 5. **남의 영역 수정** — 이슈나 PR 코멘트로 요청한다
 6. **비밀정보 커밋·노출** — `.env*`, Sanity 토큰, Supabase `service_role` 키, 공공데이터포털 인증키. **서버 전용 키에 `NEXT_PUBLIC_`을 붙이지 않는다** (붙이면 브라우저에 그대로 노출된다)
 7. **개인정보 커밋** — 주문·설문 응답, 고객 사진·문구, 학번·연락처(기획서 `.hwpx` 원본 포함)
