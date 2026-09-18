@@ -20,6 +20,7 @@
   left: 8vw;
   top: 31%;
   max-width: 55vw;
+  opacity: var(--copy-opacity, 1);
 }
 
 .copy h1 {
@@ -37,6 +38,7 @@
 }
 
 .bottom {
+  opacity: var(--bottom-opacity, 1);
   position: absolute;
   bottom: 30px;
   left: 4vw;
@@ -47,6 +49,47 @@
   font-size: var(--step-1);
   letter-spacing: 1px;
   color: #cbc6bc;
+}
+
+/* 연출이 채우는 자리 — 변수를 아무도 안 채우면 보이지 않는다 */
+.wash {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  opacity: var(--wash-opacity, 0);
+  pointer-events: none;
+}
+
+.arrival {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--ink);
+  opacity: var(--arrival-opacity, 0);
+  pointer-events: none;
+}
+
+.arrival p {
+  font-size: clamp(25px, 4vw, 55px);
+  letter-spacing: -0.055em;
+  margin: var(--step-2) 0 0;
+}
+
+.arrivalEyebrow {
+  font-size: var(--step-1);
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+}
+
+.progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: var(--gold);
+  width: var(--progress-width, 0);
 }
 
 .skip {

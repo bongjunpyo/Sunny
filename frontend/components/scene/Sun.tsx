@@ -10,25 +10,26 @@ import styles from "./Sun.module.css";
  *
  *  지금 속은 시안의 SVG 원반이다. 코드로 그린 연출이며 실제 태양 사진이 아니다. */
 export function Sun({
-  progress = 0,
+  progress,
   isMobile = false,
   reduced = false,
 }: {
+  /** 주지 않으면 바깥(히어로)의 CSS 변수를 따른다 — 연출 부품이 채운다 */
   progress?: number;
   isMobile?: boolean;
   reduced?: boolean;
 }) {
-  const { xPercent, scale } = sunTransform(reduced ? 0 : progress, isMobile);
-  const style = {
-    "--sun-x": `${xPercent}%`,
-    "--sun-scale": scale,
-  } as CSSProperties;
+  const driven = progress === undefined;
+  const { xPercent, scale } = sunTransform(reduced ? 0 : (progress ?? 0), isMobile);
+  const style = driven
+    ? undefined
+    : ({ "--sun-x": `${xPercent}%`, "--sun-scale": scale } as CSSProperties);
 
   return (
     <div
       className={styles.sun}
       style={style}
-      data-static={progress === 0 || reduced ? "true" : "false"}
+      data-static={!driven && (progress === 0 || reduced) ? "true" : "false"}
       aria-hidden="true"
     >
       <svg viewBox="0 0 600 600">
