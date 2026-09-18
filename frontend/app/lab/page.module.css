@@ -1,0 +1,40 @@
+.lab {
+  padding: var(--step-5) var(--page-x) 40svh;
+}
+
+.note {
+  border: 1px solid var(--line);
+  padding: var(--step-2);
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 44rem;
+}
+
+.spacer {
+  height: 70svh;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+
+.block {
+  max-width: 44rem;
+  margin: 0 0 var(--step-5);
+}
+
+.block h2 {
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  font-size: clamp(30px, 4vw, 56px);
+  line-height: 1.28;
+  margin: 0 0 var(--step-3);
+}
+
+.block p {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 2;
+  margin: 0;
+}
