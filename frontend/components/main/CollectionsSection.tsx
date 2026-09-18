@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { getProducts } from "../../lib/api.ts";
 import type { Product } from "../../lib/types.ts";
 import { ProductArt } from "./ProductArt.tsx";
+import { TextLink } from "../common/TextLink.tsx";
 import styles from "./main.module.css";
 
 const KIND_LABEL = { bracelet: "팔찌", necklace: "목걸이" } as const;
@@ -29,15 +31,17 @@ export async function CollectionsSection() {
         </p>
       </div>
       <div className={styles.productGrid}>
-        {products.map((product: Product) => (
+        {products.slice(0, 2).map((product: Product) => (
           <article key={product.slug}>
-            <ProductArt kind={product.kind} />
-            <div className={styles.productMeta}>
-              <h3>{product.name}</h3>
-              <span>
-                {KIND_LABEL[product.kind]} 컬렉션 / {STATUS_LABEL[product.status]}
-              </span>
-            </div>
+            <Link href={`/collection/${product.slug}`}>
+              <ProductArt kind={product.kind} />
+              <div className={styles.productMeta}>
+                <h3>{product.name}</h3>
+                <span>
+                  {KIND_LABEL[product.kind]} 컬렉션 / {STATUS_LABEL[product.status]}
+                </span>
+              </div>
+            </Link>
             <p className={styles.productNote}>{product.summary}</p>
           </article>
         ))}
@@ -45,6 +49,7 @@ export async function CollectionsSection() {
       <p className={styles.caption}>
         이미지는 형태 연구용 그래픽이며 실제 상품의 소재 · 디자인 · 가격을 나타내지 않습니다.
       </p>
+      <TextLink href="/collection">컬렉션 전체 보기</TextLink>
     </section>
   );
 }

@@ -9,11 +9,23 @@ export interface Product {
   slug: string;
   kind: ProductKind;
   name: string;
+  /** 목록 카드에 쓰는 한 줄 */
   summary: string;
+  /** 상세에 쓰는 이야기 문단 */
+  story: string[];
   colors: PhotochromicColor[];
   /** 판매 상태가 정해지기 전에는 "planning" */
   status: "planning" | "available" | "soldout";
 }
+
+/** 광변색 색 이름 — 화면 문구의 원본 */
+export const COLOR_LABEL: Record<PhotochromicColor, string> = {
+  red: "빨강",
+  orange: "주황",
+  blue: "파랑",
+  yellow: "노랑",
+  violet: "보라",
+};
 
 /** 태양 관측 이미지. 관측 시각을 확인하지 못하면 observedAt 은 null 이다. */
 export interface SolarImage {

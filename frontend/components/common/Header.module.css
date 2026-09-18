@@ -12,6 +12,14 @@
   border-bottom: 1px solid #ffffff29;
 }
 
+/* 종이색 페이지용 */
+.light {
+  position: absolute;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
 .logo {
   font-size: 27px;
   letter-spacing: -2px;

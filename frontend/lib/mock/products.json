@@ -4,7 +4,14 @@
     "kind": "bracelet",
     "name": "Light study 01",
     "summary": "손목의 움직임과 빛의 관계를 탐색하는 형태 연구입니다.",
-    "colors": ["violet", "blue"],
+    "story": [
+      "손목은 하루 중 가장 자주 빛을 만나는 자리입니다. 팔을 뻗을 때, 창가에 손을 올릴 때 비즈가 받는 빛의 양이 달라집니다.",
+      "실내에서는 흰색에 가깝고, 햇빛(자외선)을 만나면 색이 드러납니다. 색이 얼마나 짙어지는지는 농도와 노출 시간, 날씨에 따라 달라집니다."
+    ],
+    "colors": [
+      "violet",
+      "blue"
+    ],
     "status": "planning"
   },
   {
@@ -12,7 +19,44 @@
     "kind": "necklace",
     "name": "Light study 02",
     "summary": "목선을 따라 이어지는 빛과 균형을 탐색하는 형태 연구입니다.",
-    "colors": ["orange", "yellow"],
+    "story": [
+      "목선은 빛이 스치듯 지나가는 자리입니다. 고개를 돌리는 각도에 따라 비즈가 받는 빛이 바뀝니다.",
+      "실내에서는 흰색에 가깝고, 햇빛(자외선)을 만나면 색이 드러납니다. 시험 기록은 제작 기록에 함께 남깁니다."
+    ],
+    "colors": [
+      "orange",
+      "yellow"
+    ],
+    "status": "planning"
+  },
+  {
+    "slug": "light-study-03",
+    "kind": "bracelet",
+    "name": "Light study 03",
+    "summary": "굵기가 다른 비즈를 섞어 빛의 결을 살핀 형태 연구입니다.",
+    "story": [
+      "같은 색이라도 비즈의 크기가 달라지면 빛이 닿는 면이 달라집니다.",
+      "이 연구는 굵기 조합을 바꿔 가며 색이 드러나는 속도를 비교하기 위한 것입니다."
+    ],
+    "colors": [
+      "red",
+      "violet"
+    ],
+    "status": "planning"
+  },
+  {
+    "slug": "light-study-04",
+    "kind": "necklace",
+    "name": "Light study 04",
+    "summary": "긴 길이에서 빛이 어떻게 흩어지는지 살핀 형태 연구입니다.",
+    "story": [
+      "길이가 길어지면 빛을 받는 구간과 그늘에 남는 구간이 함께 생깁니다.",
+      "한 벌 안에서 색이 다르게 드러나는 모습을 기록하기 위한 연구입니다."
+    ],
+    "colors": [
+      "blue",
+      "yellow"
+    ],
     "status": "planning"
   }
 ]
