@@ -70,3 +70,17 @@ test.describe("모션 감소 설정", () => {
     await expect(headline).toBeVisible();
   });
 });
+
+test("연출이 없어도 히어로는 그대로다", async ({ page }) => {
+  await page.goto("/");
+  const hero = page.locator("[data-hero-motion]");
+  await expect(hero).toHaveAttribute("data-hero-motion", "pending");
+
+  // 문구는 보이고, 덮기·도착 문구는 보이지 않는다
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const arrivalOpacity = await page.evaluate(() => {
+    const el = document.querySelector("#top [class*='arrival']");
+    return el ? Number(getComputedStyle(el).opacity) : -1;
+  });
+  expect(arrivalOpacity).toBe(0);
+});
