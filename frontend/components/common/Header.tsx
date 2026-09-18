@@ -1,10 +1,12 @@
 import Link from "next/link";
 import styles from "./Header.module.css";
 
-/** 히어로 위에 겹쳐 놓는 머리말. 배경이 어두운 구간 기준 색이다. */
-export function Header() {
+/** 머리말.
+ *  `dark`(기본)이면 히어로 위에 겹쳐 놓는 어두운 배경용,
+ *  `dark={false}`면 종이색 페이지의 맨 위에 놓는 밝은 배경용이다. */
+export function Header({ dark = true }: { dark?: boolean }) {
   return (
-    <header className={styles.header}>
+    <header className={dark ? styles.header : `${styles.header} ${styles.light}`}>
       <Link className={styles.logo} href="#top" aria-label="SUNNY 처음으로">
         SUNNY
       </Link>
