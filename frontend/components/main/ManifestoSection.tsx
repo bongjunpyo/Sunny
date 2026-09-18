@@ -1,3 +1,4 @@
+import { RevealText } from "../interaction/RevealText.tsx";
 import styles from "./main.module.css";
 
 export function ManifestoSection() {
@@ -10,11 +11,9 @@ export function ManifestoSection() {
       />
       <div className={styles.manifestoCopy}>
         <span className={styles.eyebrow}>THE SUNNY PERSPECTIVE</span>
-        <h2 className={styles.headline} id="manifesto-title">
-          더 빛나기보다,
-          <br />
-          나의 빛에 가까이.
-        </h2>
+        <div className={styles.revealHeadline} id="manifesto-title">
+          <RevealText as="h2" text="더 빛나기보다, 나의 빛에 가까이." />
+        </div>
         <p>
           눈에 띄는 장식보다 오래 바라보게 되는 감각.
           <br />
