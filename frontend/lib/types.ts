@@ -40,3 +40,9 @@ export interface SolarImage {
   sourceUrl: string;
   status: "available" | "cached" | "unavailable";
 }
+
+/** 로그인한 회원 — 화면이 보여주는 최소한만 담는다 (민감정보 최소 반환) */
+export interface Member {
+  email: string;
+  nickname: string;
+}

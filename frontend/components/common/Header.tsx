@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccountNav } from "../auth/AccountNav.tsx";
 import styles from "./Header.module.css";
 
 /** 머리말.
@@ -11,11 +12,13 @@ export function Header({ dark = true }: { dark?: boolean }) {
         SUNNY
       </Link>
       <nav className={styles.nav} aria-label="주 메뉴">
-        <Link href="#collections">Collections</Link>
-        <Link href="#story">Our Story</Link>
-        <Link href="#journal">Solar Journal</Link>
+        <Link href="/collection">Collections</Link>
+        <Link href="/#story">Our Story</Link>
+        <Link href="/#journal">Solar Journal</Link>
       </nav>
-      <span className={styles.edition}>BRAND STUDY — 01</span>
+      <nav className={styles.nav} aria-label="회원 메뉴">
+        <AccountNav />
+      </nav>
     </header>
   );
 }
