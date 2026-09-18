@@ -23,13 +23,14 @@
 
 .lead {
   color: var(--muted);
-  font-size: 13px;
-  max-width: 30rem;
+  font-size: var(--text-small);
+  max-width: var(--measure);
   margin: 0 0 var(--step-5);
 }
 
 .filters {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--step-1);
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -39,7 +40,11 @@
 }
 
 .filters a {
-  padding: 8px 16px;
+  /* 손가락으로 누를 수 있는 최소 크기 */
+  padding: 12px 18px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .filters a[aria-current="true"] {
@@ -55,34 +60,35 @@
 
 .name {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
   padding: 16px 0 8px;
   border-bottom: 1px solid var(--line);
-  gap: var(--step-2);
+  gap: 4px var(--step-2);
 }
 
 .name h2 {
-  font-size: 20px;
+  font-size: clamp(19px, 1.1rem + 0.3vw, 24px);
   font-weight: 400;
   margin: 0;
   letter-spacing: -0.7px;
 }
 
 .name span {
-  font-size: 11px;
+  font-size: var(--text-caption);
   color: var(--muted);
   white-space: nowrap;
 }
 
 .summary {
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--muted);
   margin: var(--step-1) 0 0;
 }
 
 .note {
-  font-size: var(--step-1);
+  font-size: var(--text-caption);
   color: var(--muted);
   margin-top: var(--step-5);
 }

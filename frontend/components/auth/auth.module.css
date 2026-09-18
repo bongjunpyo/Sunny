@@ -1,14 +1,51 @@
 .page {
   padding: 120px var(--page-x) var(--step-6);
-  max-width: 460px;
+  max-width: 1180px;
   margin: 0 auto;
+}
+
+/* 넓은 화면에서는 왼쪽에 이야기, 오른쪽에 입력칸 — 가운데만 쓰고 양옆을 비우지 않는다 */
+.layout {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: clamp(40px, 6vw, 96px);
+  align-items: start;
+}
+
+.intro {
+  max-width: var(--measure-narrow);
+}
+
+.intro p {
+  color: var(--muted);
+  font-size: var(--text-small);
+  line-height: 2;
+}
+
+.form {
+  max-width: 460px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 104px var(--page-x) var(--step-5);
+  }
+  .layout {
+    grid-template-columns: 1fr;
+    gap: var(--step-4);
+  }
+  .intro,
+  .form {
+    max-width: 560px;
+  }
 }
 
 .warn {
   border: 1px solid var(--line);
   background: #00000008;
   padding: var(--step-2);
-  font-size: 11px;
+  font-size: var(--text-caption);
+  max-width: var(--measure);
   color: var(--muted);
   line-height: 1.8;
   margin-bottom: var(--step-4);
@@ -22,23 +59,26 @@
 }
 
 .title {
-  font-size: clamp(34px, 5vw, 46px);
+  font-size: clamp(32px, 2.2rem + 1.6vw, 56px);
   font-weight: 400;
   letter-spacing: -0.05em;
+  line-height: 1.18;
   margin: var(--step-2) 0 var(--step-3);
 }
 
 .field {
   display: block;
   margin: 0 0 var(--step-3);
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--muted);
 }
 
 .field input {
   display: block;
   width: 100%;
+  min-height: 48px;
   padding: 12px;
+  font-size: var(--text-small);
   margin-top: 7px;
   background: transparent;
   border: 1px solid var(--line);
@@ -61,18 +101,19 @@
   border-top: 1px solid var(--line);
   padding-top: var(--step-2);
   margin-bottom: var(--step-3);
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 
 .terms label {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
-  margin-bottom: var(--step-1);
+  min-height: 44px;
 }
 
 .submit {
   width: 100%;
+  min-height: 48px;
   padding: 14px;
   background: var(--ink);
   color: var(--paper);
@@ -87,6 +128,7 @@
 
 .ghost {
   width: 100%;
+  min-height: 48px;
   padding: 13px;
   background: transparent;
   border: 1px solid var(--line);
@@ -96,10 +138,11 @@
 
 .links {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: var(--step-2);
   margin-top: var(--step-3);
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--muted);
 }
 
@@ -108,6 +151,6 @@
   background: #a4472f0f;
   color: #7c3520;
   padding: var(--step-2);
-  font-size: 12px;
+  font-size: var(--text-caption);
   margin-bottom: var(--step-2);
 }

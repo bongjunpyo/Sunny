@@ -3,7 +3,7 @@
 }
 
 .crumb {
-  font-size: var(--step-1);
+  font-size: var(--text-caption);
   letter-spacing: 1.8px;
   color: var(--muted);
   border-top: 1px solid var(--line);
@@ -28,8 +28,9 @@
 
 .meta {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--step-2);
-  font-size: 11px;
+  font-size: var(--text-caption);
   color: var(--muted);
   letter-spacing: 1px;
   border-bottom: 1px solid var(--line);
@@ -39,9 +40,9 @@
 
 .story p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--text-small);
   line-height: 2;
-  max-width: 34rem;
+  max-width: var(--measure);
 }
 
 .colors {
@@ -55,9 +56,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--text-caption);
   border: 1px solid var(--line);
-  padding: 8px 14px;
+  padding: 10px 16px;
+  white-space: nowrap;
 }
 
 .swatch {
@@ -80,16 +82,17 @@
 }
 
 .compare p {
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--muted);
   margin: 0;
   line-height: 1.9;
+  max-width: var(--measure);
 }
 
 .back {
   display: inline-block;
   margin-top: var(--step-5);
-  font-size: 12px;
+  font-size: var(--text-caption);
   border-bottom: 1px solid currentColor;
   padding-bottom: 6px;
 }

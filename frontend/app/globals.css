@@ -12,6 +12,17 @@
 
   --font-sans: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 
+  /* 글자 크기 — 좁은 화면과 넓은 화면의 두 값을 정하면 사이는 자동으로 커진다.
+     390px 기준 앞의 값, 1440px 기준 뒤의 값. */
+  --text-body: clamp(15px, 0.95rem + 0.22vw, 17px);
+  --text-small: clamp(13.5px, 0.85rem + 0.2vw, 16px);
+  --text-caption: clamp(11px, 0.7rem + 0.15vw, 13px);
+  --text-label: clamp(10px, 0.62rem + 0.1vw, 11.5px);
+
+  /* 한 줄 길이 — px 이 아니라 글자 수로 정한다 */
+  --measure: 62ch;
+  --measure-narrow: 46ch;
+
   --step-1: 10px;
   --step-2: 15px;
   --step-3: 25px;
@@ -19,7 +30,8 @@
   --step-5: 65px;
   --step-6: 100px;
 
-  --page-x: 7vw;
+  /* 아주 넓은 화면에서 여백이 과하게 벌어지지 않게 상한을 둔다 */
+  --page-x: clamp(24px, 7vw, 110px);
 }
 
 * {
@@ -37,7 +49,21 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font: 15px/1.7 var(--font-sans);
+  font: var(--text-body) / 1.7 var(--font-sans);
+  /* 한글은 단어(어절) 안에서 자르지 않는다 — "반가워 / 요." 를 막는다 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3 {
+  /* 제목은 줄 길이를 고르게 나눈다 (지원하지 않는 브라우저는 그대로) */
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 a {

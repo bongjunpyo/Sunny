@@ -1,5 +1,7 @@
 .page {
   padding: 120px var(--page-x) var(--step-6);
+  max-width: 1180px;
+  margin: 0 auto;
 }
 
 .head {
@@ -19,7 +21,7 @@
 }
 
 .email {
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--muted);
   margin: 0;
 }
@@ -33,14 +35,16 @@
 
 .menu a,
 .menu button {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
+  min-height: 48px;
   text-align: left;
   padding: 14px 0;
   border: 0;
   border-bottom: 1px solid var(--line);
   background: none;
-  font-size: 13px;
+  font-size: var(--text-small);
 }
 
 .section {
@@ -48,7 +52,7 @@
 }
 
 .section h2 {
-  font-size: 18px;
+  font-size: clamp(17px, 1rem + 0.3vw, 21px);
   font-weight: 400;
   margin: 0 0 var(--step-2);
 }
@@ -58,7 +62,7 @@
   padding: var(--step-4);
   text-align: center;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-caption);
   line-height: 2;
 }
 
@@ -67,7 +71,8 @@
 }
 
 .notice {
-  font-size: 11px;
+  font-size: var(--text-caption);
+  max-width: var(--measure);
   color: var(--muted);
   line-height: 1.9;
   border-top: 1px solid var(--line);
