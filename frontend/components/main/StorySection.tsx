@@ -1,4 +1,5 @@
 import { TextLink } from "../common/TextLink.tsx";
+import { RevealText } from "../interaction/RevealText.tsx";
 import styles from "./main.module.css";
 
 export function StorySection() {
@@ -11,23 +12,16 @@ export function StorySection() {
       <div className={styles.storyGrid}>
         <div>
           <div className={styles.eyebrow}>A quiet connection.</div>
-          <h2 className={styles.headline}>
-            빛은 지나가고,
-            <br />
-            감각은 머뭅니다.
-          </h2>
-          <p className={styles.bodyCopy}>
-            창가를 가로지르는 오후의 빛.
-            <br />
-            피부 위에 남는 짧은 온기.
-            <br />
-            우리는 일상 속 빛의 순간에서 시작합니다.
-          </p>
-          <p className={styles.bodyCopy}>
-            SUNNY는 태양과의 연결을
-            <br />
-            몸에 지니는 형태로 풀어가는 브랜드입니다.
-          </p>
+          {/* 수희의 연출 부품. 줄바꿈 태그 대신 최대 너비로 접는다 (부품 입력은 text·as 두 개) */}
+          <div className={styles.revealHeadline}>
+            <RevealText as="h2" text="빛은 지나가고, 감각은 머뭅니다." />
+          </div>
+          <div className={styles.revealBody}>
+            <RevealText text="창가를 가로지르는 오후의 빛. 피부 위에 남는 짧은 온기. 우리는 일상 속 빛의 순간에서 시작합니다." />
+          </div>
+          <div className={styles.revealBody}>
+            <RevealText text="SUNNY는 태양과의 연결을 몸에 지니는 형태로 풀어가는 브랜드입니다." />
+          </div>
           <TextLink href="#collections" mark="↓">
             두 가지 형태의 시작
           </TextLink>

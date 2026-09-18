@@ -38,3 +38,35 @@ test("키보드 첫 탭에서 컬렉션 바로가기에 닿는다", async ({ pag
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "컬렉션으로 바로 가기" })).toBeFocused();
 });
+
+test("이야기 구간 문구는 스크롤하면 나타난다", async ({ page }) => {
+  await page.goto("/");
+  const headline = page.locator("#story [data-reveal]").first();
+  // 연출 전에도 글자는 문서에 있다 (검색 · 스크린리더)
+  await expect(headline).toContainText("빛은 지나가고");
+  await expect(headline).toHaveAttribute("data-reveal", "pending");
+
+  await page.locator("#story").scrollIntoViewIfNeeded();
+  await expect(headline).toHaveAttribute("data-reveal", "done", { timeout: 5000 });
+});
+
+test("매니페스토 제목도 같은 연출을 쓴다", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#manifesto-title").scrollIntoViewIfNeeded();
+  await expect(page.locator("#manifesto-title [data-reveal]")).toHaveAttribute(
+    "data-reveal",
+    "done",
+    { timeout: 5000 }
+  );
+});
+
+test.describe("모션 감소 설정", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("연출 없이 처음부터 읽힌다", async ({ page }) => {
+    await page.goto("/");
+    const headline = page.locator("#story [data-reveal]").first();
+    await expect(headline).toHaveAttribute("data-reveal", "done", { timeout: 5000 });
+    await expect(headline).toBeVisible();
+  });
+});
