@@ -1,0 +1,14 @@
+.word {
+  display: inline-block;
+  transform: translateY(24px);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word {
+    transform: none;
+    opacity: 1;
+    will-change: auto;
+  }
+}
