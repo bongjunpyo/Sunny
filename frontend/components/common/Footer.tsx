@@ -2,12 +2,16 @@ import Link from "next/link";
 import { TextLink } from "./TextLink.tsx";
 import styles from "./Footer.module.css";
 
-export function Footer() {
+/** 마무리.
+ *  `variant="brand"` — 메인의 마지막을 장식하는 큰 워드마크 (메인에서만)
+ *  `variant="compact"` (기본) — 다른 페이지용. 워드마크를 작게 두고 높이를 줄인다 */
+export function Footer({ variant = "compact" }: { variant?: "brand" | "compact" }) {
+  const brand = variant === "brand";
   return (
-    <footer className={styles.closing}>
+    <footer className={brand ? styles.closing : `${styles.closing} ${styles.compact}`}>
       <div className={styles.top}>
         <span>태양에서 시작된 새로운 감각.</span>
-        <TextLink href="#collections" mark="↑">
+        <TextLink href={brand ? "#collections" : "/collection"} mark="↑">
           컬렉션 다시 보기
         </TextLink>
       </div>

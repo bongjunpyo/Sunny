@@ -34,8 +34,8 @@
 
 .bodyCopy {
   color: var(--muted);
-  font-size: 14px;
-  max-width: 370px;
+  font-size: var(--text-small);
+  max-width: var(--measure-narrow);
   line-height: 2;
 }
 
@@ -52,8 +52,8 @@
 
 .revealBody p {
   color: var(--muted);
-  font-size: 14px;
-  max-width: 370px;
+  font-size: var(--text-small);
+  max-width: var(--measure-narrow);
   line-height: 2;
   margin: 0 0 var(--step-3);
 }
@@ -66,7 +66,7 @@
 }
 
 .caption {
-  font-size: var(--step-1);
+  font-size: var(--text-caption);
   color: var(--muted);
   margin-top: var(--step-1);
   letter-spacing: 0.4px;
@@ -135,9 +135,9 @@
 }
 
 .collectionTitle p {
-  max-width: 270px;
+  max-width: var(--measure-narrow);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 
 .productGrid {
@@ -183,15 +183,16 @@
 }
 
 .productMeta span {
-  font-size: 11px;
+  font-size: var(--text-caption);
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .productNote {
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--muted);
   margin-top: var(--step-2);
-  max-width: 34rem;
+  max-width: var(--measure);
 }
 
 /* 매니페스토 */
@@ -235,8 +236,8 @@
 
 .manifestoCopy p {
   color: #c9c5b8;
-  font-size: 13px;
-  max-width: 330px;
+  font-size: var(--text-small);
+  max-width: var(--measure-narrow);
 }
 
 /* 03 태양 기록 */
@@ -256,7 +257,7 @@
   padding: 8%;
   text-align: center;
   color: #b9b4a8;
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 
 .obsIcon {
@@ -270,13 +271,13 @@
 }
 
 .status {
-  font-size: 11px;
+  font-size: var(--text-caption);
   color: var(--muted);
   min-height: 22px;
 }
 
 .credits {
-  font-size: var(--step-1);
+  font-size: var(--text-label);
   color: var(--muted);
   line-height: 1.8;
   margin-top: var(--step-3);
@@ -312,7 +313,9 @@
     left: var(--step-1);
   }
   .productMeta {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px var(--step-2);
   }
   .manifesto {
     grid-template-columns: 1fr;

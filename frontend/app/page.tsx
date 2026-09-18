@@ -17,7 +17,7 @@ export default function HomePage() {
         <ManifestoSection />
         <SolarJournalSection />
       </main>
-      <Footer />
+      <Footer variant="brand" />
     </>
   );
 }

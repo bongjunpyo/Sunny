@@ -84,3 +84,47 @@ test("연출이 없어도 히어로는 그대로다", async ({ page }) => {
   });
   expect(arrivalOpacity).toBe(0);
 });
+
+test.describe("좁은 폭에서 겹치지 않는다", () => {
+  test.use({ viewport: { width: 360, height: 740 } });
+
+  test("히어로 문구와 아래 줄이 겹치지 않는다", async ({ page }) => {
+    await page.goto("/");
+    const copy = await page.locator("#top h1").boundingBox();
+    const bottom = await page.locator("#top [class*='bottom']").boundingBox();
+    expect(copy && bottom).toBeTruthy();
+    // 문구 아래쪽이 아래 줄 위쪽보다 위에 있어야 한다
+    expect(copy!.y + copy!.height).toBeLessThanOrEqual(bottom!.y);
+  });
+
+  test("가장 좁은 화면에서도 가로 스크롤이 없다", async ({ page }) => {
+    for (const path of ["/", "/collection", "/collection/light-study-01", "/login", "/signup"]) {
+      await page.goto(path);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth
+      );
+      expect(overflow, `${path} 에서 가로 스크롤`).toBe(false);
+    }
+  });
+});
+
+test.describe("넓은 폭에서 빈 공간을 쓴다", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("로그인은 두 칸으로 벌어진다", async ({ page }) => {
+    await page.goto("/login");
+    const intro = await page.getByRole("heading", { level: 1 }).boundingBox();
+    const emailBox = await page.getByLabel("이메일").boundingBox();
+    // 제목과 입력칸이 좌우로 나뉜다
+    expect(emailBox!.x).toBeGreaterThan(intro!.x + intro!.width * 0.5);
+  });
+
+  test("본문 글자가 너무 작지 않다", async ({ page }) => {
+    await page.goto("/collection");
+    const size = await page.evaluate(() => {
+      const el = document.querySelector("main p");
+      return el ? parseFloat(getComputedStyle(el).fontSize) : 0;
+    });
+    expect(size).toBeGreaterThanOrEqual(13);
+  });
+});
