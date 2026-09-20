@@ -46,3 +46,25 @@ export interface Member {
   email: string;
   nickname: string;
 }
+
+/** 커스텀 구성 — 비즈 배열은 고정이라 고르지 않는다 */
+export interface Customization {
+  productSlug: string;
+  color: PhotochromicColor;
+  length: string;
+  photoName: string | null;
+}
+
+/** 길이 선택지 — 제품 종류에 따라 다르다 */
+export const LENGTH_OPTIONS: Record<ProductKind, string[]> = {
+  bracelet: ["16 cm", "18 cm", "20 cm"],
+  necklace: ["40 cm", "45 cm", "50 cm"],
+};
+
+export const PHOTOCHROMIC_COLORS: PhotochromicColor[] = [
+  "red",
+  "orange",
+  "blue",
+  "yellow",
+  "violet",
+];
