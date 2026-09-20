@@ -1,0 +1,172 @@
+/* 데스크톱: 가운데 모달 / 모바일: 아래에서 올라오는 바텀시트 */
+.dialog {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 0;
+  width: min(720px, calc(100vw - 2 * var(--page-x)));
+  max-height: min(80svh, 760px);
+  overflow: hidden;
+}
+
+.dialog::backdrop {
+  background: #16150fa8;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+
+.head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--step-2);
+  padding: var(--step-3) var(--step-3) var(--step-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  font-size: clamp(20px, 1.2rem + 0.5vw, 26px);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.meta {
+  font-size: var(--text-label);
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  margin: 6px 0 0;
+}
+
+.close {
+  border: 1px solid var(--line);
+  background: transparent;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 16px;
+  line-height: 1;
+  flex: none;
+}
+
+.body {
+  overflow-y: auto;
+  padding: var(--step-3);
+  -webkit-overflow-scrolling: touch;
+}
+
+.notice {
+  border: 1px solid var(--line);
+  background: #00000008;
+  padding: var(--step-2);
+  font-size: var(--text-caption);
+  color: var(--muted);
+  line-height: 1.9;
+  margin: 0 0 var(--step-3);
+}
+
+.section {
+  margin-bottom: var(--step-3);
+}
+
+.section h3 {
+  font-size: var(--text-small);
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.section p {
+  font-size: var(--text-caption);
+  color: var(--muted);
+  line-height: 1.95;
+  margin: 0 0 8px;
+  max-width: var(--measure);
+}
+
+.foot {
+  border-top: 1px solid var(--line);
+  padding: var(--step-2) var(--step-3);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--step-2);
+  align-items: center;
+  font-size: var(--text-caption);
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.switch {
+  background: none;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  padding: 4px 0;
+  font-size: var(--text-caption);
+  color: inherit;
+}
+
+.done {
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: var(--text-caption);
+}
+
+/* 모바일 — 바텀시트 */
+@media (max-width: 700px) {
+  .dialog {
+    width: 100vw;
+    max-width: none;
+    max-height: 88svh;
+    margin: 0;
+    position: fixed;
+    inset: auto 0 0 0;
+    border-width: 1px 0 0;
+    animation: slideUp 0.28s ease-out;
+  }
+  .head,
+  .body,
+  .foot {
+    padding-left: var(--page-x);
+    padding-right: var(--page-x);
+  }
+  /* 손으로 끌어 내리는 느낌의 손잡이 */
+  .grip {
+    width: 42px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    margin: 10px auto 0;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(14%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog {
+    animation: none;
+  }
+}
+
+.grip {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .grip {
+    display: block;
+  }
+}
