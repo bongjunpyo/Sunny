@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TextLink } from "./TextLink.tsx";
+import { LegalLinks } from "../legal/LegalLinks.tsx";
 import styles from "./Footer.module.css";
 
 /** 마무리.
@@ -20,6 +21,7 @@ export function Footer({ variant = "compact" }: { variant?: "brand" | "compact" 
       </div>
       <div className={styles.bottom}>
         <span>SUNNY — BRAND DIRECTION PREVIEW / 01</span>
+        <LegalLinks />
         <span>디자인 시안 · 카피 및 제품 형태 미확정 · 태양은 코드로 그린 연출</span>
         <Link href="#top">맨 위로 ↑</Link>
       </div>

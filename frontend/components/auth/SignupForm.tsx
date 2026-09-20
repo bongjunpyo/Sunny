@@ -11,6 +11,7 @@ import {
   validateRequiredTerms,
 } from "../../lib/validate.ts";
 import { Field } from "./Field.tsx";
+import { TermsDialog, useTermsDialog } from "../legal/TermsDialog.tsx";
 import styles from "./auth.module.css";
 
 export function SignupForm() {
@@ -22,6 +23,7 @@ export function SignupForm() {
   const [marketing, setMarketing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [busy, setBusy] = useState(false);
+  const legal = useTermsDialog();
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -78,7 +80,21 @@ export function SignupForm() {
             checked={requiredTerms}
             onChange={(event) => setRequiredTerms(event.target.checked)}
           />
-          <span>[필수] 이용약관 · 개인정보 처리방침에 동의합니다</span>
+          <span>
+            [필수]{" "}
+            <button type="button" className={styles.legalLink} onClick={() => legal.open("terms")}>
+              이용약관
+            </button>{" "}
+            ·{" "}
+            <button
+              type="button"
+              className={styles.legalLink}
+              onClick={() => legal.open("privacy")}
+            >
+              개인정보 처리방침
+            </button>
+            에 동의합니다
+          </span>
         </label>
         <label>
           <input
@@ -94,7 +110,7 @@ export function SignupForm() {
           </span>
         ) : null}
         <p className={styles.eyebrow} style={{ marginTop: "var(--step-1)" }}>
-          약관 본문과 버전은 서버 연결 후 표시합니다.
+          약관 이름을 누르면 전문을 볼 수 있습니다. 지금 문서는 검토 전 초안입니다.
         </p>
       </div>
 
@@ -106,6 +122,8 @@ export function SignupForm() {
         <span>이미 계정이 있나요?</span>
         <Link href="/login">로그인</Link>
       </p>
+
+      <TermsDialog docId={legal.openDoc} onClose={legal.close} onSwitch={legal.open} />
     </form>
   );
 }

@@ -154,3 +154,15 @@
   font-size: var(--text-caption);
   margin-bottom: var(--step-2);
 }
+
+/* 문장 안에서 약관 창을 여는 링크 */
+.legalLink {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
