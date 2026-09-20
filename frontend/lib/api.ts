@@ -1,5 +1,6 @@
-import type { Product, ProductKind } from "./types.ts";
+import type { Product, ProductKind, Story } from "./types.ts";
 import mockProducts from "./mock/products.json" with { type: "json" };
+import mockStories from "./mock/stories.json" with { type: "json" };
 
 /** 화면 코드는 fetch 를 직접 부르지 않고 이 파일의 함수만 부른다. */
 
@@ -24,4 +25,14 @@ export async function getProducts(kind?: ProductKind): Promise<Product[]> {
 export async function getProduct(slug: string): Promise<Product | null> {
   const all = await getProducts();
   return all.find((p) => p.slug === slug) ?? null;
+}
+
+export async function getStories(): Promise<Story[]> {
+  const all = await get<Story[]>("/api/archive", mockStories as Story[]);
+  return [...all].sort((a, b) => b.order - a.order);
+}
+
+export async function getStory(slug: string): Promise<Story | null> {
+  const all = await getStories();
+  return all.find((story) => story.slug === slug) ?? null;
 }
