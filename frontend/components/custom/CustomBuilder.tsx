@@ -24,10 +24,21 @@ const KIND_LABEL = { bracelet: "팔찌", necklace: "목걸이" } as const;
 
 /** 커스텀 구성 — 제품을 고르면 왼쪽에 그림, 오른쪽에 드롭다운이 붙는다.
  *  사진은 브라우저 안에서만 확인하고 서버로 보내지 않는다. */
-export function CustomBuilder({ products }: { products: Product[] }) {
-  const [productSlug, setProductSlug] = useState(products[0]?.slug ?? "");
+export function CustomBuilder({
+  products,
+  initialSlug,
+}: {
+  products: Product[];
+  /** 메인 카드에서 넘어오면 그 제품이 골라진 채로 시작한다 */
+  initialSlug?: string;
+}) {
+  const [productSlug, setProductSlug] = useState(initialSlug ?? products[0]?.slug ?? "");
   const [color, setColor] = useState<PhotochromicColor>("violet");
-  const [length, setLength] = useState("");
+  const [length, setLength] = useState(() => {
+    const first = products.find((item) => item.slug === (initialSlug ?? products[0]?.slug));
+    const options = first ? LENGTH_OPTIONS[first.kind] : [];
+    return options[1] ?? options[0] ?? "";
+  });
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);

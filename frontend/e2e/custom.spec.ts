@@ -89,3 +89,30 @@ test("커스텀 화면에 가로 스크롤이 없다", async ({ page }) => {
   );
   expect(overflow).toBe(false);
 });
+
+test("메인의 팔찌 카드를 누르면 그 제품이 골라진 커스텀으로 간다", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("heading", { name: "Light study 01" }).click();
+
+  await expect(page).toHaveURL(/\/custom\?product=light-study-01$/);
+  const summary = page.getByRole("complementary", { name: "구성 요약" });
+  await expect(summary).toContainText("Light study 01");
+  await expect(summary).toContainText("팔찌");
+  await expect(page.getByLabel("길이")).toHaveValue("18 cm");
+});
+
+test("메인의 목걸이 카드는 목걸이 길이로 시작한다", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("heading", { name: "Light study 02" }).click();
+
+  await expect(page).toHaveURL(/\/custom\?product=light-study-02$/);
+  await expect(page.getByLabel("길이")).toHaveValue("45 cm");
+  await expect(page.getByRole("img", { name: /목걸이 컬렉션을 위한/ })).toBeVisible();
+});
+
+test("주소에 없는 제품이 적혀 있어도 화면이 뜬다", async ({ page }) => {
+  await page.goto("/custom?product=없는-제품");
+  await expect(page.getByRole("complementary", { name: "구성 요약" })).toContainText(
+    "Light study 01"
+  );
+});
