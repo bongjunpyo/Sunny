@@ -33,7 +33,8 @@ export async function CollectionsSection() {
       <div className={styles.productGrid}>
         {products.slice(0, 2).map((product: Product) => (
           <article key={product.slug}>
-            <Link href={`/collection/${product.slug}`}>
+            {/* 카드를 누르면 이 제품이 골라진 커스텀 화면으로 간다 */}
+            <Link href={`/custom?product=${product.slug}`}>
               <ProductArt kind={product.kind} />
               <div className={styles.productMeta}>
                 <h3>{product.name}</h3>
@@ -47,7 +48,8 @@ export async function CollectionsSection() {
         ))}
       </div>
       <p className={styles.caption}>
-        이미지는 형태 연구용 그래픽이며 실제 상품의 소재 · 디자인 · 가격을 나타내지 않습니다.
+        카드를 누르면 그 형태로 커스텀을 시작합니다. 이미지는 형태 연구용 그래픽이며 실제 상품의
+        소재 · 디자인 · 가격을 나타내지 않습니다.
       </p>
       <TextLink href="/collection">컬렉션 전체 보기</TextLink>
     </section>
