@@ -1,16 +1,38 @@
 import { expect, test } from "@playwright/test";
 
-test("고른 값이 요약에 반영된다", async ({ page }) => {
+test("드롭다운으로 고른 값이 요약에 반영된다", async ({ page }) => {
   await page.goto("/custom");
   const summary = page.getByRole("complementary", { name: "구성 요약" });
 
-  await page.getByRole("button", { name: /파랑/ }).click();
+  await page.getByLabel("광변색 반응색").selectOption("blue");
   await expect(summary).toContainText("파랑");
+
+  await page.getByLabel("길이").selectOption("20 cm");
+  await expect(summary).toContainText("20 cm");
+});
+
+test("제품을 바꾸면 그림과 길이 선택지가 함께 바뀐다", async ({ page }) => {
+  await page.goto("/custom");
+  const summary = page.getByRole("complementary", { name: "구성 요약" });
+  const lengthSelect = page.getByLabel("길이");
+
+  // 팔찌 기준
+  await expect(lengthSelect).toHaveValue("18 cm");
+  await expect(page.getByRole("img", { name: /팔찌 컬렉션을 위한/ })).toBeVisible();
 
   await page.getByRole("button", { name: /Light study 02/ }).click();
   await expect(summary).toContainText("목걸이");
-  await page.getByRole("button", { name: "50 cm" }).click();
-  await expect(summary).toContainText("50 cm");
+  await expect(lengthSelect).toHaveValue("45 cm");
+  await expect(page.getByRole("img", { name: /목걸이 컬렉션을 위한/ })).toBeVisible();
+
+  const options = await lengthSelect.locator("option").allInnerTexts();
+  expect(options).toEqual(["40 cm", "45 cm", "50 cm"]);
+});
+
+test("드롭다운을 키보드로 쓸 수 있다", async ({ page }) => {
+  await page.goto("/custom");
+  await page.getByLabel("광변색 반응색").focus();
+  await expect(page.getByLabel("광변색 반응색")).toBeFocused();
 });
 
 test("비즈 배열은 고르지 않고 고정이라고 알린다", async ({ page }) => {

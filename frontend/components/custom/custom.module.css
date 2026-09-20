@@ -29,9 +29,62 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: clamp(32px, 5vw, 80px);
+  grid-template-columns: 1.1fr 1fr 330px;
+  gap: clamp(24px, 3.5vw, 60px);
   align-items: start;
+}
+
+/* 왼쪽 — 고른 제품의 그림 */
+.art {
+  position: sticky;
+  top: 96px;
+}
+
+.artNote {
+  font-size: var(--text-caption);
+  color: var(--muted);
+  margin: var(--step-2) 0 0;
+}
+
+/* 드롭다운 */
+.select {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  margin-top: 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-small);
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+}
+
+.label {
+  display: block;
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+.colorRow {
+  display: flex;
+  align-items: center;
+  gap: var(--step-2);
+  margin-top: var(--step-2);
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--step-3);
 }
 
 .group {
@@ -195,12 +248,25 @@
   opacity: 0.5;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr 1fr;
+  }
+  .summary {
+    grid-column: 1 / -1;
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
   .page {
     padding: 100px var(--page-x) var(--step-5);
   }
   .layout {
     grid-template-columns: 1fr;
+  }
+  .art {
+    position: static;
   }
   .summary {
     position: static;
