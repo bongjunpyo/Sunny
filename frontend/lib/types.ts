@@ -46,3 +46,29 @@ export interface Member {
   email: string;
   nickname: string;
 }
+
+/** 제작 기록 — 테마는 "빛을 입다". 기록마다 다른 대상이 빛을 입는 방식을 담는다. */
+export interface Story {
+  slug: string;
+  order: number;
+  /** 빛을 입는 대상 — 바다 · 그늘 · 비즈 … */
+  subject: string;
+  title: string;
+  /** 그 현상을 부르는 우리말 */
+  word: string;
+  wordMeaning: string;
+  /** YYYY-MM */
+  date: string;
+  stage: "영감" | "모델링" | "발색 시험" | "제작";
+  /** 커버 그림 종류. 코드로 그린 시안이다 */
+  cover: "sea";
+  body: string[];
+  notes: string[];
+  /** 발색 시험 기록 — 조건 없이 적지 않는다 */
+  test: {
+    concentration: string;
+    exposure: string;
+    weather: string;
+    result: string;
+  } | null;
+}
