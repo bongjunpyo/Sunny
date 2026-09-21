@@ -44,79 +44,83 @@
         const root = rootRef.current;
         if (!root) return;
 
+        const setVar = {
+          "--hero-track": gsap.quickSetter(root, "--hero-track"),
+          "--sun-x": gsap.quickSetter(root, "--sun-x", "%"),
+          "--sun-scale": gsap.quickSetter(root, "--sun-scale"),
+          "--copy-opacity": gsap.quickSetter(root, "--copy-opacity"),
+          "--bottom-opacity": gsap.quickSetter(root, "--bottom-opacity"),
+          "--wash-opacity": gsap.quickSetter(root, "--wash-opacity"),
+          "--arrival-opacity": gsap.quickSetter(root, "--arrival-opacity"),
+          "--progress-width": gsap.quickSetter(root, "--progress-width", "%"),
+        };
+        let isMobile = false;
+
+        const applyProgress = (p: number) => {
+          p = clamp01(p);
+          const { xPercent, scale } = sunTransform(p, isMobile);
+
+          setVar["--sun-x"](xPercent);
+          setVar["--sun-scale"](scale);
+          setVar["--copy-opacity"](1 - clamp01((p - 0.12) / 0.2));
+          setVar["--bottom-opacity"](1 - clamp01(p / 0.3));
+          setVar["--wash-opacity"](clamp01((p - 0.66) / 0.23));
+          setVar["--arrival-opacity"](clamp01((p - 0.85) / 0.1));
+          setVar["--progress-width"](p * 100);
+        };
+
         const mm = gsap.matchMedia();
 
+        mm.add("(prefers-reduced-motion: reduce)", () => {
+          // 모션 감소 설정에서는 변수도 건드리지 않고 정지 화면을 유지한다.
+        });
+
         mm.add(
-          {
-            reduced: "(prefers-reduced-motion: reduce)",
-            desktop: "(min-width: 701px)",
-            mobile: "(max-width: 700px)",
-          },
-          (context) => {
-            const { reduced, mobile } = context.conditions as {
-              reduced: boolean;
-              mobile: boolean;
-            };
+          "(prefers-reduced-motion: no-preference) and (max-width: 700px)",
+          () => {
+            isMobile = true;
+            setVar["--hero-track"]("195svh");
 
-            if (reduced) {
-              return;
-            }
-
-            const draw = (progress: number) => {
-              const p = clamp01(progress);
-              const { xPercent, scale } = sunTransform(p, mobile);
-
-              root.style.setProperty("--sun-x", `${xPercent}%`);
-              root.style.setProperty("--sun-scale", String(scale));
-              root.style.setProperty(
-                "--copy-opacity",
-                String(1 - clamp01((p - 0.12) / 0.2)),
-              );
-              root.style.setProperty(
-                "--bottom-opacity",
-                String(1 - clamp01(p / 0.3)),
-              );
-              root.style.setProperty(
-                "--wash-opacity",
-                String(clamp01((p - 0.66) / 0.23)),
-              );
-              root.style.setProperty(
-                "--arrival-opacity",
-                String(clamp01((p - 0.85) / 0.1)),
-              );
-              root.style.setProperty("--progress-width", `${p * 100}%`);
-            };
-
-            root.dataset.heroMotion = "on";
-            root.style.setProperty(
-              "--hero-track",
-              mobile ? "195svh" : "255svh",
-            );
-
-            const trigger = ScrollTrigger.create({
+            ScrollTrigger.create({
               trigger: root,
               start: "top top",
               end: "bottom bottom",
-              onUpdate: (self) => draw(self.progress),
-              onRefresh: (self) => draw(self.progress),
+              scrub: true,
+              onUpdate: (self) => applyProgress(self.progress),
             });
 
-            draw(trigger.progress);
+            applyProgress(0);
+            root.dataset.heroMotion = "on";
 
             return () => {
-              trigger.kill();
               root.dataset.heroMotion = "pending";
+              for (const property of Object.keys(setVar)) {
+                root.style.removeProperty(property);
+              }
+            };
+          },
+        );
 
-              for (const property of [
-                "--hero-track",
-                "--sun-x",
-                "--sun-scale",
-                "--copy-opacity",
-                "--bottom-opacity",
-                "--wash-opacity",
-                "--arrival-opacity",
-                "--progress-width",
-              ]) {
+        mm.add(
+          "(prefers-reduced-motion: no-preference) and (min-width: 701px)",
+          () => {
+            isMobile = false;
+            setVar["--hero-track"]("255svh");
+
+            ScrollTrigger.create({
+              trigger: root,
+              start: "top top",
+              end: "bottom bottom",
+              scrub: true,
+              onUpdate: (self) => applyProgress(self.progress),
+            });
+
+            applyProgress(0);
+            root.dataset.heroMotion = "on";
+
+            return () => {
+              root.dataset.heroMotion = "pending";
+              for (const property of Object.keys(setVar)) {
                 root.style.removeProperty(property);
               }
             };
