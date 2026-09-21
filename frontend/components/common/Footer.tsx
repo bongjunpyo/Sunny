@@ -19,6 +19,13 @@ export function Footer({ variant = "compact" }: { variant?: "brand" | "compact" 
       <div className={styles.wordmark} aria-hidden="true">
         SUNNY
       </div>
+      <nav className={styles.sitemap} aria-label="페이지 목록">
+        <Link href="/collection">컬렉션</Link>
+        <Link href="/custom">커스텀</Link>
+        <Link href="/archive">제작 기록</Link>
+        <Link href="/about">브랜드 소개</Link>
+        <Link href="/login">로그인</Link>
+      </nav>
       <div className={styles.bottom}>
         <span>SUNNY — BRAND DIRECTION PREVIEW / 01</span>
         <LegalLinks />

@@ -13,8 +13,16 @@ export function Header({ dark = true }: { dark?: boolean }) {
       </Link>
       <nav className={styles.nav} aria-label="주 메뉴">
         <Link href="/collection">Collections</Link>
-        <Link href="/#story">Our Story</Link>
-        <Link href="/#journal">Solar Journal</Link>
+        <Link className={styles.narrowHide} href="/custom">
+          Custom
+        </Link>
+        {/* 좁은 화면에서는 아래 둘을 접는다 — 푸터에서 갈 수 있다 */}
+        <Link className={styles.wide} href="/about">
+          Our Story
+        </Link>
+        <Link className={styles.wide} href="/archive">
+          Archive
+        </Link>
       </nav>
       <nav className={styles.nav} aria-label="회원 메뉴">
         <AccountNav />
