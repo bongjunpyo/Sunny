@@ -1,0 +1,45 @@
+import { expect, test } from "@playwright/test";
+
+const PAGES = ["/", "/collection", "/custom", "/archive", "/about", "/login"];
+
+test("어느 페이지에서든 머리말로 다른 페이지에 갈 수 있다", async ({ page, isMobile }) => {
+  await page.goto("/");
+  await page.getByRole("navigation", { name: "주 메뉴" }).getByRole("link", { name: "Custom" }).click();
+  await expect(page).toHaveURL(/\/custom$/);
+
+  await page.getByRole("navigation", { name: "주 메뉴" }).getByRole("link", { name: "Collections" }).click();
+  await expect(page).toHaveURL(/\/collection$/);
+
+  if (!isMobile) {
+    await page.getByRole("link", { name: "Our Story" }).click();
+    await expect(page).toHaveURL(/\/about$/);
+    await page.getByRole("link", { name: "Archive" }).click();
+    await expect(page).toHaveURL(/\/archive$/);
+  }
+});
+
+test("푸터에서 모든 페이지로 갈 수 있다", async ({ page }) => {
+  await page.goto("/collection");
+  const sitemap = page.getByRole("navigation", { name: "페이지 목록" });
+  for (const name of ["컬렉션", "커스텀", "제작 기록", "브랜드 소개", "로그인"]) {
+    await expect(sitemap.getByRole("link", { name })).toBeVisible();
+  }
+  await sitemap.getByRole("link", { name: "제작 기록" }).click();
+  await expect(page).toHaveURL(/\/archive$/);
+});
+
+test("좁은 화면에서 머리말이 한 줄에 들어간다", async ({ page, viewport }) => {
+  test.skip(!viewport || viewport.width > 620, "좁은 화면 전용");
+  await page.goto("/");
+  const header = await page.locator("header").boundingBox();
+  // 한 줄이면 머리말 높이가 90px 을 넘지 않는다
+  expect(header!.height).toBeLessThan(90);
+});
+
+test("모든 페이지에 머리말과 푸터가 있다", async ({ page }) => {
+  for (const path of PAGES) {
+    await page.goto(path);
+    await expect(page.getByRole("navigation", { name: "주 메뉴" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "페이지 목록" })).toHaveCount(1);
+  }
+});

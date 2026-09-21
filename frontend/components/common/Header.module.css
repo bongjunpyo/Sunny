@@ -54,9 +54,37 @@
   }
 }
 
-/* 아주 좁은 화면에서는 메뉴를 줄인다 — 두 줄로 접히는 것을 막는다 */
-@media (max-width: 560px) {
-  .nav a:not(:first-child):not(:only-child) {
+/* 좁은 화면에서는 메뉴를 줄인다 — 두 줄로 접히는 것을 막는다.
+   접힌 항목은 푸터에서 갈 수 있다. */
+@media (max-width: 620px) {
+  /* .nav a 의 display 보다 구체적이어야 숨겨진다 */
+  .nav .wide {
     display: none;
+  }
+}
+
+/* 가장 좁은 화면(320px 급) — 메뉴는 컬렉션 하나만 남긴다.
+   360px(갤럭시 계열)에서는 Custom 까지 보이도록 기준을 350px 로 둔다 */
+@media (max-width: 350px) {
+  .nav .narrowHide {
+    display: none;
+  }
+  .logo {
+    font-size: 18px;
+  }
+}
+
+/* 아주 좁은 화면(360px 급)에서 한 줄에 들어가게 */
+@media (max-width: 420px) {
+  .header {
+    padding: 14px 16px;
+    gap: 8px;
+  }
+  .nav {
+    gap: 12px;
+  }
+  .logo {
+    font-size: 20px;
+    letter-spacing: -1.4px;
   }
 }

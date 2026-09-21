@@ -35,6 +35,21 @@
   font-weight: 500;
 }
 
+.sitemap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px clamp(18px, 3vw, 40px);
+  padding: var(--step-2) 0;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-caption);
+}
+
+.sitemap a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
 .bottom {
   border-top: 1px solid var(--line);
   display: flex;

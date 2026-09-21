@@ -38,7 +38,9 @@ test("mock 로그인을 하면 마이페이지가 열리고 머리말이 바뀐�
 
   await page.getByRole("button", { name: "로그아웃" }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("link", { name: "로그인" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "회원 메뉴" }).getByRole("link", { name: "로그인" })
+  ).toBeVisible();
 });
 
 test("로그인하지 않으면 마이페이지가 로그인을 안내한다", async ({ page }) => {
