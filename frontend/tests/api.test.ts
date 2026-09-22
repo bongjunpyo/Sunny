@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { apiMode, getProduct, getProducts, getStories, getStory } from "../lib/api.ts";
+import { COLOR_HEX } from "../lib/colors.ts";
+import { PHOTOCHROMIC_COLORS } from "../lib/types.ts";
 
 test("환경변수가 없으면 mock 모드다", () => {
   delete process.env.NEXT_PUBLIC_API_MODE;
@@ -62,4 +64,10 @@ test("발색 시험 기록은 조건 세 가지를 모두 갖거나 아예 없�
 
 test("없는 기록은 null 이다", async () => {
   assert.equal(await getStory("없는-기록"), null);
+});
+
+test("반응색 다섯 가지 모두 색값이 있다", () => {
+  for (const color of PHOTOCHROMIC_COLORS) {
+    assert.match(COLOR_HEX[color], /^#[0-9a-f]{6}$/i);
+  }
 });

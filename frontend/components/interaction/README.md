@@ -30,7 +30,8 @@
 | 부품 | 입력 | 하는 일 | 상태 |
 |---|---|---|---|
 | `RevealText` | `text` · `as`(`h2` \| `p`) | 스크롤에 닿으면 문구가 나타난다 | 있음 (#18) |
-| `HeroMotion` | `className` · `id` · `label` · `children` | 히어로 구간을 감싸고, 스크롤 진행률을 CSS 변수로 채운다 | **빈 상태 — 이슈에서 채운다** |
+| `HeroMotion` | `className` · `id` · `label` · `children` | 히어로 구간을 감싸고, 스크롤 진행률을 CSS 변수로 채운다 | 있음 (#49) |
+| `SunlightToggle` | `colors` (반응색 목록) | 버튼을 누르면 햇빛이 들어와 색이 드러나고, 다시 누르면 돌아온다 | **빈 상태 — 이슈 #56 에서 채운다** |
 
 부품을 확인하는 연습 화면은 **`/lab`** 이다 (`npm run dev` → http://localhost:3000/lab). 브랜드 화면이 아니라 부품만 보는 곳이다.
 

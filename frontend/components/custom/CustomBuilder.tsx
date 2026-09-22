@@ -14,16 +14,9 @@ import {
   checkPhotoSize,
   describeRules,
 } from "../../lib/photo.ts";
+import { COLOR_HEX } from "../../lib/colors.ts";
 import { ProductArt } from "../main/ProductArt.tsx";
 import styles from "./custom.module.css";
-
-const SWATCH: Record<PhotochromicColor, string> = {
-  red: "#c24b40",
-  orange: "#d9853b",
-  blue: "#3f67a8",
-  yellow: "#d8b43a",
-  violet: "#7c5aa6",
-};
 
 const KIND_LABEL = { bracelet: "팔찌", necklace: "목걸이" } as const;
 
@@ -167,7 +160,7 @@ export function CustomBuilder({
             <p className={styles.colorRow}>
               <span
                 className={styles.swatch}
-                style={{ background: SWATCH[color] }}
+                style={{ background: COLOR_HEX[color] }}
                 aria-hidden="true"
               />
               햇빛(자외선)을 만나면 이 색이 드러납니다. 정도는 농도 · 노출 시간

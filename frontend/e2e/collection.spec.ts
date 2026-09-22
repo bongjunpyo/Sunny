@@ -47,3 +47,14 @@ test("컬렉션 화면에 가로 스크롤이 없다", async ({ page }) => {
     expect(overflow).toBe(false);
   }
 });
+
+test("발색 비교 자리에 버튼이 있고, 연출 전에도 설명이 읽힌다", async ({ page }) => {
+  await page.goto("/collection/light-study-01");
+  const compare = page.getByRole("heading", { name: "실내 / 햇빛 비교" }).locator("..");
+  await expect(compare).toContainText("버튼을 누르면 햇빛이 들어와");
+  await expect(compare).toContainText("농도 · 노출 시간 · 날씨");
+
+  const toggle = compare.locator("[data-lit]");
+  await expect(toggle).toHaveAttribute("data-lit", "off");
+  await expect(toggle.getByRole("button")).toBeVisible();
+});
