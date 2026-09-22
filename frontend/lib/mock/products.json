@@ -28,35 +28,5 @@
       "yellow"
     ],
     "status": "planning"
-  },
-  {
-    "slug": "light-study-03",
-    "kind": "bracelet",
-    "name": "Light study 03",
-    "summary": "굵기가 다른 비즈를 섞어 빛의 결을 살핀 형태 연구입니다.",
-    "story": [
-      "같은 색이라도 비즈의 크기가 달라지면 빛이 닿는 면이 달라집니다.",
-      "이 연구는 굵기 조합을 바꿔 가며 색이 드러나는 속도를 비교하기 위한 것입니다."
-    ],
-    "colors": [
-      "red",
-      "violet"
-    ],
-    "status": "planning"
-  },
-  {
-    "slug": "light-study-04",
-    "kind": "necklace",
-    "name": "Light study 04",
-    "summary": "긴 길이에서 빛이 어떻게 흩어지는지 살핀 형태 연구입니다.",
-    "story": [
-      "길이가 길어지면 빛을 받는 구간과 그늘에 남는 구간이 함께 생깁니다.",
-      "한 벌 안에서 색이 다르게 드러나는 모습을 기록하기 위한 연구입니다."
-    ],
-    "colors": [
-      "blue",
-      "yellow"
-    ],
-    "status": "planning"
   }
 ]
