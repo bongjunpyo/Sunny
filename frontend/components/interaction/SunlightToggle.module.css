@@ -1,0 +1,65 @@
+.root {
+  margin-top: var(--step-3);
+}
+
+.stage {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: grid;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+}
+
+.layer {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--step-3);
+  padding: var(--step-4) var(--step-3);
+}
+
+.indoor {
+  position: relative;
+  background: var(--paper-2);
+}
+
+.bead {
+  display: block;
+  width: var(--step-5);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: radial-gradient(circle at 30% 25%, var(--paper-2), transparent 55%),
+    var(--bead-color, var(--bead-base));
+}
+
+.light {
+  position: absolute;
+  inset-block: 0;
+  left: -20%;
+  width: 20%;
+  opacity: 0;
+  transform: skewX(-20deg);
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  pointer-events: none;
+}
+
+.button {
+  padding: var(--step-1) var(--step-3);
+  border: 1px solid var(--ink);
+  background: var(--paper-2);
+  color: var(--ink);
+  font-size: var(--text-small);
+}
+
+.button:disabled {
+  cursor: wait;
+}
+
+.caption {
+  margin-block: var(--step-2);
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
