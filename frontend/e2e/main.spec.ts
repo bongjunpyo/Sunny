@@ -71,18 +71,61 @@ test.describe("모션 감소 설정", () => {
   });
 });
 
-test("연출이 없어도 히어로는 그대로다", async ({ page }) => {
+test("히어로 맨 위에서는 문구가 보이고 덮기·도착 문구는 숨어 있다", async ({ page }) => {
   await page.goto("/");
   const hero = page.locator("[data-hero-motion]");
-  await expect(hero).toHaveAttribute("data-hero-motion", "pending");
-
-  // 문구는 보이고, 덮기·도착 문구는 보이지 않는다
+  // 연출이 붙으면 on, 아직 안 붙었으면 pending — 어느 쪽이든 화면은 읽혀야 한다
+  await expect(hero).toHaveAttribute("data-hero-motion", /on|pending/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  const arrivalOpacity = await page.evaluate(() => {
-    const el = document.querySelector("#top [class*='arrival']");
-    return el ? Number(getComputedStyle(el).opacity) : -1;
+
+  const opacity = await page.evaluate(() => {
+    const read = (sel: string) => {
+      const el = document.querySelector(sel);
+      return el ? Number(getComputedStyle(el).opacity) : -1;
+    };
+    return { arrival: read("#top [class*='arrival']"), wash: read("#top [class*='wash']") };
   });
-  expect(arrivalOpacity).toBe(0);
+  expect(opacity.arrival).toBe(0);
+  expect(opacity.wash).toBe(0);
+});
+
+test("스크롤 끝에서 태양이 가운데로 오고 종이색이 덮는다", async ({ page }) => {
+  await page.goto("/");
+  const hero = page.locator("[data-hero-motion]");
+  const state = await hero.getAttribute("data-hero-motion");
+  test.skip(state !== "on", "연출이 붙지 않은 환경");
+
+  const height = await hero.evaluate((el) => el.getBoundingClientRect().height);
+  await page.evaluate((y) => scrollTo(0, y), height);
+  await page.waitForTimeout(700);
+
+  const vars = await hero.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return {
+      x: cs.getPropertyValue("--sun-x").trim(),
+      scale: Number(cs.getPropertyValue("--sun-scale")),
+      wash: Number(cs.getPropertyValue("--wash-opacity")),
+      arrival: Number(cs.getPropertyValue("--arrival-opacity")),
+    };
+  });
+  expect(vars.x).toBe("50%");
+  expect(vars.scale).toBeGreaterThan(6);
+  expect(vars.wash).toBeGreaterThan(0.9);
+  expect(vars.arrival).toBeGreaterThan(0.9);
+});
+
+test.describe("모션 감소 설정에서는 히어로가 멈춘다", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("연출이 켜지지 않고 문구가 읽힌다", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("[data-hero-motion]")).toHaveAttribute(
+      "data-hero-motion",
+      "pending"
+    );
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("link", { name: /컬렉션 살펴보기/ })).toBeVisible();
+  });
 });
 
 test.describe("좁은 폭에서 겹치지 않는다", () => {
