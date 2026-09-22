@@ -8,7 +8,8 @@ import styles from "./Header.module.css";
 export function Header({ dark = true }: { dark?: boolean }) {
   return (
     <header className={dark ? styles.header : `${styles.header} ${styles.light}`}>
-      <Link className={styles.logo} href="#top" aria-label="SUNNY 처음으로">
+      {/* 어느 페이지에서든 메인으로 */}
+      <Link className={styles.logo} href="/" aria-label="SUNNY 메인으로">
         SUNNY
       </Link>
       <nav className={styles.nav} aria-label="주 메뉴">

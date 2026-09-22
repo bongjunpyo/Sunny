@@ -30,7 +30,7 @@ export function Footer({ variant = "compact" }: { variant?: "brand" | "compact" 
         <span>SUNNY — BRAND DIRECTION PREVIEW / 01</span>
         <LegalLinks />
         <span>디자인 시안 · 카피 및 제품 형태 미확정 · 태양은 코드로 그린 연출</span>
-        <Link href="#top">맨 위로 ↑</Link>
+        <Link href="/">메인으로 ↑</Link>
       </div>
     </footer>
   );
