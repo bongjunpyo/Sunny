@@ -89,6 +89,20 @@
   max-width: var(--measure);
 }
 
+/* 상세에서 커스텀으로 이어지는 길 */
+.custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  margin-top: var(--step-4);
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  font-size: var(--text-caption);
+  letter-spacing: 0.4px;
+}
+
 .back {
   display: inline-block;
   margin-top: var(--step-5);

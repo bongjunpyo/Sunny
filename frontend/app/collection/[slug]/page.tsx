@@ -92,6 +92,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               <SunlightToggle colors={product.colors} />
             </section>
 
+            <Link className={styles.custom} href={`/custom?product=${product.slug}`}>
+              이 형태로 커스텀하기 →
+            </Link>
+
             <Link className={styles.back} href="/collection">
               컬렉션으로 돌아가기 ↑
             </Link>
