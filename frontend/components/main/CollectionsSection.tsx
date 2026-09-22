@@ -31,7 +31,7 @@ export async function CollectionsSection() {
         </p>
       </div>
       <div className={styles.productGrid}>
-        {products.slice(0, 2).map((product: Product) => (
+        {products.map((product: Product) => (
           <article key={product.slug}>
             {/* 카드를 누르면 이 제품이 골라진 커스텀 화면으로 간다 */}
             <Link href={`/custom?product=${product.slug}`}>
