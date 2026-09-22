@@ -43,3 +43,12 @@ test("모든 페이지에 머리말과 푸터가 있다", async ({ page }) => {
     await expect(page.getByRole("navigation", { name: "페이지 목록" })).toHaveCount(1);
   }
 });
+
+test("어느 페이지에서든 로고를 누르면 메인으로 간다", async ({ page }) => {
+  for (const path of ["/collection", "/collection/light-study-01", "/custom", "/archive", "/about"]) {
+    await page.goto(path);
+    await page.getByRole("link", { name: "SUNNY 메인으로" }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Wear");
+  }
+});
