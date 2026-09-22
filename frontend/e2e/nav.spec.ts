@@ -43,3 +43,25 @@ test("모든 페이지에 머리말과 푸터가 있다", async ({ page }) => {
     await expect(page.getByRole("navigation", { name: "페이지 목록" })).toHaveCount(1);
   }
 });
+
+test("어느 페이지에서든 로고를 누르면 메인 맨 위로 간다", async ({ page }) => {
+  for (const path of ["/collection", "/collection/light-study-01", "/custom", "/archive", "/about"]) {
+    await page.goto(path);
+    // 아래까지 내려간 상태에서 눌러도 맨 위로 가야 한다
+    await page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(300);
+    await page.getByRole("link", { name: "SUNNY 메인으로" }).click();
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Wear");
+    await expect.poll(() => page.evaluate(() => Math.round(scrollY)), { timeout: 4000 }).toBe(0);
+  }
+});
+
+test("메인에서 로고를 누르면 맨 위로 올라간다", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => scrollTo(0, 2500));
+  await page.waitForTimeout(300);
+  await page.getByRole("link", { name: "SUNNY 메인으로" }).click();
+  await expect.poll(() => page.evaluate(() => Math.round(scrollY)), { timeout: 4000 }).toBe(0);
+});
