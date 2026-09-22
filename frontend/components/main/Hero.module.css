@@ -1,5 +1,5 @@
 .track {
-  /* 연출이 붙기 전에는 한 화면. 스크롤 연출 이슈에서 255svh(모바일 195svh)로 늘린다
+  /* 연출이 붙기 전에는 한 화면. 연출이 붙으면 255svh(모바일 300svh)로 늘어난다
      → docs/superpowers/specs/2026-09-18-main-page-design.md */
   height: var(--hero-track, 100svh);
   background: var(--night);

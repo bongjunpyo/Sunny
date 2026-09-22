@@ -13,8 +13,7 @@
    *  스크롤 진행률을 재어 아래 CSS 변수를 이 요소에 채운다.
    *
    *  채울 변수 (기본값은 Hero.module.css 에 있다):
-   *    --hero-track      히어로 스크롤 길이        기본 100svh → 연출 시 255svh(모
-   바일 195svh)
+   *    --hero-track      히어로 스크롤 길이        기본 100svh → 연출 시 255svh(모바일 300svh)
    *    --sun-x           태양 가로 위치            기본 78%
    *    --sun-scale       태양 배율                기본 1
    *    --copy-opacity    히어로 문구               기본 1
@@ -79,7 +78,9 @@
           "(prefers-reduced-motion: no-preference) and (max-width: 700px)",
           () => {
             isMobile = true;
-            setVar["--hero-track"]("195svh");
+            // 195svh 면 스크롤 여유가 450px 뿐이라 한 번 쓸어내리면 연출이 끝난다.
+            // 300svh 로 늘리면 여유가 1150px 안팎이 되어 두세 번 쓸어야 끝난다. (측정: 이슈 #52)
+            setVar["--hero-track"]("300svh");
 
             ScrollTrigger.create({
               trigger: root,
