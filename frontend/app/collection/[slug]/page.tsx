@@ -2,20 +2,13 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getProduct, getProducts } from "../../../lib/api.ts";
-import { COLOR_LABEL, type PhotochromicColor } from "../../../lib/types.ts";
+import { COLOR_LABEL } from "../../../lib/types.ts";
+import { COLOR_HEX } from "../../../lib/colors.ts";
+import { SunlightToggle } from "../../../components/interaction/SunlightToggle.tsx";
 import { ProductArt } from "../../../components/main/ProductArt.tsx";
 import { Header } from "../../../components/common/Header.tsx";
 import { Footer } from "../../../components/common/Footer.tsx";
 import styles from "./page.module.css";
-
-/** 색 이름 옆에 놓는 견본 색. 실제 발색과 같지 않다는 뜻으로 옅게 쓴다. */
-const SWATCH: Record<PhotochromicColor, string> = {
-  red: "#c24b40",
-  orange: "#d9853b",
-  blue: "#3f67a8",
-  yellow: "#d8b43a",
-  violet: "#7c5aa6",
-};
 
 const KIND_LABEL = { bracelet: "팔찌", necklace: "목걸이" } as const;
 
@@ -77,7 +70,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                 <span className={styles.color} key={color}>
                   <span
                     className={styles.swatch}
-                    style={{ background: SWATCH[color] }}
+                    style={{ background: COLOR_HEX[color] }}
                     aria-hidden="true"
                   />
                   {COLOR_LABEL[color]}
@@ -92,9 +85,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <section className={styles.compare}>
               <h2>실내 / 햇빛 비교</h2>
               <p>
-                같은 제품의 실내 모습과 햇빛 아래 모습을 나란히 두는 자리입니다. 촬영본과 시험
-                조건(농도 · 노출 시간 · 날씨)이 준비되면 채웁니다.
+                버튼을 누르면 햇빛이 들어와 색이 드러납니다. 다시 누르면 그늘 상태로 돌아옵니다.
+                실제 발색 사진과 시험 조건(농도 · 노출 시간 · 날씨)은 준비되는 대로 함께 싣습니다.
               </p>
+              {/* 연출은 components/interaction (조수희) 에서 채운다 — 이슈 #56 */}
+              <SunlightToggle colors={product.colors} />
             </section>
 
             <Link className={styles.back} href="/collection">
