@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AccountNav } from "../auth/AccountNav.tsx";
+import { LogoLink } from "./LogoLink.tsx";
 import styles from "./Header.module.css";
 
 /** 머리말.
@@ -8,10 +9,8 @@ import styles from "./Header.module.css";
 export function Header({ dark = true }: { dark?: boolean }) {
   return (
     <header className={dark ? styles.header : `${styles.header} ${styles.light}`}>
-      {/* 어느 페이지에서든 메인으로 */}
-      <Link className={styles.logo} href="/" aria-label="SUNNY 메인으로">
-        SUNNY
-      </Link>
+      {/* 어느 페이지에서든 메인으로. 메인에 있으면 맨 위로 올린다 */}
+      <LogoLink className={styles.logo} />
       <nav className={styles.nav} aria-label="주 메뉴">
         <Link href="/collection">Collections</Link>
         <Link className={styles.narrowHide} href="/custom">
