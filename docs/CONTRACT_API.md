@@ -19,7 +19,7 @@ Next.js 서버 API (frontend/app/api/)            이재원
 
 **브라우저는 Sanity·Supabase·기상청을 직접 부르지 않는다.** 전부 서버 API를 거친다. 키가 브라우저로 새지 않게 하는 구조다.
 
-단, 고객 사진은 서버가 발급한 **1회용 서명 업로드 URL**에만 브라우저가 직접 전송한다. 이 URL은 비공개 버킷의 임시 경로 하나에만 쓸 수 있고, Supabase 키나 다른 파일의 접근 권한을 포함하지 않는다.
+단, 고객 사진은 서버가 발급한 **1회용 서명 업로드 URL**에만 브라우저가 직접 전송한다. 3D 가시안에 쓰는 검증된 사진도 서버가 발급한 **짧은 수명의 서명 조회 URL**로만 직접 읽는다. 두 URL 모두 Supabase 키나 다른 파일의 접근 권한을 포함하지 않는다.
 
 ## mock 먼저
 
@@ -81,13 +81,15 @@ Next.js 서버 API (frontend/app/api/)            이재원
 4. 브라우저  → POST /api/uploads/{assetId}/complete
 5. 서버      → 파일 바이트·용량·해상도 검사 → 방향 보정·재인코딩(EXIF 제거)
 6. 서버      → 통과 파일만 verified 상태로 전환
-7. 주문 API  → verified assetId만 받음
+7. 브라우저  → 소유한 verified 사진의 조회 URL로 3D 가시안 확인
+8. 주문 API  → 7칸 배치에 있는 본인 소유 verified assetId만 받음
 ```
 
 - `assetId`는 presign 때 미리 발급하지만, `verified` 전에는 주문이나 조회에 쓸 수 없다.
 - 업로드 원본은 비공개 버킷의 `pending/` 경로에 격리한다. 공개 URL은 만들지 않는다.
 - 서버 검사는 업로드 완료 알림을 받는 즉시 실행한다. 주문 제출 때까지 검사를 미루지 않는다.
-- 완료 알림은 같은 `assetId`로 다시 호출해도 같은 최종 결과를 돌려주는 멱등 요청이다.
+- 완료 알림은 같은 `assetId`로 다시 호출해도 검사를 중복 실행하지 않는다. 검사 중에는 `409`, 검증 완료 뒤에는 동일한 최종 결과를 반환한다. 화면의 재시도 규칙은 아래 `complete` 항목을 따른다.
+- `presign`·`complete`·`read-url`·주문 API는 #70 인증 계약에 따라 Next 서버가 확인한 사용자 ID를 사용한다. 요청 본문의 `userId`·`ownerId`나 다른 사용자의 `assetId`를 신뢰하지 않는다.
 - 서버는 실제 파일 시그니처와 이미지 디코딩 결과를 검사한다. 파일명·확장자·요청 MIME만으로 통과시키지 않는다.
 - SVG와 디코딩할 수 없는 파일은 거부한다.
 - 통과 파일은 화면 방향을 적용한 뒤 재인코딩해 EXIF 전체를 제거한다. 특히 GPS 위치 정보가 남지 않아야 한다.
@@ -172,6 +174,8 @@ Next.js 서버 API (frontend/app/api/)            이재원
 - `uploadUrl`은 응답을 받은 사용자와 해당 `assetId`의 임시 경로 하나에만 유효하다.
 - 같은 경로 덮어쓰기는 허용하지 않는다.
 - 만료 시간은 서버 설정값으로 관리하며 계약 확정 전에는 숫자를 문서에 고정하지 않는다.
+- 계정당 **최근 60분 동안 발급한 URL 20개**를 상한으로 한다. 사용자가 재시도하거나 사진을 바꿀 수 있도록 7장보다 넉넉하게 잡은 초기 운영안이며, 서버는 인증된 사용자 ID 기준으로 동시 요청까지 원자적으로 집계한다. 형식·크기 검증에 실패해 URL을 발급하지 않은 요청은 세지 않는다.
+- 상한에 도달하면 `429 UPLOAD_RATE_LIMITED`와 `Retry-After`(다음 발급이 가능한 때까지의 초)를 반환한다. 화면은 남은 시간을 안내하고 자동 재요청하지 않는다. 이 제한은 `presign` URL 발급에 적용하며 다른 업로드 API 호출은 세지 않는다. 상한을 바꾸려면 준표·재원이 계약을 다시 검토한다.
 
 ### `POST /api/uploads/[assetId]/complete`
 
@@ -198,15 +202,15 @@ pending → inspecting → verified
 pending              → expired
 ```
 
-- `verified`만 주문의 `photoAssetId`로 받을 수 있다.
+- `verified`만 주문의 `beadLayout.beads[].photoAssetId`로 받을 수 있다.
 - 서버가 반환하는 MIME·용량·해상도는 재인코딩된 최종 파일 기준이다.
-- `inspecting` 중 같은 요청이 오면 `409 UPLOAD_INSPECTION_IN_PROGRESS`를 반환한다.
+- `inspecting` 중 같은 요청이 오면 `409 UPLOAD_INSPECTION_IN_PROGRESS`와 `Retry-After: 3`(초)을 반환한다. 화면은 이 응답 뒤 3초 간격으로 같은 `complete` 요청을 **최대 10회 추가 호출**한다. 매번 `409`라면 자동 재시도를 멈추고 "사진 확인에 시간이 걸리고 있습니다. 잠시 후 다시 확인해 주세요."라고 안내한다. 이후 사용자의 재확인은 같은 요청으로 하며 파일을 다시 업로드하지 않는다.
 - 이미 `verified`이면 기존 `200` 결과를 다시 반환한다.
 - `rejected`·`expired`이면 다시 살리지 않고 새 presign부터 시작한다.
 
 ### `POST /api/uploads/[assetId]/read-url`
 
-현재 로그인 사용자가 소유한 `verified` 파일에 대해서만 짧은 수명의 조회 URL을 발급한다. 공개 URL이나 영구 URL은 반환하지 않는다.
+현재 로그인 사용자가 소유한 `verified` 파일에 대해서만 짧은 수명의 조회 URL을 발급한다. 공개 URL이나 영구 URL은 반환하지 않는다. 주문 전에 반드시 확인하는 **3D 가시안의 비즈 표면 텍스처**에도 이 URL을 사용한다.
 
 응답 `200`:
 
@@ -216,6 +220,9 @@ pending              → expired
   "expiresAt": "2026-09-24T11:20:00.000Z"
 }
 ```
+
+- 7칸에 사진을 하나씩 넣으면 화면에서 최대 7개를 동시에 요청한다. 같은 `assetId`가 여러 칸에 있으면 한 번만 요청하고 그 URL을 해당 칸에서 함께 쓴다. 현재 규모에서는 기존 단건 API를 병렬 호출하며, 별도 일괄 발급 API는 만들지 않는다.
+- 조회 URL 만료 시간은 3D 가시안을 돌려보는 시간을 고려해 회의에서 확정한다(`TBD`). 화면은 `expiresAt`이 지나기 전에 필요한 URL을 다시 요청해 텍스처를 갱신한다. 갱신에 실패하면 해당 사진을 계속 표시한다고 가정하지 않고 안내와 재시도 동작을 제공한다.
 
 ### 실패 응답
 
@@ -243,6 +250,7 @@ pending              → expired
 | 422 | `INVALID_IMAGE_FILE` | 이미지로 디코딩할 수 없음 |
 | 422 | `IMAGE_DIMENSIONS_TOO_SMALL` | 방향 보정 후 최소 해상도 미달 |
 | 422 | `IMAGE_ASPECT_RATIO_NOT_ALLOWED` | 확정된 비율 범위 밖 |
+| 429 | `UPLOAD_RATE_LIMITED` | 인증된 계정이 최근 60분의 presign 발급 상한에 도달 |
 | 503 | `UPLOAD_STORAGE_UNAVAILABLE` | Storage 장애로 안전하게 완료할 수 없음 |
 
 오류 메시지는 화면 표시용 한국어 문장이고, 분기는 `code`로 한다. 내부 스토리지 경로·키·원본 오류·개인정보는 응답이나 로그에 넣지 않는다.
@@ -260,11 +268,25 @@ pending              → expired
 
 ### 주문 동의 필드
 
-사진이 없는 주문에는 두 동의 필드가 필요 없다. `photoAssetId`가 있으면 제작 동의가 필수이고, 브랜드 공개 동의는 선택이다.
+제품 종류·길이와 무관하게 네모 비즈는 **정확히 7칸**이고, 각 칸에 사진 한 장 또는 `null`을 배치한다. 사진은 선택 사항이며 서로 다른 사진은 0~7장이다. 동일한 사진을 여러 칸에 쓸 수 있고 이 경우 업로드는 한 번만 한다. 주문 화면은 3D 가시안을 보여준 뒤 명시적인 확인을 받아야 제출할 수 있다. 주문 API는 `previewConfirmed: true`를 요구하고 서버 수신 시각을 확인 기록으로 저장한다. 이 값은 사용자의 확인 의사를 기록하며 실제 시청 시간을 증명하지는 않는다.
+
+요청의 사진 배치 예시(7칸 전체):
 
 ```json
 {
-  "photoAssetId": "019db8d2-6721-7f17-9f73-2d9c9e1a6b31",
+  "beadLayout": {
+    "squareCount": 7,
+    "beads": [
+      { "index": 0, "photoAssetId": "019db8d2-6721-7f17-9f73-2d9c9e1a6b31" },
+      { "index": 1, "photoAssetId": "019db8d2-6721-7f17-9f73-2d9c9e1a6b31" },
+      { "index": 2, "photoAssetId": null },
+      { "index": 3, "photoAssetId": null },
+      { "index": 4, "photoAssetId": null },
+      { "index": 5, "photoAssetId": null },
+      { "index": 6, "photoAssetId": null }
+    ]
+  },
+  "previewConfirmed": true,
   "photoProductionConsent": {
     "accepted": true,
     "acceptedAt": "2026-09-24T11:30:00.000Z",
@@ -278,11 +300,15 @@ pending              → expired
 }
 ```
 
-- `photoProductionConsent.accepted`가 `true`가 아니면 사진이 있는 주문을 받지 않는다.
+- `beadLayout.squareCount`는 `7`, `beads` 길이는 정확히 7이다. `index`는 0~6을 한 번씩 포함해야 하며 빠짐·중복·범위 밖 값은 거절한다. 순서는 `index`로 정한다.
+- `previewConfirmed`가 `true`가 아니면 주문을 받지 않는다. 서버는 확인 시각을 브라우저 값 대신 직접 기록한다.
+- `beads[].photoAssetId`는 `null` 또는 본인 소유의 `verified` 파일 ID다. 같은 ID가 여러 칸에 있어도 허용한다. 사진이 없으면 일곱 칸 모두 `null`이다.
+- 사진이 한 칸이라도 있으면 `photoProductionConsent.accepted`가 `true`여야 한다. 모두 `null`이면 두 사진 동의 필드는 필요 없다.
 - `photoBrandUseConsent`는 제작 동의를 대신하지 않으며, 거부해도 주문할 수 있다.
 - 동의 시각과 정책 버전을 서버가 저장한다. 브라우저가 보낸 시각만 신뢰하지 않는다.
 
 ## 변경 이력
 
+- 2026-10-04: PR #65 리뷰 반영 — 7칸 사진 배치, 검사 중 재시도, presign 계정별 상한, 3D 가시안 조회 URL 용도 명시
 - 2026-09-24: #26 커스텀 사진 업로드 계약 검토 초안 추가 (정책값·보관 기간 합의 전)
 - 2026-09-17: v0 틀 작성 (구조 · mock 규칙 · 불변식 · 채울 항목)
