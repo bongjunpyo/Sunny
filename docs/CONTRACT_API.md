@@ -46,6 +46,7 @@ Next.js 서버 API (frontend/app/api/)            이재원
 - [ ] **주문 요청** (Supabase) — 필드, 이용 동의 항목, RLS 정책
 - [ ] **선호 색상 설문** (Supabase) — 문항, 익명 여부, RLS 정책
 - [ ] **자외선지수** — `GET /api/uv` 응답 형태, 지역 기준, 캐시 주기, 실패 응답
+- [ ] **회원·비회원 인증** — 아래 #70 검토안 합의, 동의 정책·후속 이슈 연결
 - [ ] 공통 에러 응답 형태 — `{ error: { code, message } }` 여부
 - [ ] 엔드포인트 목록과 각 응답 JSON 예시
 
@@ -58,116 +59,321 @@ Next.js 서버 API (frontend/app/api/)            이재원
 | `GET /api/archive` | 제작 기록 목록 | Sanity |
 | `GET /api/uv` | 현재 자외선지수 | 기상청 |
 | `POST /api/auth/guest` | 비회원 주문용 익명 세션 시작 | Supabase Auth |
-| `POST /api/auth/signup` | 이메일 가입 또는 현재 비회원의 가입 전환 | Supabase Auth · 회원 동의 기록 |
+| `POST /api/auth/signup` | 이메일·비밀번호 가입 | Supabase Auth |
+| `GET /api/auth/email/callback` | 가입·이메일 전환 코드 확인 | Supabase Auth |
 | `POST /api/auth/login` | 이메일·비밀번호 로그인 | Supabase Auth |
-| `GET /api/auth/session` | 현재 회원·비회원 세션 조회 | Supabase Auth · 회원 표시 정보 |
+| `GET /api/auth/session` | 현재 회원·비회원 세션 조회 | Supabase Auth · profiles |
 | `POST /api/auth/logout` | 현재 브라우저 세션 종료 | Supabase Auth |
-| `GET /api/auth/kakao/start` | 카카오 로그인 시작 | Supabase Auth OAuth |
+| `POST /api/auth/profile/complete` | 별명·가입 동의 완료 | Supabase |
+| `POST /api/auth/guest/upgrade/request` | 비회원의 이메일 신원 연결 | Supabase Auth |
+| `POST /api/auth/guest/upgrade/confirm` | 확인 후 비밀번호 설정·회원 전환 | Supabase Auth |
+| `GET /api/auth/kakao/start` | 카카오 로그인·비회원 신원 연결 시작 | Supabase Auth OAuth |
 | `GET /api/auth/kakao/callback` | 인증 코드 교환·쿠키 발급 | Supabase Auth OAuth |
 | `POST /api/auth/password-reset/request` | 재설정 메일 요청 | Supabase Auth |
 | `GET /api/auth/password-reset/callback` | 재설정 코드 교환 | Supabase Auth |
-| `POST /api/auth/password-reset/confirm` | 새 비밀번호 설정 | Supabase Auth |
-| `POST /api/orders/guest/lookup/request` | 비회원 주문 조회 인증 코드 요청 | Supabase · 메일 제공자 |
-| `POST /api/orders/guest/lookup/confirm` | 인증 코드 확인 후 주문 조회 | Supabase |
+| `POST /api/auth/password-reset/confirm` | 새 비밀번호 설정·세션 종료 | Supabase Auth |
+| `POST /api/orders/guest/lookup/request` | 비회원 조회 인증 코드 요청 | Supabase · 거래 메일 |
+| `POST /api/orders/guest/lookup/confirm` | 코드 확인 후 해당 주문 상태 조회 | Supabase |
 | `POST /api/orders` | 커스텀 주문 요청 | Supabase |
 | `POST /api/survey` | 선호 색상 설문 | Supabase |
 
-## 회원 인증·비회원 주문 계약 — #70 합의 초안
+## 회원 인증·비회원 주문 계약 — #70 검토안
 
-> **팀장 결정:** 비회원 주문과 사진 업로드를 허용한다. 카카오 로그인과 비밀번호 재설정도 이번 계약에 포함한다. 아래의 구체적인 방식과 수치는 봉준표·이재원이 이 계약 PR에서 합의할 제안이다. 계약 머지 전에는 인증·주문·업로드 API를 운영에 열지 않는다.
+> **팀장 확정:** 비회원 주문·사진 업로드를 허용하며, 카카오 로그인·비밀번호 재설정을 이번 계약에 포함한다.
+>
+> **검토 중:** 아래 구현 방식·정책 수치는 이재원의 제안이다. 봉준표·이재원이 같은 계약 PR에서 합의한다. API·화면·DB 구현은 후속 이슈에서 진행한다. 기간·정책 버전이 `TBD`인 기능은 운영에 열지 않는다.
 
-### 신원과 소유권
+### 1. 비회원 신원과 소유권
 
-- 비회원은 Next 서버의 `POST /api/auth/guest`를 통해 Supabase Auth `signInAnonymously()`로 **익명 사용자 ID**를 받는다. 브라우저에 Supabase 토큰을 반환하지 않고 서버가 HttpOnly 세션 쿠키를 발급한다. 별도 자체 비회원 ID·세션 저장소는 만들지 않는다. 익명 사용자와 정회원은 모두 `auth.users.id`를 소유자 ID로 쓰므로 `orders.user_id`는 `NOT NULL`을 유지한다.
-- 익명 로그인 사용자는 DB에서 `authenticated` 역할이다. 주문·사진은 검증된 `auth.uid()`와 소유자 ID의 일치를 검사하고, 회원 전용 설문·계정 기능은 JWT의 `is_anonymous`도 확인한다. `anon` API 키의 권한과 익명 **사용자**의 권한을 혼동하지 않는다.
-- 모든 주문·사진 API는 Next 서버가 매 요청의 Supabase 사용자를 확인한다. `userId`·`ownerId`·`isAnonymous`를 요청 본문에서 받아 권한 판단에 쓰지 않는다. 사진은 서버가 `assetId`의 소유자와 `verified` 상태를 확인한 뒤 주문에 연결한다. 사용자 컨텍스트의 Supabase 클라이언트와 RLS를 기본으로 쓰고, 비밀 키를 쓰는 검증·메일 작업은 최소 범위로 격리한다.
-- 비회원은 쿠키를 잃거나 다른 기기로 옮기면 익명 세션을 복구할 수 없다. 이때 주문번호만으로 주문을 보여주지 않고 아래 비회원 조회 절차를 사용한다.
-- 익명 계정 발급 전 CAPTCHA/Turnstile 검증을 적용하고, IP 기준 발급 상한도 둔다. 현재 Supabase 익명 로그인에는 남용으로 사용자가 대량 생성될 위험이 있다. 사용하지 않는 익명 계정 정리 주기와 주문·사진을 보유한 계정의 삭제 예외는 데이터 보관 정책과 함께 #69 후속 마이그레이션에서 확정한다.
+비회원 식별은 **Next 서버가 Supabase 익명 로그인으로 만든 `auth.users.id`**를 사용한다. 기존 회원과 같은 사용자 ID·RLS·자산 소유권 검사를 쓸 수 있고, 새 계정으로 가입할 때 ID를 유지할 수 있어 자체 비회원 세션 저장소보다 구현 범위가 작다. 브라우저는 Supabase Auth를 직접 호출하지 않는다.
 
-### 서버 전용 세션 제안
+- `POST /api/auth/guest`는 서버에서 `signInAnonymously()`를 호출하고 HttpOnly 세션 쿠키만 발급한다. 이미 유효한 회원·비회원 세션이 있으면 새 ID를 만들지 않는다.
+- Supabase 익명 사용자는 DB에서 `authenticated` 역할이다. 회원 전용 기능은 검증된 JWT의 `is_anonymous`와 회원 프로필 완료 상태도 확인한다. API 키의 `anon` 역할과 익명 사용자를 구분한다.
+- `orders.user_id`와 사진의 소유자 ID는 `NOT NULL`인 Supabase 사용자 ID다. 요청 본문의 `userId`·`ownerId`·`isAnonymous`는 권한 판단에 쓰지 않는다.
+- Next API가 요청별 Auth 클라이언트를 만들고 `auth.getUser()`로 서버에서 사용자를 확인한다. 쿠키에서 복원한 `getSession()`의 사용자 객체만으로 승인하지 않는다. 검증된 사용자의 access JWT를 Supabase Data API에 전달해 RLS의 `auth.uid()`가 같은 ID를 보도록 한다.
+- `presign`·`complete`·`read-url`·주문 제출 모두 소유자를 확인한다. 주문 서버는 각 `assetId`의 소유자·`verified` 상태를 다시 확인한다. 정회원과 비회원 모두 본인 자산만 사용한다.
+- 비회원 세션은 쿠키 삭제·로그아웃·다른 기기로 복구할 수 없다. 주문번호와 이메일 인증 코드를 사용하는 아래 조회 절차가 별도로 필요하다.
 
-| 항목 | 제안 |
+익명 세션을 발급하기 전 CAPTCHA를 검사한다. IP 제한과 사용자 ID별 업로드 제한을 함께 적용해 ID 재발급으로 presign 상한을 우회하지 못하게 한다. 익명 계정 정리는 주문·사진·보존 중인 동의가 없는 계정만 대상으로 한다. 보관 기간과 정리 실행 주체는 #69의 보관 계약에서 확정하며, 현재 초안의 `orders.user_id ON DELETE RESTRICT`를 피해 무조건 계정을 삭제하지 않는다.
+
+### 2. 세션 라이브러리·갱신·쿠키
+
+**제안: `@supabase/ssr`의 `createServerClient`를 Next Route Handler에서만 사용한다.** SDK가 세션 직렬화·쿠키 분할·refresh 토큰 회전을 맡게 한다. 브라우저용 `createBrowserClient`는 만들지 않고 화면은 Next API만 호출한다. 이 구성에서 서버의 `getAll`·`setAll`은 HttpOnly 쿠키를 읽고 쓸 수 있다.
+
+`@supabase/ssr`은 아직 설치되어 있지 않다. 이 계약 PR에서 추가를 제안하며, 승인 후 서버 구현 이슈의 허용 파일에 `frontend/package.json`·`frontend/package-lock.json`을 넣고 호환 버전을 함께 고정한다. 이번 문서 PR에서는 설치하지 않는다.
+
+| 쿠키·항목 | 제안 |
 |---|---|
-| 라이브러리 | 이미 설치된 `@supabase/supabase-js`의 **서버 전용** Auth 클라이언트와 요청별 쿠키 저장 어댑터를 사용한다. `@supabase/ssr`의 통상적인 브라우저·서버 공유 세션은 HttpOnly 조건과 맞지 않아 이번 계약에서는 추가하지 않는다. 구현 전에 토큰 회전·동시 요청·OAuth 콜백을 검증한다. |
-| 갱신 위치 | 보호 API가 요청마다 서버에서 세션을 복원·갱신하고, 회전된 토큰을 같은 응답의 `Set-Cookie`로 함께 갱신한다. `proxy`에서 전역 갱신하지 않는다. `GET /api/auth/session`도 이 경로를 사용한다. |
-| 쿠키 | `sunny-at`(access)와 `sunny-rt`(refresh)를 **별도** 쿠키로 둔다. 둘 다 `HttpOnly; SameSite=Lax; Path=/`; HTTPS 배포에서는 `Secure`, HTTP localhost 개발에서는 `Secure`를 쓰지 않는다. `Domain`은 지정하지 않는다. 세션·비회원 응답에는 `Cache-Control: no-store`를 붙인다. |
-| 만료 | `sunny-at`의 `Max-Age`는 Supabase access JWT의 남은 유효 시간 이내. `sunny-rt`는 **7일 절대 수명 제안**이며 Supabase 세션 제한을 이보다 길지 않게 맞춘다. 이 수치는 팀 합의 전 운영값이 아니다. 만료·폐기된 refresh 토큰은 쿠키를 모두 제거하고 보호 API에서 401로 처리한다. |
-| 로그아웃 | 현재 브라우저의 Supabase 세션을 폐기하고 두 쿠키를 같은 속성으로 만료시킨다. 다른 기기 세션은 유지한다. 비회원 로그아웃 후에는 이전 주문·사진에 대한 세션 접근이 사라진다. |
+| 일반 세션 | 이름 `sunny-session`. access/refresh 토큰을 SDK의 **하나의 세션 레코드**에 함께 담는다. 크기가 크면 `sunny-session.0`, `.1` 등으로 SDK가 나눈다. 토큰마다 직접 쿠키를 분리·재조립하지 않는다. |
+| 일반 속성 | 모든 세션 조각에 `HttpOnly; SameSite=Lax; Path=/`, `Domain` 미지정. HTTPS 미리보기·운영에서는 `Secure`, HTTP localhost에서만 `Secure`를 끈다. |
+| 일반 수명 | 브라우저 저장은 마지막 성공 갱신부터 **7일 Max-Age 제안**. 삭제 옵션의 `Max-Age=0`을 덮어쓰지 않는다. 이는 브라우저 보관 기간이며 서버 세션의 절대 수명과 다르다. access JWT 만료는 Supabase 설정 `exp`를 검증한다. 운영 JWT 수명·서버 절대 세션 제한은 구현 전 별도로 확인하며, 유료 플랜의 시간 제한 기능을 사용한다고 가정하지 않는다. |
+| PKCE·진행 정보 | SDK의 `sunny-session` 기반 PKCE verifier 쿠키와 서버가 서명한 `sunny-auth-flow`를 사용한다. `sunny-auth-flow`는 목적·일회용 흐름 ID·예상 사용자/이메일·안전한 복귀 경로·만료를 묶는다. OAuth는 10분, 메일 확인은 1시간 수명 제안. 비밀번호·토큰을 진행 정보에 넣지 않는다. |
+| 재설정·비회원 전환 | `sunny-recovery`와 `sunny-upgrade`라는 별도 SDK 저장 키와 서명된 목적 정보를 사용한다. 콜백 성공 뒤 15분 수명 제안. 일반 보호 API는 이 쿠키를 인증에 쓰지 않는다. |
+| 갱신 위치 | **각 API의 공통 서버 인증 함수**에서 확인·필요 시 갱신한다. SDK가 내보낸 모든 `Set-Cookie`를 성공·실패·리디렉션 응답에 보존한다. 지금 화면은 세션 조회 API를 호출하므로 `proxy`에 전역 갱신을 넣지 않는다. |
+| 로그아웃 | `signOut({scope:"local"})`로 현재 세션의 refresh 토큰을 폐기하고 세션·PKCE·진행·전환 쿠키와 모든 조각을 같은 속성으로 지운다. 다른 기기 세션은 유지한다. |
 
-Supabase의 `@supabase/ssr` 기본 설명은 브라우저 클라이언트가 refresh 토큰을 읽는 구성을 전제로 한다. 따라서 패키지 이름만 바꾸거나 `HttpOnly` 옵션만 붙여 이 계약을 충족했다고 간주하지 않는다. 모든 인증 요청은 Next API를 거치며, 브라우저의 `localStorage`·JS 쿠키·응답 JSON·URL fragment에 access/refresh 토큰을 두지 않는다. OAuth·메일 콜백 URL의 일회용 **인증 코드**는 Next 서버가 교환한 뒤 URL에서 제거한다.
+세션 클라이언트와 사용자 상태를 모듈 전역에서 공유하지 않는다. 인증·회원·비회원 조회 응답에는 `Cache-Control: private, no-store`를 적용한다. 동시 refresh 요청과 조각 수 변경, 리디렉션 시 쿠키 전달, 두 사용자 간 격리는 서버 구현 이슈의 필수 검증이다.
 
-쿠키를 자동 전송하는 상태 변경 요청은 `Origin`을 정확한 허용 출처와 비교하고, 없거나 다르면 `403 ORIGIN_NOT_ALLOWED`로 거절한다. 로컬·미리보기·운영 출처는 배포 환경별 허용 목록으로 관리하며 임의의 `*.vercel.app`을 전체 허용하지 않는다. OAuth·메일의 GET 콜백은 일회용 코드와 `state`/PKCE로 별도 검증한다. 로그인·가입·익명 발급·재설정·비회원 조회에는 IP와 계정 식별자별 호출 제한을 적용한다. 제한 수치의 정본은 운영 정책 합의 전 `TBD`다.
+재설정·이메일 전환은 시작 요청과 콜백이 같은 전용 SDK 저장 키를 사용해 PKCE verifier를 공유한다. 전환 시작은 서버가 확인한 현재 익명 세션을 전용 클라이언트에 전달하고, 콜백 뒤에도 사용자 ID가 같은지 검사한다. 일반 세션으로의 승격은 완료 API에서만 한다. 흐름 ID의 소모·재사용 방지는 서버에 기록하며, 서로 다른 인증 흐름이 겹치면 먼저 시작한 흐름을 취소하고 재시작을 안내한다.
 
-### 회원 가입·로그인·세션 API
+로그아웃은 브라우저의 접근을 종료하고 refresh 토큰을 폐기하지만 이미 발급한 access JWT는 `exp`까지 남을 수 있다. 즉시 모든 JWT를 무효화했다고 설명하지 않는다. 비밀번호 재설정에서도 같은 제한을 적용한다.
 
-| 요청 | 입력 | 성공 응답 | 실패 및 화면 동작 |
-|---|---|---|---|
-| `POST /api/auth/guest` | CAPTCHA 검증 결과 | `201 {"guest":true}` + 쿠키 | 제한 시 429와 `Retry-After`; 화면은 주문 시작을 잠시 중단 |
-| `POST /api/auth/signup` | `email`, `password`, `nickname`, `consents` | `202 {"status":"email_confirmation_required"}` | 형식 오류 400; 기존 계정 여부를 응답으로 단정하지 않음. 이메일 확인 안내 |
-| `POST /api/auth/login` | `email`, `password` | `200 {"member":{"email":"person@example.invalid","nickname":"햇살"}}` + 쿠키 | `401 INVALID_CREDENTIALS`는 이메일 존재 여부를 숨김. 화면은 같은 오류 문구 사용 |
-| `GET /api/auth/session` | 쿠키 | `200 {"member":null,"guest":false}` 또는 회원/비회원 객체 | 만료 쿠키를 제거하고 로그인 화면 상태로 전환. 네트워크 장애는 미로그인으로 단정하지 않음 |
-| `POST /api/auth/logout` | 쿠키 | `204` (본문 없음) + 쿠키 만료 | 실패 시 화면이 성공으로 단정하지 않고 재시도 안내 |
+### 3. 요청 보호·호출 제한
 
-`GET /api/auth/session`의 회원 응답 예시:
+HttpOnly는 JS의 토큰 읽기를 막지만 브라우저는 쿠키를 자동 전송한다. 상태 변경 JSON API는 `Content-Type: application/json`과 **같은 출처의 Origin**을 요구하고 없거나 다르면 `403 ORIGIN_NOT_ALLOWED`로 거절한다. 출처는 신뢰하는 배포 설정과 정확히 비교하며, 임의 Host/Forwarded 헤더나 전체 `*.vercel.app`에서 허용 목록을 만들지 않는다. OAuth·메일 콜백은 GET이므로 아래의 일회용 흐름·PKCE 검증을 적용한다.
+
+다음은 **리뷰용 제한 수치**이며 합의 전 운영값이 아니다. 여러 서버 인스턴스에서 같은 원자적 집계를 사용한다. 존재하지 않는 계정·주문에도 같은 기준을 적용하고, 계정 식별자와 IP 원문을 오류·로그에 남기지 않는다.
+
+| 대상 | 상한 제안 | 실패 |
+|---|---|---|
+| 익명 ID 발급 | IP당 최근 60분 10개 + CAPTCHA | 429, `Retry-After` |
+| 로그인 | IP+정규화 이메일 조합당 최근 15분 10회, IP 전체 상한은 운영 환경에서 합의 | 429; 이메일 유무와 같은 모양 |
+| 가입·이메일 전환 | 이메일당 최근 60분 5회, IP당 20회 | 429 |
+| 재설정 메일 | 이메일당 최근 60분 3회, IP당 10회; 재요청 60초 대기 | 429 |
+| 비회원 조회 메일 | 주문번호+이메일 조합당 최근 60분 3회, IP당 10회; 재요청 60초 대기 | 429 |
+| 비회원 조회 확인 | challenge당 5회 실패로 폐기, IP당 최근 15분 20회 | 400 `LOOKUP_FAILED` 또는 IP 제한 429 |
+
+상한에 도달하면 다음 요청 가능 시간까지의 초를 `Retry-After`로 준다. 화면은 자동 재요청하지 않는다. 메일 제공자·Supabase의 실제 상한이 더 낮으면 그 제한도 적용한다. 비밀번호 정책·운영 IP 전체 상한은 `TBD`로 PR에서 합의한다.
+
+### 4. 이메일 가입·로그인·현재 세션·로그아웃
+
+| 요청 | 성공 | 화면 동작 |
+|---|---|---|
+| `POST /api/auth/signup` | 202 `email_confirmation_required` | 이메일 확인 안내. 기존 이메일에도 같은 응답; 확인 전 회원 기능을 열지 않음 |
+| `GET /api/auth/email/callback` | 303 안전한 화면 경로 | 서버가 코드 교환·이메일 확인 후 쿠키 발급. 성공은 `/account` 또는 프로필 완료 안내, 만료/다른 브라우저는 다시 확인 안내 |
+| `POST /api/auth/login` | 200 회원 객체 + 쿠키 | 회원 화면으로 이동. 프로필·동의 미완료면 `profile_required` 상태 |
+| `GET /api/auth/session` | 200 상태 객체 | 미로그인·비회원·프로필 미완료·회원 구분 |
+| `POST /api/auth/logout` | 204, 본문 없음 | 서버 성공 후 회원 상태 제거. 실패는 재시도 안내 |
+| `POST /api/auth/profile/complete` | 200 회원 객체 | 신규 카카오 사용자의 별명·가입 동의 저장 후 회원 기능 활성화 |
+
+`POST /api/auth/signup` 요청:
 
 ```json
-{"member":{"email":"person@example.invalid","nickname":"햇살"},"guest":false}
+{
+  "email": "person@example.invalid",
+  "password": "<입력한 비밀번호>",
+  "nickname": "햇살",
+  "consents": {
+    "terms": {"accepted": true, "policyVersion": "TBD"},
+    "privacy": {"accepted": true, "policyVersion": "TBD"},
+    "marketing": {"accepted": false, "policyVersion": "TBD"}
+  }
+}
 ```
 
-비회원 응답은 `{"member":null,"guest":true}`다. 보호 API는 세션이 없거나 만료되면 `401 AUTHENTICATION_REQUIRED`, 유효한 세션이지만 다른 소유자 자산이나 회원 전용 기능에 접근하면 `403 ACCESS_DENIED`를 반환한다. `/account`는 회원만 보여주고 비회원·미로그인은 로그인 안내로 보낸다. `GET /api/auth/session`의 공개 상태 조회와 보호 API의 401을 구분한다.
-
-가입 요청과 응답 예시:
+응답 `202`:
 
 ```json
-{"email":"person@example.invalid","password":"<입력한 비밀번호>","nickname":"햇살","consents":{"terms":{"accepted":true,"policyVersion":"TBD"},"privacy":{"accepted":true,"policyVersion":"TBD"},"marketing":{"accepted":false,"policyVersion":"TBD"}}}
+{"status": "email_confirmation_required"}
 ```
+
+가입은 서버에서 이메일 확인을 요구한다. 새 일반 가입은 Supabase `signUp()`을 사용하며, nickname·동의 버전·서버 접수 시각은 서명된 가입 진행 정보로 보관한 뒤 검증된 이메일 콜백에서 사용자 ID에 연결해 저장한다. 이메일 확인 전 자동 정회원 로그인하지 않는다. 이메일 콜백과 PKCE verifier는 가입을 시작한 브라우저에 묶는다. 비밀번호는 Auth 호출 후 버리고 쿠키·DB·로그에 저장하지 않는다.
+
+이미 비회원 세션이 있는 요청은 아래 **비회원 전환 절차**를 안내한다. `signUp()`으로 별도 사용자 ID를 만들고 주문을 자동 옮기지 않는다.
+
+`POST /api/auth/login` 요청:
 
 ```json
-{"status":"email_confirmation_required"}
+{"email": "person@example.invalid", "password": "<입력한 비밀번호>"}
 ```
 
-서버는 필수 동의 둘이 `true`인지 검사한다. 브라우저가 보낸 `acceptedAt`은 받지 않고 서버 수신 시각을 기록한다. 정책 버전은 배포된 동의 문구와 서버가 대조한다. 회원 존재 여부를 숨기기 위해 이미 등록된 이메일의 가입 요청도 같은 안내 응답을 사용한다.
+응답 `200`:
 
-가입 시 이메일 확인을 요구하고 확인 전에는 정회원 세션으로 전환하지 않는다. 익명 세션에서 새 이메일로 가입하면 `signUp()`으로 별도 계정을 만들지 않고 해당 익명 사용자에 이메일 신원을 연결하고 확인 후 비밀번호를 설정해 **동일한 사용자 ID**를 유지한다. 확인 전에는 기존 익명 세션으로만 주문에 접근한다. 그 ID에 묶인 주문·사진은 별도 소유권 이전 없이 계정에 남는다. 카카오도 새 신원이라면 같은 익명 사용자에 연결한다. 이미 존재하는 계정으로 로그인하는 경우에는 주문·사진을 자동 이전하지 않는다. 비회원은 아래 조회 절차를 계속 사용할 수 있고, 기존 계정으로의 이전은 별도 소유권 증명·마이그레이션 계약 없이는 제공하지 않는다.
+```json
+{"status": "member", "member": {"email": "person@example.invalid", "nickname": "햇살"}}
+```
 
-`nickname`은 표시 정보다. 가입 필수 약관·개인정보 처리 동의와 선택 마케팅 동의는 각각 `accepted`, `policyVersion`, **서버 기록 시각**을 저장한다. 마케팅 거부도 기록하고 사진 제작·브랜드 공개 동의와 섞지 않는다. 별명과 현재 동의 상태는 `public.profiles`, 동의 변경 이력은 별도 `member_consent_events`에 저장하는 안을 제안한다. 사용자가 바꿀 수 있는 `user_metadata`만을 동의 증빙의 정본으로 삼지 않는다. 테이블·RLS·삭제 정책은 #69의 허용 범위 밖이므로 **별도 back 인증 스키마 이슈**에서 만든다. 동의 문구·정책 버전·보관 기간은 `TBD`로 두고 확정 전 가입 API를 운영에 열지 않는다.
+존재하지 않는 이메일·잘못된 비밀번호·확인 전 계정은 모두 같은 `401 INVALID_CREDENTIALS`와 “이메일 또는 비밀번호를 확인해 주세요.”를 반환한다. 중복 가입은 일반 202 안내로 처리한다. 공급자의 계정 존재 여부·내부 오류를 그대로 전달하지 않는다.
 
-화면의 API 모드 함수 계약은 `signIn(email, password): Promise<Member>`, `signUp(email, password, nickname, consents): Promise<{status:"email_confirmation_required"}>`, `getMember(): Promise<Member|null>`, `signOut(): Promise<void>`다. `getMember`는 `GET /api/auth/session`을 호출한다. 추가로 카카오 시작, 재설정 요청·확정, 비회원 주문 조회 함수가 필요하다. 현재 mock 함수·호출 화면 수정은 팀장의 후속 화면 이슈에서 한다.
+`GET /api/auth/session` 회원 응답:
 
-### 카카오 로그인
+```json
+{"status": "member", "member": {"email": "person@example.invalid", "nickname": "햇살"}}
+```
 
-1. 브라우저는 `GET /api/auth/kakao/start`로 이동한다. Next 서버가 OAuth `state`와 PKCE verifier를 시작 요청의 짧은 수명 HttpOnly 쿠키에 연결한 뒤 Supabase Auth를 통해 카카오로 돌려보낸다.
-2. 카카오는 **Supabase Auth의 제공자 콜백 URL**로 돌아오고, Supabase는 허용 목록의 `redirectTo`인 `https://<해당 배포 호스트>/api/auth/kakao/callback`으로 일회용 코드를 보낸다. Next 콜백은 `state`·PKCE 및 허용 출처를 확인하고 코드를 서버에서 교환한 뒤 세션 쿠키를 발급한다. 브라우저에는 토큰을 반환하지 않는다.
-3. Next 콜백은 성공 시 `/account`, 취소·거부·검증 실패 시 `/login`으로 돌려보내고 일반 오류 메시지만 표시한다. 임의 `next` URL이나 미등록 호스트로 리디렉션하지 않는다.
+| 상태 | 응답 객체 | 의미 |
+|---|---|---|
+| 세션 없음·만료 | `{"status":"unauthenticated","member":null}` | 확실히 무효한 쿠키는 지움 |
+| 비회원 | `{"status":"guest","member":null}` | 주문·본인 사진만 허용 |
+| 이메일 확인 후 비밀번호 설정 전 / 프로필·동의 미완료 | `{"status":"profile_required","member":null}` | 필요한 완료 화면으로 안내. 일반 회원 기능은 제한 |
+| 회원 | 위 `member` 응답 | 표시용 email·nickname만 반환 |
 
-개발 `http://localhost:3000/api/auth/kakao/callback`, Vercel 미리보기의 **실제 호스트별** HTTPS 콜백, 운영 HTTPS 콜백을 Supabase redirect 허용 목록에 등록한다. Vercel 미리보기 호스트가 바뀌면 등록·검증된 호스트에서만 카카오를 켠다. 카카오 개발자 설정에는 Supabase 프로젝트의 Auth 콜백 URL을 등록한다. 동일한 **검증된 이메일**의 이메일 계정은 Supabase의 안전한 identity linking 결과를 확인해 연결하고, 확인되지 않은 이메일은 자동 합치지 않는다. 카카오가 이메일을 제공하지 않으면 이번 계약에서는 가입·로그인을 완료하지 않고 이메일 동의 안내 후 로그인 화면으로 돌린다. 이메일이 있는 신규 카카오 사용자는 별명·필수/선택 동의 입력을 마친 뒤 회원 기능을 연다. 이 단계가 끝나지 않은 계정은 주문·사진 API를 사용하지 못한다.
+Auth 서비스 장애·네트워크 오류는 503으로 분리하고 쿠키를 임의 삭제하지 않는다. 화면은 이전 상태를 곧바로 미로그인으로 덮지 않고 재시도 안내를 보여준다. `/account`는 `member` 상태만 허용한다.
 
-카카오 REST API 키와 client secret은 Supabase Auth 제공자 설정의 서버 측 비밀값으로 둔다. Next 코드가 직접 읽지 않는 구성이라면 새 `KAKAO_*` 환경변수를 임의로 만들지 않는다. 직접 연동으로 바꾸려면 `backend/README.md`의 환경변수 이름과 `frontend/.env.example`을 **별도 허용 범위의 이슈·PR**에서 합의한다. 어떤 경우에도 secret에 `NEXT_PUBLIC_`을 붙이지 않는다.
+### 5. 비회원 주문 후 가입·계정 연결
 
-### 비밀번호 재설정
+**새 계정으로 전환할 때 주문·사진을 연결한다.** 같은 익명 사용자 ID에 신원을 추가하므로 주문·사진의 소유자 ID와 presign 집계는 유지된다.
 
-`POST /api/auth/password-reset/request`는 `{ "email": "person@example.invalid" }`을 받고 계정 존재 여부와 관계없이 `202 {"status":"if_account_exists_email_sent"}`를 반환한다. IP·이메일별 요청 상한과 같은 응답 시간을 적용한다. 메일 링크는 등록된 `GET /api/auth/password-reset/callback`으로 돌아오며, Next 서버가 일회용 코드를 교환해 **재설정 전용** 짧은 수명 HttpOnly 쿠키를 발급한다. 이 쿠키만으로 주문·사진 API를 호출할 수 없다.
-
-`POST /api/auth/password-reset/confirm`은 `{ "newPassword": "<새 비밀번호>" }`를 받고 성공 시 `204`와 재설정 쿠키 만료를 반환한다. 링크 만료·재사용은 `400 RESET_LINK_INVALID`, 요청 제한은 `429`와 `Retry-After`로 처리한다. 링크 수명, 요청 상한, 비밀번호 정책은 Supabase 설정과 함께 `TBD`다. **제안:** 재설정 성공 후 기존 모든 세션을 무효화하고 새 로그인으로 복귀한다. Supabase에서 전역 세션 폐기 방법과 필요한 최소 권한을 구현 이슈에서 검증한다.
-
-### 비회원 주문 조회와 보관
-
-비회원은 주문번호와 **주문 당시 확인한 이메일로 발송한 일회용 코드**를 함께 증명한다. 주문 생성 시 이메일을 필수로 받고 주문 확정 전에 그 이메일의 접근 가능 여부를 확인한다. 이 필드와 확인 기록은 #69 주문 스키마에 추가 검토가 필요하다. 메일 제공자도 현재 스택에 없으므로 구현 이슈에서 서비스·발송 상한·환경변수 이름을 제안해야 한다. `POST /api/orders/guest/lookup/request`의 입력은 `{ "orderNumber":"EXAMPLE-ORDER","email":"person@example.invalid" }`, 응답은 일치 여부와 무관하게 `202 {"status":"if_match_code_sent"}`다. `POST /api/orders/guest/lookup/confirm`은 같은 주문번호·이메일과 `code`를 받아 성공 시 필요한 주문 상태만 `200`으로 반환한다. 잘못된 조합·만료 코드는 같은 `400 LOOKUP_FAILED`로 처리한다. 코드 만료·재사용 방지와 IP·주문번호·이메일별 시도 상한을 둔다. **제안 수치:** 코드 10분, 확인 5회 실패/15분 이후 `429`와 `Retry-After`; 팀 합의 전 운영값은 아니다.
-
-비회원과 회원의 수령 정보·동의 기록은 **같은 보관·삭제 기준**을 적용하되 실제 기간과 법적 보존 근거는 `TBD`다. 익명 사용자 정리는 주문·사진·보존 중인 동의 기록을 먼저 확인해야 한다. 현재 `orders.user_id ON DELETE RESTRICT`이므로 계정 삭제·기록 보존·익명 사용자 정리를 #69 후속 설계에서 함께 결정한다. 기간이 정해지기 전에는 주문 API를 운영에 열지 않는다.
-
-### #65·#69와 구현 이슈의 경계
-
-| 대상 | 계약 머지 후 반영할 내용 |
+| 요청 | 입력 / 성공 |
 |---|---|
-| 사진 계약 PR #65 | `presign`·`complete`·`read-url`의 "로그인 사용자"를 **정회원 또는 서버가 검증한 익명 사용자**로 고친다. 최근 60분 20개 presign 상한은 사용자 ID마다 동일하게 적용하고, 익명 ID 재발급을 통한 우회는 CAPTCHA·IP 제한으로 보완한다. 자산 소유권은 주문 시에도 다시 확인한다. #70 머지 뒤 #65 브랜치에 `origin/main`을 merge한다. |
-| DB 이슈 #69 | `orders.user_id NOT NULL` 유지 제안. 익명 사용자도 `auth.users.id`가 있다. 비회원 조회용 주문번호·확인 이메일·검증 기록을 주문 스키마에 검토한다. RLS에서는 회원/익명을 필요에 따라 구분하고, 사진 소유권·동의·보관이 확정되기 전 쓰기 권한을 열지 않는다. `survey_responses`는 회원 전용으로 둔다. |
-| 별도 back 인증 스키마·API 이슈 | `profiles`·동의 이력, 익명 계정 정리, 쿠키 어댑터, 인증·카카오·재설정·비회원 조회 구현의 허용 파일을 적는다. `@supabase/ssr`을 다시 제안한다면 HttpOnly 조건 충족 방식과 라이브러리 추가 승인을 먼저 문서화한다. |
-| 팀장 화면 후속 이슈 | `frontend/lib/auth.ts`와 호출 화면을 위 입력·반환 계약에 맞춘다. mock 모드의 별도 저장 값은 API 모드에서 사용하지 않는다. |
+| `POST /api/auth/guest/upgrade/request` | `email`·`nickname`·`consents` → 202 `email_confirmation_required` |
+| `GET /api/auth/email/callback` | 원래 익명 사용자·예상 이메일·흐름·PKCE 확인 → 전환 전용 쿠키와 비밀번호 설정 안내 |
+| `POST /api/auth/guest/upgrade/confirm` | `password` → 200 회원 객체 + 일반 세션 쿠키 |
 
-공통 오류 JSON은 `{ "error": { "code": "AUTHENTICATION_REQUIRED", "message": "로그인이 필요합니다." } }` 형태를 제안한다. 오류 응답·로그·메일에는 토큰, 내부 Storage 경로, 고객 사진·연락처를 넣지 않는다.
+서버는 `updateUser({email})`로 신원을 연결한다. 이메일 확인 후 비밀번호를 다시 입력받아 설정하며, 확인을 기다리는 동안 입력한 비밀번호를 보관하지 않는다. 확인된 이메일·필수 동의·별명이 갖춰지고 비밀번호 설정이 성공한 때 회원 전환을 완료한다.
+
+카카오 새 신원을 연결할 때는 비회원 세션에서 `linkIdentity({provider:"kakao"})`를 사용하고 동일 ID 유지 여부를 확인한다. 이미 다른 계정에 연결된 카카오 신원·이메일이면 자동 데이터 이전을 하지 않고 기존 계정 로그인 또는 비회원 주문 조회를 안내한다. 연락처·이메일 문자열이 같다는 이유만으로 주문·사진을 다른 계정에 붙이지 않는다. **기존 회원 계정으로의 주문 소유권 이전은 이번 계약에서 제공하지 않는다.**
+
+### 6. 카카오 로그인·콜백·동일 이메일
+
+흐름은 **브라우저 → Next 시작 → Supabase Auth → 카카오 → Supabase 제공자 콜백 → Next 콜백 → HttpOnly 세션 발급**이다.
+
+1. `GET /api/auth/kakao/start`는 서버에서 OAuth 또는 비회원 신원 연결을 시작한다. 서명된 `sunny-auth-flow`에 목적·현재 익명 사용자 ID·복귀 경로를 묶고 PKCE verifier를 HttpOnly로 저장한 뒤 303 리디렉션한다.
+2. **카카오 ↔ Supabase 제공자 구간의 state 검증은 Supabase Auth가 담당**한다. Next 콜백이 카카오의 원래 state를 그대로 받는다고 가정하지 않는다.
+3. `GET /api/auth/kakao/callback`은 코드·서버가 발급한 진행 정보·PKCE verifier·만료를 확인한다. 서버의 `exchangeCodeForSession()`만 토큰을 받고 쿠키를 발급한다. 흐름 쿠키가 없거나 잘못되면 실패 처리한다.
+4. 토큰 교환 후 주소의 코드를 제거해 303 리디렉션한다. 기존 회원은 `/account`, 신규 카카오는 별명·가입 동의 완료 안내로 보낸다. 취소·거부·만료·연결 충돌은 `/login`에서 일반 문구와 재시도를 안내한다. 외부 `next` URL이나 사용자 입력 Host로 이동하지 않는다.
+
+| 환경 | Next 앱 콜백 |
+|---|---|
+| 로컬 앱 + 호스팅 Supabase 개발 Auth | `http://localhost:3000/api/auth/kakao/callback` |
+| Vercel 미리보기 | 등록한 **정확한 HTTPS 배포 호스트**의 `/api/auth/kakao/callback` |
+| 운영 | 확정된 운영 HTTPS 도메인의 같은 경로. 도메인 `TBD` |
+
+카카오 개발자 설정에는 Supabase Auth의 제공자 콜백을 등록하고, Supabase redirect 허용 목록에는 위 Next URL을 등록한다. 미리보기 호스트가 등록되지 않았으면 카카오 시작을 비활성화한다. 전체 Vercel 도메인을 와일드카드 허용하지 않는다.
+
+동일 이메일의 이메일·카카오 신원은 **Supabase가 검증한 identity linking 결과에 따라 같은 사용자 ID로 연결하는 안**을 제안한다. 앱이 이메일 문자열만 비교해 DB 기록을 합치지 않는다. 신규 비회원 전환과 기존 계정 충돌은 앞 절의 규칙을 따른다.
+
+이번 계약에서는 **카카오가 이메일을 제공하지 않으면 가입·로그인을 완료하지 않는다.** Supabase Kakao의 이메일 없는 사용자 허용을 끄는 구성을 제안하고, 취소·동의 거부 때 일반 로그인 화면으로 돌아가 이메일 제공 안내를 한다. 신규 카카오 계정은 `POST /api/auth/profile/complete`에 nickname·consents를 제출해야 회원 기능을 사용할 수 있다.
+
+환경변수 이름의 정본은 `backend/README.md`다. 다음은 추가 등록 제안이며 이 문서 PR에서 README나 실제 비밀값을 변경하지 않는다.
+
+| 이름 제안 | 설정 위치 / 용도 |
+|---|---|
+| `KAKAO_CLIENT_ID` | 카카오 REST API 키. 서버 관리 배포 설정 또는 Supabase 제공자 구성의 입력 |
+| `KAKAO_CLIENT_SECRET` | Supabase Kakao 제공자의 client secret. Next 앱에서 직접 사용하지 않으면 Next에 복제하지 않음 |
+| `AUTH_FLOW_COOKIE_SECRET` | 서버의 가입·OAuth·복귀 경로 진행 정보를 서명. `lib/server/`만 읽음 |
+
+Supabase 제공자 설정 방식과 이름을 준표와 합의하고, 별도 `chore/back-auth-provider-config` 이슈에서 `backend/README.md`·`frontend/.env.example` 허용 범위를 정한다. 브라우저에 전달하거나 `NEXT_PUBLIC_`을 붙이지 않는다.
+
+### 7. 비밀번호 재설정
+
+`POST /api/auth/password-reset/request` 입력:
+
+```json
+{"email": "person@example.invalid"}
+```
+
+응답은 계정 존재 여부와 무관하게 `202`:
+
+```json
+{"status": "if_account_exists_email_sent"}
+```
+
+서버는 `resetPasswordForEmail()`을 호출한다. 존재 여부에 따른 문구·상태 코드·대기 시간 차이를 만들지 않는다. 명백한 공급자 장애는 일반 503으로 처리하며 계정 유무를 이유로 분기하지 않는다. 요청 상한은 호출 제한 표, 메일 링크 유효 시간은 **1시간 제안**으로 Supabase 설정과 맞춘다.
+
+메일 링크 → `GET /api/auth/password-reset/callback` → 서버의 PKCE 코드 교환 → `sunny-recovery` 전용 쿠키 → 새 비밀번호 화면 순서다. 같은 브라우저의 올바른 재설정 목적·verifier가 없으면 일반 실패를 안내하고 재요청한다. 이 콜백에서 일반 `sunny-session`을 발급하지 않는다.
+
+`POST /api/auth/password-reset/confirm` 입력:
+
+```json
+{"newPassword": "<새 비밀번호>"}
+```
+
+전용 쿠키·진행 정보를 확인한 뒤 비밀번호를 변경하고 **`signOut({scope:"global"})`로 모든 refresh 세션을 종료**한다. 성공은 `204`와 재설정·일반 세션 쿠키 삭제이며, 화면은 새 로그인으로 복귀한다. 만료·재사용·잘못된 흐름은 동일한 `400 RESET_LINK_INVALID`다. 비밀번호 변경 뒤 세션 폐기에 실패하면 성공으로 단정하지 않고 재시도 가능한 일반 503을 반환한다.
+
+기존 access JWT가 `exp`까지 유효할 수 있다는 Supabase 제한을 포함한다. 따라서 모든 기기에서 즉시 access JWT가 폐기된다는 보장은 하지 않는다. 즉시 차단이 필요하다는 합의가 생기면 `session_id` 기반 서버 검증 등 별도 설계를 먼저 추가한다.
+
+### 8. 비회원 주문 조회·보관
+
+**주문번호 + 주문에 기록된 연락 이메일 + 그 이메일로 보낸 일회용 코드**로 확인한다. 주문번호·전화번호 끝자리만으로 조회하지 않는다. 연락 이메일은 가입 신원과 독립된 수령 연락처이며, 문자열 일치만으로 계정 소유권을 증명하지 않는다.
+
+`POST /api/orders/guest/lookup/request` 입력:
+
+```json
+{"orderNumber": "EXAMPLE-ORDER", "email": "person@example.invalid"}
+```
+
+일치·불일치 모두 같은 `202` 응답을 반환한다. 실제 또는 가짜 challenge에 대해 같은 응답 구조·만료·실패 횟수 정책을 사용한다.
+
+```json
+{"status": "if_match_code_sent", "challengeId": "00000000-0000-4000-8000-000000000001"}
+```
+
+`POST /api/orders/guest/lookup/confirm` 입력:
+
+```json
+{"challengeId": "00000000-0000-4000-8000-000000000001", "code": "<메일에서 입력한 코드>"}
+```
+
+성공 `200` 예시:
+
+```json
+{"order": {"orderNumber": "EXAMPLE-ORDER", "status": "received", "createdAt": "2026-10-06T00:00:00.000Z"}}
+```
+
+6자리 코드·10분 유효·성공 시 즉시 소모를 제안한다. 서버는 목적·주문·이메일·challenge ID에 묶어 코드의 비밀키 기반 해시만 보관한다. 만료·재사용·잘못된 코드·없는 주문을 모두 `400 LOOKUP_FAILED`로 처리한다. 확인 실패 상한은 호출 제한 표를 따른다.
+
+조회는 해당 주문의 상태·접수 시각만 반환하고 일반 세션이나 사진 URL, 다른 주문에 대한 권한을 주지 않는다. `received` 등 주문 상태 enum은 #69 주문 계약에서 확정한다. #69에는 주문번호·`contact_email`·challenge 만료/사용/실패 횟수와 최소 서버 접근 경계를 검토해야 한다. 거래 메일 발송 서비스·서버 비밀키 이름은 제공자 설정 이슈에서 승인하고, 준비 전에는 이 조회 기능을 운영에 열지 않는다.
+
+회원·비회원의 수령 정보와 주문 동의 기록은 **같은 보관 기준**을 제안한다. 실제 기간·보존 근거·삭제 주체는 `TBD`이며 #65/#69에서 합의한다. 사진 원본·정제본·임시 업로드 기간은 사진 계약에 위임한다. 주문이 있는 익명 계정의 일괄 삭제, 계정 전환을 통한 동의 기록 유실을 허용하지 않는다.
+
+### 9. 회원 정보·가입 동의 저장소
+
+별명은 `public.profiles`, 가입 동의 변경 이력은 `public.member_consent_events`에 저장하는 안을 제안한다. `user_metadata`는 사용자 변경이 가능하므로 동의 증빙이나 회원 기능 승인 기준으로 삼지 않는다. `Member` 응답은 email·nickname만 사용한다.
+
+| 저장소 | 제안 필드·규칙 |
+|---|---|
+| `profiles` | `user_id`·`nickname`·`onboarding_completed_at`·서버 생성/변경 시각. 별명·필수 동의와 가입 방법별 완료 조건을 서버가 확인한 뒤 완료 시각을 기록한다. 전환 회원은 비밀번호 설정과 일반 세션 갱신까지 성공해야 완료된다. |
+| `member_consent_events` | 사용자 ID·동의 종류·accepted·policy_version·서버 recorded_at. 변경마다 이력을 추가한다. |
+| 필수 / 선택 | 약관·개인정보 동의는 필수, 마케팅은 선택. 거절도 기록하며 주문 사진 제작·브랜드 공개 동의와 분리한다. |
+
+서버가 현재 게시된 동의 버전과 요청 버전을 대조한다. 브라우저의 `acceptedAt`은 받지 않는다. 완료 시각·동의 이력은 서버가 관리하며 클라이언트의 직접 테이블 쓰기로 위조할 수 없게 RLS와 컬럼 권한을 함께 설계한다. 서버/DB가 기록한 UTC 시각을 사용한다. `POST /api/auth/profile/complete`는 가입 예시의 nickname·consents만 받으며 필수 동의가 없으면 400이다.
+
+이 테이블은 #69 범위 밖이다. 담당자 **이재원**, 후속 작업 **“회원 프로필·가입 동의 이력 스키마 — #70 계약 후속”**, 지정 브랜치 `feat/back-member-schema`, 허용 파일 `backend/supabase/migrations/*.sql`·`tests/*.sql`·README·seed로 제안한다. **후속 이슈 번호는 아직 TBD다.** 위 이름·담당자·브랜치·허용 범위로 이슈를 생성·배정하고, 계약 합의·동의 버전/보관 정책 확정 이후에만 DB를 만든다.
+
+### 10. 화면 함수·실패 응답·후속 순서
+
+| 화면 함수 제안 | 입력 | API 모드 반환 / 연결 |
+|---|---|---|
+| `signIn` | email·password | `Promise<SignInResult>`. `{status:"member",member:Member}` 또는 `{status:"profile_required",member:null}`를 반환하며 화면이 완료 필요 상태를 분기 |
+| `signUp` | email·password·nickname·consents | `Promise<{status:"email_confirmation_required"}>`. signup 호출; 비회원은 전환 함수 사용 |
+| `getMember` | 없음 | **`Promise<Member\|null>`**. session 조회 결과 중 회원만 반환 |
+| `getSessionState` (새로) | 없음 | `Promise<SessionState>`. 비회원·미로그인·완료 필요를 구분 |
+| `signOut` | 없음 | `Promise<void>`. 서버 logout 성공 후 화면 상태 제거 |
+| `startKakaoSignIn` (새로) | 없음 | 서버 시작 경로로 이동; 응답 토큰을 읽지 않음 |
+| `requestPasswordReset` / `confirmPasswordReset` (새로) | email / newPassword | 202 안내 객체 / `Promise<void>` |
+| `requestGuestUpgrade` / `confirmGuestUpgrade` (새로) | email·nickname·consents / password | 202 안내 객체 / `Promise<Member>` |
+| `requestGuestOrderLookup` / `confirmGuestOrderLookup` (새로) | orderNumber·email / challengeId·code | challenge 안내 객체 / 해당 주문 상태 |
+
+현재 `frontend/lib/auth.ts`는 mock 중심이다. 계약 머지 후 팀장이 화면 이슈를 만들고 위 입력·비동기 반환과 호출 화면을 함께 고친다. API 모드에서 mock localStorage를 인증 근거로 사용하지 않는다. 서버 DTO→화면 함수 매핑과 mock 응답을 그 이슈에서 대조한다.
+
+공통 오류 예시:
+
+```json
+{"error": {"code": "AUTHENTICATION_REQUIRED", "message": "로그인이 필요합니다."}}
+```
+
+| HTTP·코드 | 호출자 행동 |
+|---|---|
+| 400 `INVALID_AUTH_REQUEST` | 입력·필수 동의를 수정. 서버 정책 버전 오류는 동의 문구를 다시 로드 |
+| 401 `INVALID_CREDENTIALS` | 로그인 폼의 동일 오류 문구 사용 |
+| 401 `AUTHENTICATION_REQUIRED` | 보호 API의 세션 없음·만료. 로그인/비회원 세션 시작 안내; 이전 자산 소유권을 새 ID로 넘기지 않음 |
+| 403 `ACCESS_DENIED` / #65 `UPLOAD_ACCESS_DENIED` | 유효한 신원이나 타인 자산·회원 전용 접근. 재로그인 무한 반복 금지 |
+| 403 `ORIGIN_NOT_ALLOWED` | 요청 거부. 화면에서 자동 재시도하지 않음 |
+| 400 `RESET_LINK_INVALID` / `LOOKUP_FAILED` | 새 링크·코드 요청 안내. 계정/주문 존재 여부를 설명하지 않음 |
+| 429 `AUTH_RATE_LIMITED` | `Retry-After`만큼 기다린 뒤 사용자가 다시 요청 |
+| 503 `AUTH_SERVICE_UNAVAILABLE` | 네트워크/제공자 장애 안내, 기존 로그인 상태를 임의 삭제하지 않음 |
+
+오류·서버 로그에 비밀번호·토큰·쿠키·내부 Storage 경로·이메일·연락처를 넣지 않는다. 조회 인증 코드가 들어가는 거래 메일은 수신자에게만 보내고 로그에 남기지 않는다.
+
+| 대상 | 다음 작업 |
+|---|---|
+| #70 | 본 계약만 리뷰·합의. 가입 동의 버전·운영 제한·보관 정책·실제 후속 이슈 번호가 미확정임을 PR에 표시 |
+| #65 | #70 머지 뒤 `origin/main`을 merge. 로그인 사용자 제한을 정회원·검증된 익명 사용자로 변경. **최근 60분 presign 20개**를 양쪽 모두 사용자 ID로 원자 집계. 익명 발급 제한은 위 정책으로 보완 |
+| #69 | 회원/익명 소유권·설문 회원 여부·orderNumber/contact_email·동의/보관을 확정한 마이그레이션 작성. 계약 미확정 중 원격 DDL 금지 |
+| 회원 스키마 후속 | profiles·동의 이력·RLS/권한·서버 기록을 별도 이슈에서 구현 |
+| 서버 API 후속 | 승인된 `@supabase/ssr` 추가 범위, 쿠키 어댑터·인증·카카오·재설정·메일/challenge 구현과 실패 검증을 이슈별로 나눔 |
+| 팀장 화면 후속 | 기존 signIn/signUp 입력, getMember 비동기, 서버 signOut, 신규 흐름 화면·mock/API 연결 |
+
+### 검토 근거
+
+- [Supabase 서버 클라이언트 구현](https://github.com/supabase/ssr/blob/main/src/createServerClient.ts)과 [쿠키 구현](https://github.com/supabase/ssr/blob/main/src/cookies.ts): 서버 cookie getAll/setAll, PKCE·회전·분할 지원 확인. 실제 설치 버전 호환성은 구현 이슈에서 고정·검증한다.
+- [익명 로그인](https://supabase.com/docs/guides/auth/auth-anonymous), [identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking): 익명 사용자 역할·새 계정 전환·기존 계정 충돌 처리 확인.
+- [카카오 로그인](https://supabase.com/docs/guides/auth/social-login/auth-kakao): 제공자 콜백과 Next redirectTo를 구분.
+- [로그아웃](https://supabase.com/docs/guides/auth/signout), [세션](https://supabase.com/docs/guides/auth/sessions): refresh 폐기와 access JWT 잔여 유효 시간을 구분.
 
 ## 변경 이력
 
-- 2026-10-06: #70 인증·비회원 주문·카카오·재설정 계약 제안 추가 (팀장 합의 전)
+- 2026-10-07: #70 팀장 코멘트 반영 — 서버 전용 SSR 쿠키·회원/비회원 전환·카카오·재설정·조회·후속 범위 구체화 (합의 전)
+- 2026-10-06: #70 인증 계약 초안 작성
 - 2026-09-17: v0 틀 작성 (구조 · mock 규칙 · 불변식 · 채울 항목)
