@@ -62,18 +62,19 @@ npm error notsup Required: {"node":">=24 <25"}
 
 **설치는 `npm ci`만 쓴다** (lock 파일 그대로). `npm install`은 lock을 바꿀 수 있다. 패키지 관리자는 npm 하나 — yarn·pnpm을 쓰지 않는다.
 
-## 4. Docker는 필요 없다
+## 4. Docker — 개발 DB에만, 이재원만
 
-기획서 스택(5-1)의 서버와 데이터는 **호스팅 서비스**다.
+Next.js와 Sanity는 Docker 없이 돈다. **개발용 PostgreSQL만 Docker로 띄운다**(2026-10-07 Supabase 제외 결정, #71).
 
 | 무엇 | 어디서 도나 | 로컬에 설치 |
 |---|---|---|
 | Next.js 화면 + 서버 API | 각자 PC `npm run dev` → 배포는 Vercel | Node만 |
 | Sanity CMS | Sanity 클라우드 (Studio만 로컬 실행) | 없음 |
-| Supabase PostgreSQL | Supabase 클라우드 | 없음 |
+| PostgreSQL (개발) | 이재원 PC의 Docker 컨테이너 — 운영 호스팅은 미정 | 이재원만 Docker |
+| 고객 사진 | Cloudflare R2 | 없음 |
 | 자외선지수 | 기상청 API (공공데이터포털) | 없음 |
 
-**조수희 PC에는 Docker를 설치하지 않는다.** Supabase를 로컬에서 띄워 시험하고 싶으면(`supabase start`, Docker 필요) 이재원만 한다.
+**조수희·봉준표 PC에는 Docker가 필요 없다.** 화면 작업은 mock 모드로 한다. 개발 DB 실행 절차는 후속 이슈에서 `backend/README.md`에 적는다.
 
 ## 5. 환경변수
 
@@ -83,7 +84,7 @@ npm error notsup Required: {"node":">=24 <25"}
 | `frontend/.env.local` | **X** | 실제 값. 각자 PC에만 |
 | Vercel 프로젝트 설정 | — | 배포용 실제 값 (이재원 관리) |
 
-- **`NEXT_PUBLIC_`이 붙은 값은 브라우저에 그대로 보인다.** 서버 전용 키(Sanity 토큰, Supabase `service_role`, 공공데이터포털 인증키)에는 절대 붙이지 않는다
+- **`NEXT_PUBLIC_`이 붙은 값은 브라우저에 그대로 보인다.** 서버 전용 키(Sanity 토큰, DB 접속 문자열, 인증 secret, R2 자격증명, 공공데이터포털 인증키)에는 절대 붙이지 않는다
 - 키 목록의 원본은 [`../backend/README.md`](../backend/README.md)
 
 ### mock 모드 — 서버가 없어도 화면을 만든다

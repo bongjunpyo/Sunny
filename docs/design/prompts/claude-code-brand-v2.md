@@ -7,7 +7,7 @@
 - 먼저 로컬 git status, 현재 브랜치, CLAUDE.md, AGENTS.md, 담당 폴더 규칙, frontend/README.md, backend/README.md, package.json, lockfile, 기존 기획·API 계약을 읽는다. 존재하지 않는 경로는 만들거나 읽었다고 하지 말고 실제 위치를 찾는다.
 - 변경 중인 파일을 덮어쓰지 않는다. main 직접 push, force push, reset --hard, 임의 merge, 규칙·훅 해제, 비밀정보 커밋을 하지 않는다.
 - 저장소의 이슈·승인 절차를 따른다. 필요한 이슈 번호나 담당 범위가 없으면 읽기 전용 조사와 계획까지만 하고 요청한다.
-- 기존 Next.js, Sanity, Supabase, Vercel 관련 설정이 실제로 존재하는지 먼저 확인한다. 새 FastAPI 서버, 새 데이터베이스, 새 프레임워크를 임의 도입하지 않는다.
+- 기존 Next.js, Sanity, PostgreSQL, Vercel 관련 설정이 실제로 존재하는지 먼저 확인한다(2026-10-07 Supabase 제외, #71). 새 FastAPI 서버, 새 데이터베이스, 새 프레임워크를 임의 도입하지 않는다.
 - 이번 첫 실행의 산출물은 조사 결과, 파일 변경 계획, 수용 기준이다. 승인 전 기능 구현은 시작하지 않는다. 승인 후 아래 단계를 작은 단위로 구현한다.
 
 ## 1. 확정된 경험 방향

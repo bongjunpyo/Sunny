@@ -17,7 +17,9 @@
 - 이 저장소가 만드는 것: 브랜드 패션 아카이브 웹사이트 — 브랜드 스토리 · 컬렉션 · 실내/햇빛 발색 비교 · 커스텀 · 제작 기록
 - 스택 (기획서 5-1 기준, 임의 변경 금지)
   - 화면: Next.js App Router · React · TypeScript · GSAP ScrollTrigger/SplitText · Three.js/React Three Fiber
-  - 서버·데이터: Next.js 서버 API · Sanity CMS · Supabase PostgreSQL · 기상청 생활기상지수(자외선지수) API
+  - 서버·데이터: Next.js 서버 API · Sanity CMS · PostgreSQL(독립 — 개발 DB는 Docker) · 기상청 생활기상지수(자외선지수) API
+  - 인증·파일: Better Auth(PostgreSQL DB 세션) · Cloudflare R2(고객 사진, 비공개) — #71에서 채택, 구현 전
+  - errata 2026-10-07: Supabase(DB·Auth·Storage) 제외 → 위 구성으로 변경 (#71 · #73)
   - 배포: Vercel
 
 한 문장 — **빛에 따라 드러나는 개인의 기록.**
@@ -45,7 +47,7 @@
 |------|--------|----|------|------|
 | **봉준표** (팀장) | `bongjunpyo` | Claude Code | `frontend/` 공통 · 페이지 · 3D 뼈대 | 정보구조·Figma, 브랜드 소개·컬렉션·제작 기록 페이지, WebGL 핵심(태양 셰이더·씬 구조·보드 좌표), **이슈 작성 · 리뷰 · main 머지(단독)** |
 | **조수희** | `whtngml18` | Codex | `frontend/components/interaction/` | GSAP 스크롤 연출, 실내·햇빛 발색 비교 콘텐츠, 씬 파라미터 조정. **팀장이 올린 이슈로만 작업** |
-| **이재원** | `leejaewon23` | Codex | `backend/` + `frontend/app/api/` + `frontend/lib/server/` | Next.js 서버 API, Sanity CMS, Supabase, 자외선지수 API, 환경변수, Vercel 배포. **`back` 영역 이슈·브랜치를 직접 만든다** (머지는 팀장) |
+| **이재원** | `leejaewon23` | Codex | `backend/` + `frontend/app/api/` + `frontend/lib/server/` | Next.js 서버 API, Sanity CMS, PostgreSQL · 인증 · R2, 자외선지수 API, 환경변수, Vercel 배포. **`back` 영역 이슈·브랜치를 직접 만든다** (머지는 팀장) |
 
 **3D는 순서가 있다.** 준표가 `frontend/components/scene/`에 WebGL 뼈대를 먼저 세우고, 수희는 그 공개 부품 위에 스크롤 연출과 파라미터를 얹는다.
 
@@ -75,7 +77,7 @@
 
 | 계약 | 사이 | 위치 |
 |------|------|------|
-| 화면 ↔ 서버 API ↔ Sanity·Supabase | 봉준표·조수희 ↔ 이재원 | [`docs/CONTRACT_API.md`](docs/CONTRACT_API.md) |
+| 화면 ↔ 서버 API ↔ Sanity·PostgreSQL | 봉준표·조수희 ↔ 이재원 | [`docs/CONTRACT_API.md`](docs/CONTRACT_API.md) |
 
 계약이 바뀌면 **준표와 재원이 같은 PR에서 합의**한다. 확정 전에는 화면 쪽이 `frontend/lib/mock/`의 가짜 데이터로 개발한다.
 
@@ -107,7 +109,7 @@ chore/gitignore-vercel           잡일
 3. **`git push --force` · `git reset --hard` · `git branch -D` · `git clean -fd`** — 되돌릴 수 없다. 필요하면 팀장에게
 4. **이슈 없이 작업 시작** — 조수희는 멈추고 팀장에게 이슈를 요청한다. 이재원은 `back` 영역이면 이슈를 먼저 쓰고 시작한다
 5. **남의 영역 수정** — 이슈나 PR 코멘트로 요청한다
-6. **비밀정보 커밋·노출** — `.env*`, Sanity 토큰, Supabase `service_role` 키, 공공데이터포털 인증키. **서버 전용 키에 `NEXT_PUBLIC_`을 붙이지 않는다** (붙이면 브라우저에 그대로 노출된다)
+6. **비밀정보 커밋·노출** — `.env*`, Sanity 토큰, DB 접속 문자열·비밀번호, 인증 secret, R2 자격증명, 메일 발송 키, 공공데이터포털 인증키. **서버 전용 키에 `NEXT_PUBLIC_`을 붙이지 않는다** (붙이면 브라우저에 그대로 노출된다)
 7. **개인정보 커밋** — 주문·설문 응답, 고객 사진·문구, 학번·연락처(기획서 `.hwpx` 원본 포함)
 8. **거버넌스 문서를 AI가 자동 수정** — `AGENTS.md`, `CLAUDE.md`, `docs/` 규칙 문서, `CODEOWNERS`는 제안만
 9. **라이브러리 임의 추가** — 이슈로 먼저 제안한다

@@ -26,9 +26,11 @@ playwright-report/
 test-results/
 frontend/e2e/shots/
 
-# Sanity · Supabase
+# Sanity
 .sanity/
 backend/sanity/dist/
+
+# Supabase — 2026-10-07 사용 중단(#73). 폐기 전 로컬 CLI 상태가 실수로 커밋되지 않게 남긴다
 backend/supabase/.temp/
 backend/supabase/.branches/
 
