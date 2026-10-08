@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import { sunTransform } from "./sunTransform.ts";
+import { SunVideo } from "./SunVideo.tsx";
 import styles from "./Sun.module.css";
 
 /** 태양 — 씬의 공개 부품.
@@ -8,7 +10,8 @@ import styles from "./Sun.module.css";
  *  이 두 입력을 지키면 속을 Higgsfield 영상이나 WebGL 로 바꿔도
  *  바깥 화면 코드는 고치지 않는다 → specs/2026-09-18-main-page-design.md
  *
- *  지금 속은 시안의 SVG 원반이다. 코드로 그린 연출이며 실제 태양 사진이 아니다. */
+ *  지금 속은 AI 생성 이미지다 — Higgsfield Soul 2 생성(2026-10-08, 요청 8ce52ce0)에
+ *  얼룩 제거·2배 업스케일 보정, 그 위에 코드로 만든 아지랑이 8초 반복 영상. 실제 태양 사진이 아니다. */
 export function Sun({
   progress,
   isMobile = false,
@@ -32,35 +35,18 @@ export function Sun({
       data-static={!driven && (progress === 0 || reduced) ? "true" : "false"}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 600 600">
-        <defs>
-          <radialGradient id="sunBase" cx="37%" cy="33%">
-            <stop stopColor="#f1d09b" />
-            <stop offset=".52" stopColor="#bd8243" />
-            <stop offset=".85" stopColor="#8b4a26" />
-            <stop offset="1" stopColor="#dfa05a" />
-          </radialGradient>
-          <filter id="sunTexture">
-            <feTurbulence type="fractalNoise" baseFrequency=".025 .04" numOctaves="4" seed="24" />
-            <feColorMatrix type="saturate" values="0" />
-            <feBlend in="SourceGraphic" mode="soft-light" />
-          </filter>
-          <clipPath id="sunDisc">
-            <circle cx="300" cy="300" r="266" />
-          </clipPath>
-          <radialGradient id="sunLimb">
-            <stop offset=".64" stopColor="#120a05" stopOpacity="0" />
-            <stop offset=".96" stopColor="#120a05" stopOpacity=".33" />
-            <stop offset="1" stopColor="#f0bb78" stopOpacity=".6" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="267" fill="#bd8146" opacity=".3" />
-        <g clipPath="url(#sunDisc)">
-          <circle cx="300" cy="300" r="266" fill="url(#sunBase)" />
-          <circle cx="300" cy="300" r="266" fill="url(#sunBase)" filter="url(#sunTexture)" opacity=".58" />
-          <circle cx="300" cy="300" r="266" fill="url(#sunLimb)" />
-        </g>
-      </svg>
+      {/* 원반 지름이 상자의 88.7%(이전 SVG r=266/300과 같은 비율).
+          검은 배경은 screen 합성으로 페이지 배경에 녹인다. 모션 감소면 영상 대신 정지 사진 */}
+      <Image
+        className={styles.still}
+        src="/images/sun-hero.webp"
+        alt=""
+        width={1758}
+        height={1758}
+        loading="eager"
+        fetchPriority="high"
+      />
+      {!reduced && <SunVideo className={styles.motion} />}
     </div>
   );
 }
