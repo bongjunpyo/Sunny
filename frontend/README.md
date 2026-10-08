@@ -19,7 +19,7 @@
 | **`components/interaction/`** | **조수희** | **GSAP 스크롤 연출 · 발색 비교 · 씬 파라미터** → [README](components/interaction/README.md) |
 | `lib/api.ts` · `lib/mock/` · `lib/types.ts` | 봉준표 (`types.ts`는 이재원과 공동) | 화면이 부르는 데이터 함수 · 가짜 데이터 · 계약 타입 |
 | `app/api/` | **이재원** | Next.js 서버 API → [`../backend/`](../backend/) |
-| `lib/server/` | **이재원** | 서버 전용 클라이언트 (Sanity · Supabase · 기상청) |
+| `lib/server/` | **이재원** | 서버 전용 클라이언트 (Sanity · PostgreSQL · 인증 · R2 · 기상청) |
 | `tests/` | 봉준표 | `node --test` 로직 테스트 |
 | `e2e/` | 봉준표 | Playwright 페이지 테스트 |
 | **`e2e/interaction/`** | **조수희** | 인터랙션 스모크 테스트 |

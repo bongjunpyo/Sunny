@@ -19,6 +19,8 @@
 > | main 보호 | 규칙 문서 | **`.githooks/` pre-push**가 main 직접 push · force push 거부. 서버 보호는 Pro 인증 후 | 2026-09-16 main 직접 push 사고 |
 > | 머지 | 준표만 | **준표 단독, 대신 머지하는 사람 없음** | 준표 지시 |
 > | 이재원 권한 | 이슈는 준표 확인 | **`back` 영역 이슈·브랜치 직접 작성, 자기 이슈 취소 시 닫기·브랜치 삭제. 머지 제외** | 준표 결정 A안 (#4) |
+>
+> **errata 2026-10-07** — 위 표의 Supabase 항목(백엔드·Docker)은 당시 결정이다. Supabase를 제외하고 독립 PostgreSQL(개발 DB만 Docker, 이재원만) · Better Auth · Cloudflare R2로 바꿨다 (#71 · #73).
 
 ## 배경
 
