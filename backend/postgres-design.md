@@ -23,7 +23,7 @@
 | 메일 | Resend Transactional Free 선택. 발신은 팀 소유 도메인의 auth 서브도메인, 실제 도메인명·DNS 권한은 TBD |
 | 운영 DB | 위치·제공자·TLS·백업·연결 제한 TBD |
 
-기존 `feat/back-fastapi-foundation`의 `6d68995`는 작업 기록으로 보존한다. 새 설계에 FastAPI 코드·프록시·Python 의존성을 가져오지 않는다. 지정 브랜치는 main에서 생성한 기존 설계를 보존하고, 2026-10-08 최신 `origin/main`의 `94cdd58`(#74)을 정상 merge로 반영했다. 주요 Supabase 코드·설정·거버넌스 정리는 #74에 반영됐으며 남은 CLI 허용 항목과 상세 계약 작업은 11절에 구분한다. 기존 Supabase 프로젝트·환경파일·데이터의 실제 폐기는 별도 작업이다.
+기존 `feat/back-fastapi-foundation`의 `6d68995`는 작업 기록으로 보존한다. 새 설계에 FastAPI 코드·프록시·Python 의존성을 가져오지 않는다. 지정 브랜치는 main에서 생성한 기존 설계를 보존하고, 2026-10-08 최신 `origin/main`의 `94cdd58`(#74)을 정상 merge로 반영했다. 주요 Supabase 코드·설정·거버넌스 정리는 #74에 반영됐으며 보안 목적의 잔존 설정과 상세 계약 작업은 11절에 구분한다. 기존 Supabase 프로젝트·환경파일·데이터의 실제 폐기는 별도 작업이다.
 
 ## 2. 개발 구조
 
@@ -315,14 +315,14 @@ Next.js 컨테이너화를 선택하면 Dockerfile·build context·hot reload·s
 
 ## 11. main의 Supabase 정리 상태와 남은 작업
 
-팀장은 #73 작업을 [PR #74](https://github.com/bongjunpyo/Sunny/pull/74)로 머지했다. 2026-10-08 `origin/main` `94cdd58`의 코드·의존성·거버넌스 정리를 확인하고 지정 설계 브랜치에 정상 merge로 반영했다. 재검색에서 확인한 남은 CLI 허용 항목은 아래와 같이 팀장 후속 요청으로 분리한다. 이 설계 PR의 main 대비 변경은 `backend/postgres-design.md` 하나다.
+팀장은 #73 작업을 [PR #74](https://github.com/bongjunpyo/Sunny/pull/74)로 머지했다. 2026-10-08 `origin/main` `94cdd58`의 코드·의존성·거버넌스 정리를 확인하고 지정 설계 브랜치에 정상 merge로 반영했다. 보안 목적의 잔존 설정과 미완료 상세 계약을 아래와 같이 구분한다. 이 설계 PR의 main 대비 변경은 `backend/postgres-design.md` 하나다.
 
 | 구분 | 확인 / 후속 책임 |
 |---|---|
 | 서버 코드·의존성 | main의 Supabase 서버 클라이언트·SDK·lockfile 의존성과 추적 CLI 설정이 제거됨 |
 | 환경변수·거버넌스 | main의 견본·README·AGENTS·개발 안내가 독립 PostgreSQL·Better Auth·private R2 방향으로 변경됨 |
 | 기본 계약 | main에서 `service_role`/`anon` 키 전제가 제거되고 주문·설문 정본 및 계약 표가 PostgreSQL로 변경됨 |
-| 남은 CLI 허용 항목 | `.claude/settings.json` 29~30행에 `Bash(supabase db push:*)`·`Bash(supabase db reset:*)`가 남아 있음. 현 스택과 맞지 않으므로 팀장에게 별도 제거 요청, 이번 설계 PR에서는 수정하지 않음 |
+| CLI 실행 확인 안전장치 | `.claude/settings.json` 29~30행의 `Bash(supabase db push:*)`·`Bash(supabase db reset:*)`는 `permissions.ask` 항목이다. 무조건 실행을 허용하는 설정이 아니라 실행 전 확인을 요구하는 안전장치이며, #74에서 의도적으로 유지했다. 새 구현의 Supabase 의존성이나 정리 누락으로 취급하지 않으며 제거를 요청하지 않음 |
 | 상세 인증·사진 계약 | 새 인증 계약과 PR #65의 4개 충돌·화면 함수 입력/반환은 **아직 후속 작업**. 상세는 7.4에 위임하며 준표·재원이 같은 PR에서 합의 |
 | 기존 서비스·데이터 | 기존 Supabase 프로젝트·실제 환경파일·DB·사진·로컬 상태 폐기는 완료로 간주하지 않음. 백업/이관 확인 후 별도 작업 |
 
