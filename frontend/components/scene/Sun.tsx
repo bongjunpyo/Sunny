@@ -11,7 +11,7 @@ import styles from "./Sun.module.css";
  *  바깥 화면 코드는 고치지 않는다 → specs/2026-09-18-main-page-design.md
  *
  *  지금 속은 AI 생성 이미지다 — Higgsfield Soul 2 생성(2026-10-08, 요청 8ce52ce0)에
- *  얼룩 제거·2배 업스케일 보정, 그 위에 코드로 만든 아지랑이 8초 반복 영상. 실제 태양 사진이 아니다. */
+ *  얼룩 제거·2배 업스케일 보정, 그 위에 코드로 만든 아지랑이 5초 반복 영상(원본 8초를 1.6배로, 표면 흐름·가장자리 출렁임·밝기 80~100% 변화 추가). 실제 태양 사진이 아니다. */
 export function Sun({
   progress,
   isMobile = false,
