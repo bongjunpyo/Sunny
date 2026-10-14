@@ -19,7 +19,6 @@
   - 화면: Next.js App Router · React · TypeScript · GSAP ScrollTrigger/SplitText · Three.js/React Three Fiber
   - 서버·데이터: Next.js 서버 API · Sanity CMS · PostgreSQL(독립 — 개발 DB는 Docker) · 기상청 생활기상지수(자외선지수) API
   - 인증·파일: Better Auth(PostgreSQL DB 세션) · Cloudflare R2(고객 사진, 비공개) — #71에서 채택, 구현 전
-  - errata 2026-10-07: Supabase(DB·Auth·Storage) 제외 → 위 구성으로 변경 (#71 · #73)
   - 배포: Vercel
 
 한 문장 — **빛에 따라 드러나는 개인의 기록.**

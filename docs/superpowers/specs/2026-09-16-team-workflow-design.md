@@ -12,15 +12,15 @@
 > | 규칙 파일 | `CLAUDE.md` 원본 + `(site)/CLAUDE.md` | **`AGENTS.md` 원본**, `CLAUDE.md`는 `@AGENTS.md`만 | Codex는 `AGENTS.md`를 읽는다 |
 > | 조수희 역할 | `app/(site)/` 페이지 | **`components/interaction/`** — GSAP 스크롤 · 발색 비교 · 씬 파라미터 (3D 뼈대는 준표가 먼저) | 기획서 수정본 5-2 · 결정 1C |
 > | 봉준표 역할 | 공통 · 3D 스토리 씬 | 정보구조 · Figma · **페이지** · WebGL 뼈대 · 이슈 · 머지 | 기획서 수정본 5-2 |
-> | 백엔드 | 별도 서비스 · Docker · 8080 | **Next.js 서버 API(`frontend/app/api/`) + Sanity + Supabase + Vercel**, `backend/` = Sanity Studio · Supabase 마이그레이션 | 기획서 수정본 5-1 · 결정 2A |
-> | Docker | 백엔드·DB용 | **불필요** (호스팅 서비스). 로컬 Supabase는 이재원 선택 | 위 변경의 결과 |
+> | 백엔드 | 별도 서비스 · Docker · 8080 | **Next.js 서버 API(`frontend/app/api/`) + Sanity + Vercel**, `backend/` = Sanity Studio | 기획서 수정본 5-1 · 결정 2A |
+> | Docker | 백엔드·DB용 | **불필요** (호스팅 서비스) | 위 변경의 결과 |
 > | 브랜치 이름 | `jp/` · `sh/` · `jw/` | **`<종류>/<영역>-<설명>`** (영역 `front`·`interaction`·`back`) | graduation_cap 방식 |
 > | 작업 요청 | C형 이슈 | C형 이슈 + **이슈 없이 시작 금지** + 이슈 닫힘 = 브랜치 삭제(`delete_branch_on_merge`) | 준표 지시 |
 > | main 보호 | 규칙 문서 | **`.githooks/` pre-push**가 main 직접 push · force push 거부. 서버 보호는 Pro 인증 후 | 2026-09-16 main 직접 push 사고 |
 > | 머지 | 준표만 | **준표 단독, 대신 머지하는 사람 없음** | 준표 지시 |
 > | 이재원 권한 | 이슈는 준표 확인 | **`back` 영역 이슈·브랜치 직접 작성, 자기 이슈 취소 시 닫기·브랜치 삭제. 머지 제외** | 준표 결정 A안 (#4) |
 >
-> **errata 2026-10-07** — 위 표의 Supabase 항목(백엔드·Docker)은 당시 결정이다. Supabase를 제외하고 독립 PostgreSQL(개발 DB만 Docker, 이재원만) · Better Auth · Cloudflare R2로 바꿨다 (#71 · #73).
+> **errata 2026-10-07** — 위 표의 백엔드·Docker 항목은 당시 결정이다. 이후 독립 PostgreSQL(개발 DB만 Docker, 이재원만) · Better Auth · Cloudflare R2로 바꿨다 (#71 · #73).
 
 ## 배경
 

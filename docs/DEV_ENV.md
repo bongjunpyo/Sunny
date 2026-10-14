@@ -64,7 +64,7 @@ npm error notsup Required: {"node":">=24 <25"}
 
 ## 4. Docker — 개발 DB에만, 이재원만
 
-Next.js와 Sanity는 Docker 없이 돈다. **개발용 PostgreSQL만 Docker로 띄운다**(2026-10-07 Supabase 제외 결정, #71).
+Next.js와 Sanity는 Docker 없이 돈다. **개발용 PostgreSQL만 Docker로 띄운다**(#71).
 
 | 무엇 | 어디서 도나 | 로컬에 설치 |
 |---|---|---|
