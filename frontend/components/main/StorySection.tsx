@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { TextLink } from "../common/TextLink.tsx";
 import { RevealText } from "../interaction/RevealText.tsx";
 import styles from "./main.module.css";
@@ -26,16 +27,19 @@ export function StorySection() {
             두 가지 형태의 시작
           </TextLink>
         </div>
-        <div>
-          <div
-            className={styles.lightStudy}
-            role="img"
-            aria-label="사선으로 떨어지는 빛과 그림자의 추상 표현"
-          >
-            <span className={styles.imageLabel}>STUDY OF LIGHT — No. 01</span>
+        {/* AI 생성 이미지 — Higgsfield · GPT Image 2.5 Flare 생성(2026-10-14, 요청 2e7762bb).
+            실제 사진이 아니다. 밝기는 90~125% 사이를 천천히 반복한다(모션 감소면 고정) */}
+        <figure className={styles.lightFigure}>
+          <div className={styles.lightStudy}>
+            <Image
+              src="/images/our-story-flare.webp"
+              alt="검은 바탕에서 사방으로 금빛 빛살이 번지며 뻗는 빛"
+              fill
+              sizes="(max-width: 700px) 100vw, 50vw"
+            />
           </div>
-          <p className={styles.caption}>빛과 그림자 · 코드로 구현한 브랜드 무드 연구</p>
-        </div>
+          <figcaption className={styles.caption}>빛과 그림자</figcaption>
+        </figure>
       </div>
     </section>
   );
