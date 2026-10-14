@@ -6,7 +6,7 @@
 
 ## 1. 결정과 미정 사항
 
-사용자 결정: 서버 프레임워크는 **Next.js Route Handlers 유지**, **Supabase 전체(DB·Auth·Storage·SDK·CLI) 제외**, 애플리케이션 DB는 **독립 PostgreSQL**, 개발 DB 서버는 **Docker Compose로 실행**, 관리·조회는 **DBeaver**로 수행한다. FastAPI 전환은 철회됐다.
+사용자 결정: 서버 프레임워크는 **Next.js Route Handlers 유지**, 애플리케이션 DB는 **독립 PostgreSQL**, 개발 DB 서버는 **Docker Compose로 실행**, 관리·조회는 **DBeaver**로 수행한다. FastAPI 전환은 철회됐다.
 
 [팀장 피드백](https://github.com/bongjunpyo/Sunny/issues/71#issuecomment-6036050802)으로 **Better Auth + PostgreSQL DB 세션**, **private Cloudflare R2**, **서버 소유권 검사 + PostgreSQL RLS**, **인증/업무 역할 분리**를 채택했다. 이메일 가입 인증과 메일 링크 비밀번호 재설정은 필수다. 게스트와 회원은 다른 사용자로 유지하며 주문·사진을 이전하지 않는다. 채택 결정과 재원에게 위임된 결정(7.1)은 TBD가 아니며, 계약의 입력/응답과 나머지 미정 정책은 후속 공동 검토 대상이다.
 
@@ -23,7 +23,7 @@
 | 메일 | Resend Transactional Free 선택. 발신은 팀 소유 도메인의 auth 서브도메인, 실제 도메인명·DNS 권한은 TBD |
 | 운영 DB | 위치·제공자·TLS·백업·연결 제한 TBD |
 
-기존 `feat/back-fastapi-foundation`의 `6d68995`는 작업 기록으로 보존한다. 새 설계에 FastAPI 코드·프록시·Python 의존성을 가져오지 않는다. 지정 브랜치는 main에서 생성한 기존 설계를 보존하고, 2026-10-08 최신 `origin/main`의 `94cdd58`(#74)을 정상 merge로 반영했다. 주요 Supabase 코드·설정·거버넌스 정리는 #74에 반영됐으며 보안 목적의 잔존 설정과 상세 계약 작업은 11절에 구분한다. 기존 Supabase 프로젝트·환경파일·데이터의 실제 폐기는 별도 작업이다.
+기존 `feat/back-fastapi-foundation`의 `6d68995`는 작업 기록으로 보존한다. 새 설계에 FastAPI 코드·프록시·Python 의존성을 가져오지 않는다. 지정 브랜치는 main에서 생성한 기존 설계를 보존하고, 2026-10-08 최신 `origin/main`의 `94cdd58`(#74)을 정상 merge로 반영했다. 이전 서버 구성의 코드·설정·거버넌스 정리는 #74에 반영됐으며 상세 계약 작업은 11절에 구분한다. 이전 서비스·환경파일·데이터의 실제 폐기는 별도 작업이다.
 
 ## 2. 개발 구조
 
@@ -158,7 +158,7 @@ DBeaver에서 업무 테이블을 임의 생성·변경하지 않는다. 스키�
 
 ## 7. 인증·Storage·RLS 경계
 
-**Supabase Auth·Storage도 사용하지 않는다.** 독립 PostgreSQL에는 Supabase의 `auth.users`, `auth.uid()`와 JWT 전달 계층이 기본 제공되지 않는다. 인증·객체 저장·DB 권한을 각각 설계하되 하나의 서버 검증 사용자 ID로 연결한다. 아래 기술은 #71에서 채택됐으며, 구현과 새 API 계약은 아직 완료되지 않았다.
+독립 PostgreSQL에는 인증 사용자 테이블과 JWT 전달 계층이 기본 제공되지 않는다. 인증·객체 저장·DB 권한을 각각 설계하되 하나의 서버 검증 사용자 ID로 연결한다. 아래 기술은 #71에서 채택됐으며, 구현과 새 API 계약은 아직 완료되지 않았다.
 
 | 책임 | 채택 구현 | 경계 |
 |---|---|---|
@@ -222,7 +222,7 @@ R2용 S3 SDK와 방향 보정·재인코딩·EXIF 제거 라이브러리의 선�
 
 ### 7.3. RLS — PostgreSQL 자체 기능과 서버 소유권 검사 채택
 
-**RLS는 Supabase 전용 기능이 아니라 PostgreSQL 기능**이므로 유지한다. Next.js가 세션으로 검증한 사용자 UUID를 **요청별 트랜잭션**에 전달하고, DB는 같은 사용자 범위만 허용한다. 다음은 컨텍스트 전달의 예시이며 바로 실행하는 마이그레이션이 아니다.
+**RLS는 PostgreSQL 자체 기능**이므로 유지한다. Next.js가 세션으로 검증한 사용자 UUID를 **요청별 트랜잭션**에 전달하고, DB는 같은 사용자 범위만 허용한다. 다음은 컨텍스트 전달의 예시이며 바로 실행하는 마이그레이션이 아니다.
 
 ```sql
 -- 동일 client의 BEGIN 이후, 검증된 UUID를 바인딩한다.
@@ -240,13 +240,13 @@ SELECT set_config('app.user_id', $1, true);
 
 | 기존 작업 | 유지할 요구 / 새로 조정할 것 |
 |---|---|
-| #70 (closed) | 비회원 주문·카카오·재설정·HttpOnly 서버 인증 요구 유지. Supabase 전제로 닫혔으므로 새 인증 계약 이슈/PR을 작성 |
+| #70 (closed) | 비회원 주문·카카오·재설정·HttpOnly 서버 인증 요구 유지. 이전 인증 방식을 전제로 닫혔으므로 새 인증 계약 이슈/PR을 작성 |
 | PR #65 (open) | private 업로드·서버 검사·verified·소유권·동의·7칸·409/429·조회 요구 유지. 아래 4개 충돌을 공동 계약에서 조정 후 머지 |
-| #69 (closed) | 주문/설문 제약·RLS 요구 유지. Supabase MCP/CLI 지시는 독립 PostgreSQL migrations·grants·컨텍스트 정책으로 대체 |
+| #69 (closed) | 주문/설문 제약·RLS 요구 유지. 기존 MCP/CLI 지시는 독립 PostgreSQL migrations·grants·컨텍스트 정책으로 대체 |
 
 PR #65 확인 기준은 2026-10-08 head `9671deb`다. 닫힌 이슈나 기술 채택을 실제 구현 완료로 간주하지 않는다. 이번 설계 PR에서는 계약 파일을 수정하지 않고 준표·재원의 공동 계약 작업에 아래 항목을 넘긴다.
 
-1. 업로드 API 3개의 저장소 출처를 Supabase Storage에서 **Cloudflare R2**로 바꾼다. PUT과 `assetId/uploadUrl/expiresAt` 응답 형태는 유지한다.
+1. 업로드 API 3개의 저장소 출처를 **Cloudflare R2**로 맞춘다. PUT과 `assetId/uploadUrl/expiresAt` 응답 형태는 유지한다.
 2. **“1회용 URL”·“같은 pending 경로 덮어쓰기 불가”를 “짧은 수명 서명 URL”로 수정**한다. 재사용 가능성, 임의 pending key, 서버가 검사·정제한 별도 verified key, 만료 이후 정리를 계약에 적는다.
 3. **닫힌 #70 참조를 새 인증 계약 이슈로 대체**하고 사용자 UUID·DB 세션·검증된 게스트/회원 권한을 일치시킨다. 새 이슈 번호는 생성 전 TBD이며 만들어진 것처럼 적지 않는다.
 4. **검증된 게스트 세션도 업로드·완료·조회 가능하도록 제안**한다. 비회원 커스텀 주문과 일치시키고 무인증 호출은 거절한다. 최종 API 범위와 게스트 제한은 같은 계약 PR에서 합의한다.
@@ -261,7 +261,7 @@ Better Auth와 R2 제공자 선택은 완료했다. 라이브러리 버전·세�
 
 후속 경로 제안은 `backend/postgres/migrations/`다. 순번·checksum·적용 이력을 기록하고 중복 적용·이력 불일치는 실패 처리한다. 하나의 변경을 가능한 한 트랜잭션으로 적용하고 실패 후 이력이 어긋나지 않는지 검증한다. 구체적인 실행 도구는 후속 이슈에서 선택한다.
 
-기존 Supabase 마이그레이션은 먼저 현황을 조사하고, Auth·Storage 스키마 의존성을 재설계한 뒤 이식 여부를 결정한다. 원격 데이터가 없다고 가정하지 않는다. 업무 계약 확정 전에는 개발 역할 기반까지만 준비한다.
+이전 구성에서 만든 마이그레이션이 있으면 먼저 현황을 조사하고, 인증·저장소 스키마 의존성을 재설계한 뒤 이식 여부를 결정한다. 원격 데이터가 없다고 가정하지 않는다. 업무 계약 확정 전에는 개발 역할 기반까지만 준비한다.
 
 일반 종료는 다음과 같이 볼륨을 보존한다.
 
@@ -271,7 +271,7 @@ docker compose --env-file backend/.env.local -f backend/docker-compose.yml down
 
 비밀번호 환경변수를 바꿔도 기존 볼륨의 DB 역할 비밀번호가 자동 변경되지는 않는다. 인증 오류는 포트·DB/user·셸 덮어쓰기·현재 유효한 자격증명 순서로 확인하고 기존 접속을 통해 역할 비밀번호를 변경한다. 인증 문제 해결을 위해 `down -v`나 볼륨 삭제를 사용하지 않는다. [공식 이미지 초기화 조건](https://hub.docker.com/_/postgres)
 
-스키마 rollback은 변경별 역변경 또는 백업 복원을 검토한다. 파괴적 변경 전에는 백업과 별도 개발 DB에서 복원 검증이 필요하다. 운영 이전·기존 Supabase 삭제·프로덕션 환경변수 교체는 이 설계에 포함하지 않는다.
+스키마 rollback은 변경별 역변경 또는 백업 복원을 검토한다. 파괴적 변경 전에는 백업과 별도 개발 DB에서 복원 검증이 필요하다. 운영 이전·이전 서비스 삭제·프로덕션 환경변수 교체는 이 설계에 포함하지 않는다.
 
 ## 9. 구현 순서와 검증 기준
 
@@ -313,17 +313,11 @@ R2 검증에는 만료 전 pending 덮어쓰기, complete 동시 요청·중간 
 
 Next.js 컨테이너화를 선택하면 Dockerfile·build context·hot reload·service hostname·readiness 범위를 별도로 추가한다. 이번 설계 브랜치는 `backend/postgres-design.md`만 변경한다. AGENTS.md·CLAUDE.md·CODEOWNERS·docs 규칙/계약은 팀장 반영용 제안만 하며 자동 수정하지 않는다.
 
-## 11. main의 Supabase 정리 상태와 남은 작업
-
-팀장은 #73 작업을 [PR #74](https://github.com/bongjunpyo/Sunny/pull/74)로 머지했다. 2026-10-08 `origin/main` `94cdd58`의 코드·의존성·거버넌스 정리를 확인하고 지정 설계 브랜치에 정상 merge로 반영했다. 보안 목적의 잔존 설정과 미완료 상세 계약을 아래와 같이 구분한다. 이 설계 PR의 main 대비 변경은 `backend/postgres-design.md` 하나다.
+## 11. 남은 작업
 
 | 구분 | 확인 / 후속 책임 |
 |---|---|
-| 서버 코드·의존성 | main의 Supabase 서버 클라이언트·SDK·lockfile 의존성과 추적 CLI 설정이 제거됨 |
-| 환경변수·거버넌스 | main의 견본·README·AGENTS·개발 안내가 독립 PostgreSQL·Better Auth·private R2 방향으로 변경됨 |
-| 기본 계약 | main에서 `service_role`/`anon` 키 전제가 제거되고 주문·설문 정본 및 계약 표가 PostgreSQL로 변경됨 |
-| CLI 실행 확인 안전장치 | `.claude/settings.json` 29~30행의 `Bash(supabase db push:*)`·`Bash(supabase db reset:*)`는 `permissions.ask` 항목이다. 무조건 실행을 허용하는 설정이 아니라 실행 전 확인을 요구하는 안전장치이며, #74에서 의도적으로 유지했다. 새 구현의 Supabase 의존성이나 정리 누락으로 취급하지 않으며 제거를 요청하지 않음 |
 | 상세 인증·사진 계약 | 새 인증 계약과 PR #65의 4개 충돌·화면 함수 입력/반환은 **아직 후속 작업**. 상세는 7.4에 위임하며 준표·재원이 같은 PR에서 합의 |
-| 기존 서비스·데이터 | 기존 Supabase 프로젝트·실제 환경파일·DB·사진·로컬 상태 폐기는 완료로 간주하지 않음. 백업/이관 확인 후 별도 작업 |
+| 이전 서비스·데이터 | 이전 서버 구성의 서비스·실제 환경파일·DB·사진·로컬 상태 폐기는 완료로 간주하지 않음. 백업/이관 확인 후 별도 작업 |
 
-과거 결정 기록과 비밀 파일 보호 목적 ignore에 남는 Supabase 명칭은 현재 실행 의존성과 구분한다. 최신 코드/계약을 기준으로 후속 작업을 시작하고 닫힌 Supabase 이슈나 예전 계약 브랜치를 그대로 적용하지 않는다. `web-demo/`는 동결 상태를 유지한다. 기존 서비스 폐기·운영 DB 이전·프로덕션 환경변수 교체는 이 문서 작업에 포함하지 않는다.
+최신 코드/계약을 기준으로 후속 작업을 시작하고 닫힌 이슈나 예전 계약 브랜치를 그대로 적용하지 않는다. `web-demo/`는 동결 상태를 유지한다. 기존 서비스 폐기·운영 DB 이전·프로덕션 환경변수 교체는 이 문서 작업에 포함하지 않는다.
