@@ -81,40 +81,43 @@
   align-items: center;
 }
 
+.lightFigure {
+  margin: 0;
+}
+
 .lightStudy {
   height: 520px;
-  background: #b8ac97;
+  background: var(--night);
   position: relative;
   overflow: hidden;
+  /* 직각 검은 면이 종이 위에서 튀지 않게 모서리를 둥글게 */
+  border-radius: 20px;
 }
 
-.lightStudy::before {
-  content: "";
-  position: absolute;
-  width: 80%;
-  height: 180%;
-  top: -40%;
-  left: 5%;
-  transform: rotate(30deg);
-  background: linear-gradient(90deg, #665847 0%, #d8c6a7 30%, #f6e8cb 40%, #e6d1ad 57%, #8f7c60 62%, #b4a68c 68%);
-  filter: blur(2px);
+/* 이미지는 상자를 덮고 빛을 가운데에 둔다. 대비·채도를 한 단계 올려 빛을 또렷하게 */
+.lightStudy img {
+  object-fit: cover;
+  object-position: 50% 50%;
+  filter: contrast(1.12) saturate(1.08) brightness(0.9);
+  animation: lightBreath 3s ease-in-out infinite;
 }
 
-.lightStudy::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(0deg, #29251f75, transparent 60%);
+/* 밝기 90% → 125% → 90%. 끝과 시작이 같아 반복 지점이 튀지 않는다 */
+@keyframes lightBreath {
+  0%,
+  100% {
+    filter: contrast(1.12) saturate(1.08) brightness(0.9);
+  }
+  50% {
+    filter: contrast(1.12) saturate(1.08) brightness(1.25);
+  }
 }
 
-.imageLabel {
-  position: absolute;
-  bottom: 20px;
-  left: 23px;
-  color: #fff8ec;
-  font-size: var(--step-1);
-  letter-spacing: 2px;
-  z-index: 1;
+@media (prefers-reduced-motion: reduce) {
+  .lightStudy img {
+    animation: none;
+    filter: contrast(1.12) saturate(1.08) brightness(1.04);
+  }
 }
 
 /* 02 컬렉션 */
@@ -295,6 +298,7 @@
   }
   .lightStudy {
     height: 370px;
+    border-radius: 14px;
   }
   .collectionTitle {
     display: block;
