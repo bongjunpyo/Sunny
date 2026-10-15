@@ -5,7 +5,27 @@ test("기록 목록에 첫 기록이 있다", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("빛을 입는 기록");
   await expect(page.getByRole("heading", { name: "바다가 빛을 입다" })).toBeVisible();
   await expect(page.getByText("윤슬", { exact: true })).toBeVisible();
-  await expect(page.getByText(/코드로 그린 분위기 시안/)).toBeVisible();
+  await expect(page.getByText(/커버 영상은 AI 생성물입니다/)).toBeVisible();
+});
+
+test("윤슬 커버는 포스터가 있는 반복 영상이고 상세에 AI 표기가 있다", async ({ page }) => {
+  await page.goto("/archive/sea-yunseul");
+  const video = page.locator("video").first();
+  await expect(video).toHaveAttribute("src", "/videos/yunseul-loop.mp4");
+  await expect(video).toHaveAttribute("poster", "/images/yunseul-poster.webp");
+  expect(await video.evaluate((v: HTMLVideoElement) => v.muted && v.loop)).toBe(true);
+  await expect(page.getByText(/AI 생성 영상/)).toBeVisible();
+});
+
+test.describe("모션 감소", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("윤슬 영상을 재생하지 않는다", async ({ page }) => {
+    await page.goto("/archive/sea-yunseul");
+    const video = page.locator("video").first();
+    await page.waitForTimeout(500);
+    expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+  });
 });
 
 test("목록에서 기록 상세로 간다", async ({ page }) => {

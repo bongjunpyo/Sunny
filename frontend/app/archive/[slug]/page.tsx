@@ -47,7 +47,7 @@ export default async function StoryPage({ params }: { params: Promise<{ slug: st
           tall
         />
         <p className={styles.crumb} style={{ border: 0, paddingTop: "var(--step-1)" }}>
-          커버 · 코드로 그린 시안 (실제 촬영 아님)
+          커버 · AI 생성 영상 — Kling · Higgsfield API (실제 촬영 아님)
         </p>
 
         <div className={styles.body}>
