@@ -126,7 +126,11 @@ try {
     for (const field of ["exif", "orientation", "xmp", "iptc", "icc"]) check(metadata[field] === undefined, "Private image metadata survived");
     await writeFile(join(directory, `${item.name}.${item.mime === "image/png" ? "png" : "jpg"}`), bytes, { mode: 0o600 });
     const unsigned = new URL(read.readUrl); unsigned.search = "";
-    const privateRead = await r2(unsigned); check([401, 403].includes(privateRead.status), `Unsigned access HTTP ${privateRead.status}`); await privateRead.body?.cancel();
+    const privateRead = await r2(unsigned);
+    const privateError = await privateRead.text();
+    const missingAuthentication = privateRead.status === 400 && /<Code>InvalidArgument<\/Code>/.test(privateError)
+      && /<Message>[^<]*(?:authorization|authentication|signature|X-Amz)[^<]*<\/Message>/i.test(privateError);
+    check([401, 403].includes(privateRead.status) || missingAuthentication, `Unsigned access HTTP ${privateRead.status}`);
     const again = await json(await call(`/api/uploads/${signed.assetId}/complete`, item.who.cookie), 200);
     check(JSON.stringify(again) === JSON.stringify(completed), "Complete idempotency failed");
     const reloadSession = await json(await call("/api/auth/get-session", item.who.cookie, undefined, "GET"), 200);
