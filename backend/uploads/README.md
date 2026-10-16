@@ -57,6 +57,21 @@ SDK의 실제 SigV4 URL 생성은 가짜 키로 로컬 검증하며 R2에 전송
 서버 동시성/lease/fencing·DB 장애 복구/고아 후보·RLS·미인증·세션 폐기·형식 위장 등을 검증한다.
 이 결과가 실제 R2 권한/CORS/업로드·브라우저 3D 왕복·Vercel 배포 검증을 뜻하지 않는다.
 
+실제 R2를 설정한 뒤 저장소 루트에서 **명시적으로** 실행하는 검증 도구도 있다.
+
+```sh
+SUNNY_LIVE_R2_VERIFY=1 node backend/uploads/tests/live-r2.mjs
+```
+
+Node 24, 실행 중인 loopback Next 개발 서버, 기존 로컬 sunny DB, AUTH_DEV_LOCAL_MAIL=true가 필요하다.
+실제 회원 대신 새로운 합성 .invalid 회원(개발 파일 메일 인증)과 게스트를 만들고, 합성 JPEG/PNG와
+MIME 위장 SVG만 실제 R2로 전송한다. 서버 검사·DB publication·조회 파일 SHA256/EXIF·세션 재조회,
+CORS preflight/응답 헤더·서명 없는 S3 접근 거부·타인/로그아웃 차단·pending 덮어쓰기 독립성을 확인한다.
+기본 npm 테스트에서는 실행하지 않는다. R2 오류는 HTTP 상태/고정 코드만 표시하며 서명/키는 출력하지 않는다.
+성공 시 합성 사용자 2명·asset 3개(verified 2/rejected 1)·객체 5개가 남는다. 실패 시 중간 fixture도 남을 수 있다.
+OS 임시 폴더에 700/600 권한의 manifest/summary/조회 이미지가 기록된다. 자격증명·쿠키·서명 URL은 기록하지 않는다.
+도구에는 R2 객체/DB 데이터 삭제 기능이 없다. 브라우저의 실제 파일 선택/3D 텍스처 검증은 별도다.
+
 ## 복구·삭제·다음 단계
 
 중단된 inspecting은 lease 만료 뒤 동일 complete가 회수한다. 검증 실패는 rejected, 일시 장애는 503이며
