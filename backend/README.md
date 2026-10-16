@@ -53,12 +53,20 @@ frontend/
 | `KAKAO_CLIENT_ID` | X | 카카오 로그인 | 카카오 앱 REST API 키, 서버 전용 |
 | `KAKAO_CLIENT_SECRET` | X | 카카오 로그인 | 카카오 앱 Client Secret, 서버 전용 |
 | `AUTH_DEV_LOCAL_MAIL` | X | 개발 인증 메일 | development + loopback에서만 true 허용. 비공개 로컬 파일 저장 |
+| `PHOTO_UPLOAD_ENABLED` | X | 사진 API | true + development + loopback + AUTH_ENABLED일 때만 활성화. production 강제 차단 |
+| `R2_ACCOUNT_ID` | X | R2 adapter | Cloudflare 계정 ID (32자리 hex), 서버 endpoint 구성 |
+| `R2_BUCKET_NAME` | X | R2 adapter | 고객 사진 전용 private 개발 버킷 이름 |
+| `R2_ACCESS_KEY_ID` | X | R2 adapter | 해당 개발 버킷만 허용한 R2 Object Read & Write 키 ID |
+| `R2_SECRET_ACCESS_KEY` | X | R2 adapter | R2 S3 비밀 키 |
 
-브라우저가 Sanity·DB·R2·기상청을 직접 부르지 않으므로 서버 키에 `NEXT_PUBLIC_`이 필요 없다. 바뀌면 [`../frontend/.env.example`](../frontend/.env.example)도 같은 PR에서 고친다.
+브라우저는 Sanity·DB·기상청 서버 키를 받지 않는다. R2에는 서버가 발급한 특정 객체의 PUT/GET 서명 URL로만
+직접 접근하며 자격증명은 서버에 둔다. 서버 키에 `NEXT_PUBLIC_`을 붙이지 않는다.
+바뀌면 [`../frontend/.env.example`](../frontend/.env.example)도 같은 PR에서 고친다.
 
 `SUNNY_PG_*` 값은 ignored `backend/.env.local`에만 둔다. `prepare`는 누락된 개발 DB 값만 생성하고 기존 설정·비밀번호를 보존한다. Python 도구는 이 파일의 값을 사용해 같은 이름의 셸 환경변수와 `COMPOSE_*`가 다른 DB/설정으로 덮어쓰지 못하게 한다. 전체 `docker compose config` 출력에는 비밀번호가 펼쳐질 수 있으므로 `config -q`만 사용한다.
 
-Next.js 인증·DB 연결·메일 이름은 위 표를 따른다. R2 환경변수는 해당 구현 이슈에서 추가한다. 앱 런타임에 관리 연결 문자열을 사용하지 않는다. 실제 앱 값은 `frontend/.env.local`과 승인된 배포 환경에만 둔다.
+Next.js 인증·DB 연결·메일·R2 이름은 위 표를 따른다. 앱 런타임에 관리 연결 문자열을 사용하지 않는다.
+실제 앱 값은 `frontend/.env.local`과 승인된 배포 환경에만 둔다.
 
 ## 개발 PostgreSQL — #79
 
@@ -97,7 +105,8 @@ DB는 `postgres:17-bookworm`, `sunny`, `127.0.0.1:5434`이며 컨테이너 내�
 
 runtime은 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOINHERIT/NOBYPASSRLS이고 DB CREATE/TEMP 권한이 없다.
 `0001`은 `sunny_meta.schema_migrations`만 만든다. #90의 `0002_authentication.sql`은
-`auth.user/session/account/verification` 4개를 추가한다. 업무 schema는 이 단계에서 비어 있다.
+`auth.user/session/account/verification` 4개를 추가한다. #93의 `0003_photo_uploads.sql`은
+사진 메타데이터·검사 시도 업무 테이블을 추가한다. 주문·배치·동의·리뷰 테이블은 아직 생성하지 않는다.
 
 ### DBeaver
 
