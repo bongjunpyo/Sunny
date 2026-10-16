@@ -16,13 +16,10 @@ export default function SignupPage() {
             <span className={styles.eyebrow}>JOIN THE LIGHT</span>
             <h1 className={styles.title}>빛을 기록할 준비.</h1>
             <p>
-              이메일과 별명만 있으면 됩니다. 주문과 관심 상품, 제작 기록을 한자리에서 볼 수 있게
+              이메일·비밀번호·별명으로 가입할 수 있습니다. 주문과 관심 상품, 제작 기록을 한자리에서 볼 수 있게
               준비하고 있습니다.
             </p>
-            <p className={styles.warn}>
-              화면 시안입니다. 서버에 연결되어 있지 않으니 <b>실제 개인정보를 입력하지 마세요.</b>{" "}
-              계정은 만들어지지 않습니다.
-            </p>
+            <p className={styles.warn}>가입 후 이메일 인증을 완료해야 로그인할 수 있습니다.</p>
           </div>
           <div className={styles.form}>
             <SignupForm />
