@@ -2,7 +2,7 @@
 
 상태: 로컬 구현과 통합 검증 대상. API 정본은 [CONTRACT_API.md](../docs/CONTRACT_API.md)이며
 이 문서는 준표·재원이 정본에 반영할 검토안이다. #88/PR #89의 변경 항목을 구체화하며
-그 PR이 인증 계약을 이미 확정했다는 뜻은 아니다. main/운영 배포·화면 mock 전환은 하지 않는다.
+그 PR이 인증 계약을 이미 확정했다는 뜻은 아니다. main/운영 배포는 하지 않는다. 2026-10-16 사용자 요청으로 인증 화면도 이 DTO에 연결한다.
 
 ## 고정한 구성
 
@@ -35,7 +35,8 @@ POST는 BETTER_AUTH_URL의 Origin과 application/json을 요구한다. JSON 본�
 입력 검사는 기존 frontend/lib/validate.ts의 순수 함수를 서버에서도 재사용한다.
 callbackURL은 /, /login, /signup, /account만 허용한다. 비밀번호 재설정·카카오·프로필 변경·토큰 발급·
 사용자 삭제 등 다른 native 경로는 이번 범위에서 404다. 요청 제한·Cookie/Origin은 native 검사에 더해
-서버 경계에서도 확인한다. 실제 UI의 password 입력·비동기 getMember·게스트 분기는 준표와 후속 연결한다.
+서버 경계에서도 확인한다. 실제 UI는 password를 POST 본문으로 전달하고 getMember를 비동기 DB 세션 조회로 처리한다.
+상품/CMS mock 모드와 인증을 분리한다. 게스트는 회원 메뉴/마이페이지에서 회원으로 표시하지 않는다.
 
 회원/게스트 로그인·세션 응답 예시(표시용이며 실제 식별자가 아니다):
 
@@ -52,6 +53,12 @@ callbackURL은 /, /login, /signup, /account만 허용한다. 비밀번호 재설
 {"verificationPending":true,"message":"메일함에서 인증을 마쳐 주세요."}
 ```
 
+개발 전용 로컬 메일을 명시적으로 켠 경우 가입 응답에 `verificationDelivery="local"`을 추가한다.
+실제 메일 전송 대신 Git에서 제외된 비공개 파일로 인증 링크를 전달하며, 운영·원격 origin에서는 사용할 수 없다.
+클라이언트에 인증 링크/세션 토큰을 JSON으로 반환하지 않는다. 가입 직후 DB user/account는 생성되지만
+emailVerified=false이고 session은 생성되지 않는다. 인증 링크를 연 다음 별도 로그인한다.
+약관 체크는 현재 UI 확인만 하며 DB 동의 이력 수집은 미구현이다. 선택 마케팅 동의는 비활성화한다.
+
 오류는 error.code/message만 반환하며 원본 DB/메일 예외·토큰은 반환하지 않는다.
 
 | HTTP | 의미 |
@@ -65,7 +72,7 @@ callbackURL은 /, /login, /signup, /account만 허용한다. 비밀번호 재설
 | 503 | 인증 비활성/DB·설정 장애/메일 미설정·발송 실패 |
 
 get-session은 무효·만료·위조 쿠키에 200/null을 반환하며 보호 업무 API는 이를 인증 실패로 처리해야 한다.
-메일 설정이 없으면 가입/재발송을 DB 변경 전에 막는다. 실제 Resend 전달이 중간 실패한 경우 계정은 인증 대기로
+실제 메일 또는 명시적인 로컬 개발 메일 설정이 없으면 가입/재발송을 DB 변경 전에 막는다. 실제 Resend 전달이 중간 실패한 경우 계정은 인증 대기로
 남을 수 있으므로 메일 복구 후 재발송한다. 실패가 가입/인증 성공으로 바뀌지 않는다.
 
 ## 개발 검토값과 운영 전 남은 결정
@@ -93,4 +100,4 @@ Vercel 운영용으로 완료했다고 보고하지 않는다. AUTH_ENABLED 기�
 0002는 설치 버전 migration 생성 결과에 schema/권한/RLS·계정 복합 UNIQUE를 추가한 SQL이다.
 적용 뒤 adapter introspection과 실제 HTTP 의미의 Request/Response + PostgreSQL 테스트로 컬럼·로그인·
 인증 대기/완료·게스트 보존·만료/폐기·쿠키·권한을 검증한다. 테스트 mailer는 링크를 메모리에만 보관한다.
-실제 Resend 전송·운영 DB·브라우저 화면 통합 완료와 구분한다.
+실제 Resend 전송·운영 DB 검증과 구분한다. 화면→Next API→PostgreSQL 및 로컬 파일 인증 메일은 별도 통합 확인한다.

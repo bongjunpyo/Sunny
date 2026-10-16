@@ -49,6 +49,7 @@ frontend/
 | `BETTER_AUTH_URL` | X | Better Auth / Origin 검사 | 앱의 고정 origin. 로컬 기본 http://localhost:3000 |
 | `RESEND_API_KEY` | X | 인증 메일 발송 | Resend 서버 API 키 |
 | `AUTH_EMAIL_FROM` | X | 인증 메일 발송 | 검증된 팀 도메인의 인증 발신자 |
+| `AUTH_DEV_LOCAL_MAIL` | X | 개발 인증 메일 | development + loopback에서만 true 허용. 비공개 로컬 파일 저장 |
 
 브라우저가 Sanity·DB·R2·기상청을 직접 부르지 않으므로 서버 키에 `NEXT_PUBLIC_`이 필요 없다. 바뀌면 [`../frontend/.env.example`](../frontend/.env.example)도 같은 PR에서 고친다.
 
@@ -168,7 +169,8 @@ AUTH_DATABASE_URL은 sunny_auth, DATABASE_URL은 sunny_app만 사용한다. 관�
 `localhost`와 `127.0.0.1`은 다른 Origin이므로 브라우저 주소와 BETTER_AUTH_URL을 맞춘다.
 
 실제 API 입력/응답과 공동 검토 항목은 [auth-contract.md](auth-contract.md)를 본다.
-실행은 API에 연결되며 기존 로그인/가입 화면과 lib/auth.ts는 아직 mock이다. 화면 연결은 준표 후속 범위다.
+로그인/가입 화면과 lib/auth.ts는 인증 API에 연결한다. 상품/CMS의 NEXT_PUBLIC_API_MODE와 무관하며
+브라우저 localStorage의 기존 mock 회원 값은 읽거나 자동 이관하지 않는다. 이전에 화면 시안에서 가입했다면 다시 가입한다.
 
 ```sh
 cd frontend
@@ -182,14 +184,35 @@ npm run build
 보관하고 가짜 .invalid 회원·게스트를 만들었다가 자신이 만든 ID만 정리한다. 토큰/쿠키/비밀번호를 출력하지 않는다.
 실제 Resend 메일을 보내지 않는다. 운영 DB/실제 고객 데이터에 실행하지 않는다.
 
-RESEND_API_KEY와 검증된 AUTH_EMAIL_FROM이 없으면 **가입·인증 메일 재발송은 503**이며 계정을 만들지 않는다.
-기존 인증 회원의 로그인·게스트·세션 조회/로그아웃은 메일 키 없이 동작한다. 키·도메인을 임의 생성하거나
-이메일 인증을 생략한 개발자 우회 로그인을 만들지 않았다. 실제 메일 전달·도메인 검증은 별도 필요하다.
-실제 인증 링크를 개발 서버에서 열기 전, 준표가 `frontend/next.config.ts`의 incoming request 로그에서
-`/api/auth/`를 제외해야 한다. Next 개발 로그는 query를 포함할 수 있다. 이 파일은 화면 공통 영역이므로
-이번 허용 범위에서 수정하지 않았으며 PR의 교차 영역 후속 요청으로 남긴다. 운영 접근 로그도 인증 query를 마스킹해야 한다.
+실제 발송에는 RESEND_API_KEY와 검증된 AUTH_EMAIL_FROM이 필요하다. 둘 다 없고 로컬 개발 메일도
+켜지지 않았다면 가입/재발송은 DB 변경 전 503이다. 로컬 개발은 frontend/.env.local에 아래를 명시한 후
+개발 서버를 재시작한다. prepare-local은 메일 방식을 임의로 선택하지 않는다.
+
+```dotenv
+AUTH_DEV_LOCAL_MAIL=true
+```
+
+NODE_ENV=development이고 BETTER_AUTH_URL이 localhost/127.0.0.1/[::1]인 경우만 적용된다. 운영에서는
+이 옵션이 true여도 로컬 저장을 허용하지 않는다. 실제 발송 설정이 없으면 운영 가입은 계속 차단된다.
+`frontend/.sunny-auth-mail/`에 가입/재발송마다 HTML 메일이 생성된다(디렉터리 700·파일 600, Git 제외).
+Finder에서 해당 폴더의 최신 파일을 열고 **이메일 인증 완료하기**를 누르면 /login으로 이동한다.
+인증 링크 자체는 API JSON/터미널에 출력하지 않고 HTTP 메일함도 만들지 않는다. 파일을 공유하지 않는다.
+가입 직후 auth.user/emailVerified=false와 auth.account(비밀번호 해시)가 저장되며, 인증 후 별도 로그인해야
+auth.session이 생긴다. 약관은 현재 UI 확인만 하고 이력을 저장하지 않으며 선택 마케팅 동의는 비활성화했다.
+동의 버전·증빙 DB 수집은 별도 계약/migration이 필요하다.
+
+Next 개발 요청 로그는 /api/auth/를 제외한다. 운영 접근 로그도 인증 query를 마스킹해야 한다.
 DBeaver에서는 `sunny-dev-admin` 관리 연결의 `auth` schema를 새로고침하면 4개 테이블을 볼 수 있다.
-`sunny_app` 연결에서 인증 테이블이 안 보이는 것은 의도한 권한 분리다.
+`sunny_app` 연결에서 인증 테이블이 안 보이는 것은 의도한 권한 분리다. 새 SQL 탭/자동 커밋 조회를 사용한다.
+
+```sql
+SELECT id, name, email, "emailVerified", "isAnonymous", "createdAt"
+FROM auth."user" ORDER BY "createdAt" DESC;
+
+-- 비밀번호 원문/해시·세션 토큰은 조회 결과에 출력하지 않는다.
+SELECT "userId", "providerId", password IS NOT NULL AS has_password
+FROM auth.account;
+```
 
 #81 미머지 기반을 이 브랜치에 merge해 재사용했다. 이 PR은 #81 머지와 공동 인증 계약 검토 후에만
 머지 판단한다. #65는 별도 사진 계약이며 여기서 사진/주문 데이터를 생성하지 않는다.

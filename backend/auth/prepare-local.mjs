@@ -38,6 +38,6 @@ try {
   }
   await chmod(target,0o600);
   console.log(`Local authentication settings prepared: ${count} missing/empty values filled; configured values preserved; no secrets displayed.`);
-  console.log('Email signup requires RESEND_API_KEY and AUTH_EMAIL_FROM. Login/guest do not send mail.');
+  console.log('Email signup requires real email settings or explicit development-only local mail. See backend/README.md.');
 } catch { console.error('Local authentication preparation failed. Check DB settings and file permissions locally.'); process.exitCode=1; }
 finally { if (temporary) await unlink(temporary).catch(()=>{}); }

@@ -36,7 +36,7 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
   return data as Record<string, unknown>;
 }
 
-export async function handleAuth(request: Request, auth: SunnyAuth, config: { baseURL: string; emailReady: boolean }) {
+export async function handleAuth(request: Request, auth: SunnyAuth, config: { baseURL: string; emailReady: boolean; localMail?: boolean }) {
   const url = new URL(request.url); const origin = new URL(config.baseURL).origin;
   const path = url.pathname.replace(/^\/api\/auth\//, "");
   if (!methods[path]) return authError(404, "AUTH_ENDPOINT_NOT_AVAILABLE", "지원하지 않는 인증 요청입니다.");
@@ -103,7 +103,8 @@ export async function handleAuth(request: Request, auth: SunnyAuth, config: { ba
     const session = await auth.api.getSession({ headers: sessionHeaders, query: { disableCookieCache: true } });
     if (!session) return authError(503, "AUTH_SESSION_UNAVAILABLE", "세션을 확인하지 못했습니다.");
     result = { user: displayUser(session.user), session: { expiresAt: session.session.expiresAt } };
-  } else if (path === "sign-up/email") result = { verificationPending: true, message: "메일함에서 인증을 마쳐 주세요." };
+  } else if (path === "sign-up/email") result = { verificationPending: true, message: "메일함에서 인증을 마쳐 주세요.",
+    ...(config.localMail ? { verificationDelivery: "local" } : {}) };
   else if (path === "send-verification-email") result = { message: "인증이 필요한 경우 메일을 보냈습니다." };
   else result = { success: true };
   return Response.json(result, { status: response.status, headers: outHeaders });

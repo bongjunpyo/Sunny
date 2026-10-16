@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "../../lib/auth.ts";
+import { signIn, resendVerification, AuthError, authErrorMessage } from "../../lib/auth.ts";
 import { validateEmail, validatePassword } from "../../lib/validate.ts";
 import { Field } from "./Field.tsx";
 import styles from "./auth.module.css";
@@ -14,6 +14,8 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string | null; password?: string | null }>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(event: React.FormEvent) {
@@ -24,12 +26,16 @@ export function LoginForm() {
 
     setBusy(true);
     setFormError(null);
+    setVerificationRequired(false);
+    setNotice("");
     try {
-      await signIn(email);
+      await signIn(email, password);
+      setPassword("");
       router.push("/account");
-    } catch {
-      // 계정이 있는지 없는지 알려주지 않는다
-      setFormError("이메일 또는 비밀번호를 확인해 주세요.");
+      router.refresh();
+    } catch (error) {
+      setVerificationRequired(error instanceof AuthError && error.code === "EMAIL_NOT_VERIFIED");
+      setFormError(authErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -43,13 +49,20 @@ export function LoginForm() {
         </p>
       ) : null}
 
+      {notice ? <p role="status">{notice}</p> : null}
+      {verificationRequired ? <button className={styles.ghost} type="button" disabled={busy} onClick={async () => {
+        setBusy(true); setFormError(null);
+        try { await resendVerification(email); setNotice("인증이 필요한 경우 인증 메일을 다시 준비했습니다."); }
+        catch (error) { setFormError(authErrorMessage(error)); }
+        finally { setBusy(false); }
+      }}>인증 메일 다시 받기</button> : null}
       <Field
         label="이메일"
         type="email"
         value={email}
         onChange={setEmail}
         error={errors.email}
-        autoComplete="off"
+        autoComplete="email"
         placeholder="demo@example.com"
       />
       <Field
@@ -58,7 +71,7 @@ export function LoginForm() {
         value={password}
         onChange={setPassword}
         error={errors.password}
-        autoComplete="off"
+        autoComplete="current-password"
       />
 
       <button className={styles.submit} type="submit" disabled={busy}>
