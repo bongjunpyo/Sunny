@@ -1,13 +1,16 @@
 import "server-only";
+import { verificationURL, kakaoErrorNotice } from "../auth-flow.ts";
 import type { SunnyAuth } from "./auth-core.ts";
 import { validateEmail, validateNickname, validatePassword } from "../validate.ts";
 
 const methods: Record<string, string> = {
   "sign-in/email": "POST", "sign-in/anonymous": "POST", "get-session": "GET", "sign-out": "POST",
+  "sign-in/social": "POST", "callback/kakao": "GET",
   "sign-up/email": "POST", "send-verification-email": "POST", "verify-email": "GET",
 };
 const fields: Record<string, string[]> = {
   "sign-in/email": ["email", "password", "rememberMe"], "sign-in/anonymous": [], "sign-out": [],
+  "sign-in/social": ["provider"],
   "sign-up/email": ["name", "email", "password"], "send-verification-email": ["email"],
 };
 const headers = () => new Headers({ "Cache-Control": "no-store", "Content-Type": "application/json; charset=utf-8", "Referrer-Policy": "no-referrer" });
@@ -36,7 +39,7 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
   return data as Record<string, unknown>;
 }
 
-export async function handleAuth(request: Request, auth: SunnyAuth, config: { baseURL: string; emailReady: boolean; localMail?: boolean }) {
+export async function handleAuth(request: Request, auth: SunnyAuth, config: { baseURL: string; emailReady: boolean; localMail?: boolean; kakaoReady?: boolean }) {
   const url = new URL(request.url); const origin = new URL(config.baseURL).origin;
   const path = url.pathname.replace(/^\/api\/auth\//, "");
   if (!methods[path]) return authError(404, "AUTH_ENDPOINT_NOT_AVAILABLE", "지원하지 않는 인증 요청입니다.");
@@ -46,6 +49,14 @@ export async function handleAuth(request: Request, auth: SunnyAuth, config: { ba
   }
   if (["sign-up/email", "send-verification-email"].includes(path) && !config.emailReady) {
     return authError(503, "AUTH_EMAIL_UNAVAILABLE", "인증 메일 설정을 준비하고 있습니다.");
+  }
+  const redirect = (notice: string, cookies: string[] = []) => {
+    const h = headers(); h.set("Location", `${origin}/login?auth=${notice}`);
+    for (const cookie of cookies) h.append("Set-Cookie", cookie);
+    return new Response(null, { status: 303, headers: h });
+  };
+  if (["sign-in/social", "callback/kakao"].includes(path) && !config.kakaoReady) {
+    return path === "callback/kakao" ? redirect("kakao-failed") : authError(503, "KAKAO_UNAVAILABLE", "카카오 로그인을 준비하고 있습니다.");
   }
   let nativeRequest = request;
   if (request.method === "POST") {
@@ -59,16 +70,20 @@ export async function handleAuth(request: Request, auth: SunnyAuth, config: { ba
         || validateEmail(body.email) || validateNickname(body.name) || validatePassword(body.password))) {
         return authError(400, "INVALID_SIGNUP_INPUT", "이메일·별명·비밀번호 입력을 확인해 주세요.");
       }
+      if (path === "sign-in/social") {
+        if (body.provider !== "kakao") return authError(400, "INVALID_SOCIAL_PROVIDER", "지원하지 않는 로그인 방법입니다.");
+        Object.assign(body, { callbackURL: `${origin}/account`, errorCallbackURL: `${origin}/login`, disableRedirect: true });
+      }
       if (typeof body.email === "string") body.email = body.email.trim();
       if (typeof body.name === "string") body.name = body.name.trim();
       nativeRequest = new Request(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(body) });
     } catch { return authError(400, "INVALID_AUTH_REQUEST", "인증 요청 형식을 확인해 주세요."); }
   }
   if (path === "verify-email") {
-    const callback = url.searchParams.get("callbackURL");
-    if (callback && !["/", "/login", "/signup", "/account"].includes(callback)) {
-      return authError(400, "INVALID_CALLBACK", "허용되지 않은 이동 경로입니다.");
-    }
+    const target = verificationURL(url);
+    if (!target) return redirect("verification-invalid");
+    target.searchParams.delete("callbackURL");
+    nativeRequest = new Request(target, { headers: request.headers });
   }
   if (path === "get-session") url.searchParams.set("disableCookieCache", "true");
   if (path === "get-session") nativeRequest = new Request(url, { headers: request.headers });
@@ -83,7 +98,22 @@ export async function handleAuth(request: Request, auth: SunnyAuth, config: { ba
   const outHeaders = new Headers(response.headers); outHeaders.set("Cache-Control", "no-store");
   outHeaders.set("Referrer-Policy", "no-referrer");
   outHeaders.delete("Content-Length"); outHeaders.delete("Content-Encoding");
-  // Verification redirects carry native Location and Set-Cookie unchanged.
+  if (path === "verify-email") {
+    if (response.ok) return redirect("email-verified", response.headers.getSetCookie());
+    const problem = await response.json().catch(() => null);
+    return redirect(problem?.code === "TOKEN_EXPIRED" ? "verification-expired" : "verification-invalid", response.headers.getSetCookie());
+  }
+  if (path === "callback/kakao") {
+    const location = response.headers.get("Location");
+    if (!location) return redirect("kakao-failed", response.headers.getSetCookie());
+    const target = new URL(location, origin);
+    if (target.origin !== origin) return redirect("kakao-failed", response.headers.getSetCookie());
+    if (target.pathname === "/login") return redirect(kakaoErrorNotice(target.searchParams.get("error")), response.headers.getSetCookie());
+    if (target.pathname !== "/account" || ![302,303].includes(response.status)) return redirect("kakao-failed", response.headers.getSetCookie());
+    outHeaders.set("Location", `${origin}/account`);
+    return new Response(null, { status: response.status, headers: outHeaders });
+  }
+  // Only the callback above may issue an OAuth redirect.
   if (response.status >= 300 && response.status < 400) return new Response(null, { status: response.status, headers: outHeaders });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
@@ -96,6 +126,12 @@ export async function handleAuth(request: Request, auth: SunnyAuth, config: { ba
   }
   let result: unknown;
   if (path === "get-session") result = data ? { user: displayUser(data.user), session: { expiresAt: data.session.expiresAt } } : null;
+  else if (path === "sign-in/social") {
+    let target: URL;
+    try { target = new URL(data?.url); } catch { return authError(503, "KAKAO_UNAVAILABLE", "카카오 로그인 주소를 확인하지 못했습니다."); }
+    if (target.origin !== "https://kauth.kakao.com" || target.pathname !== "/oauth/authorize") return authError(503, "KAKAO_UNAVAILABLE", "카카오 로그인 주소를 확인하지 못했습니다.");
+    result = { url: target.href };
+  }
   else if (["sign-in/email", "sign-in/anonymous"].includes(path)) {
     const sessionHeaders = new Headers(request.headers);
     const cookies = response.headers.getSetCookie().map((cookie) => cookie.split(";", 1)[0]).join("; ");

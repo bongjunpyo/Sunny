@@ -8,7 +8,6 @@ export function verificationEmailConfigured() {
 export const sendVerificationEmail: VerificationMailer = async ({ email, url }) => {
   if (!verificationEmailConfigured()) throw new Error("Verification email is not configured");
   const verificationURL = new URL(url);
-  verificationURL.searchParams.set("callbackURL", "/login");
   if (localVerificationMailEnabled()) return saveLocalVerificationMail({ email, url: verificationURL.href });
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST", signal: AbortSignal.timeout(10000),

@@ -22,7 +22,10 @@ test("local verification files have private permissions, escape HTML, reject rem
     process.chdir(directory); Object.assign(process.env, { NODE_ENV: "development", AUTH_DEV_LOCAL_MAIL: "true", BETTER_AUTH_URL: "http://localhost:3000" });
     await saveLocalVerificationMail({ email: '<probe>@example.invalid', url: "http://localhost:3000/api/auth/verify-email?token=synthetic-test-only&callbackURL=%2Flogin" });
     const mailbox = join(directory, ".sunny-auth-mail"); const files = await readdir(mailbox);
-    assert.equal(files.length, 1); const file = join(mailbox, files[0]);
+    assert.equal(files.length, 2); const file = join(mailbox, files.find(name => name.endsWith(".html"))!);
+    const textFile = join(mailbox, files.find(name => name.endsWith(".txt"))!);
+    assert.equal((await stat(textFile)).mode & 0o777, 0o600);
+    const text = await readFile(textFile, "utf8"); assert.ok(text.includes("&callbackURL=")); assert.equal(text.includes("&amp;"), false);
     assert.equal((await stat(mailbox)).mode & 0o777, 0o700); assert.equal((await stat(file)).mode & 0o777, 0o600);
     const html = await readFile(file, "utf8"); assert.ok(html.includes("&lt;probe&gt;")); assert.ok(html.includes('content="no-referrer"'));
     await assert.rejects(saveLocalVerificationMail({ email: "probe@example.invalid", url: "https://attacker.invalid/api/auth/verify-email" }));

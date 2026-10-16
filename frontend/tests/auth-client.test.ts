@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { getMember, signIn, signUp, signOut, resendVerification, AuthError } from "../lib/auth.ts";
+import { getMember, signIn, signInWithKakao, signUp, signOut, resendVerification, AuthError } from "../lib/auth.ts";
 
 test("signup posts password to real auth API even with product mock mode and returns verification pending", async t => {
   t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
@@ -56,4 +56,15 @@ test("malformed successful response and network failure are not fake member sess
   await assert.rejects(getMember(), AuthError);
   t.mock.method(globalThis, "fetch", async () => { throw new TypeError("network"); });
   await assert.rejects(signIn("synthetic@example.invalid", "Synthetic123!"));
+});
+
+
+test("Kakao client posts only provider and rejects unexpected redirect destinations",async t=>{
+  let target="https://kauth.kakao.com/oauth/authorize?state=synthetic";
+  t.mock.method(globalThis,"fetch",async(url:string,init:RequestInit)=>{
+    assert.equal(url,"/api/auth/sign-in/social"); assert.deepEqual(JSON.parse(init.body as string),{provider:"kakao"});
+    return Response.json({url:target});
+  });
+  assert.equal(await signInWithKakao(),target);
+  target="https://evil.invalid/authorize"; await assert.rejects(signInWithKakao(),AuthError);
 });

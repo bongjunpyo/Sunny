@@ -35,5 +35,7 @@ export async function saveLocalVerificationMail(message: { email: string; url: s
 <p><a href="${escape(url.href)}" rel="noreferrer">이메일 인증 완료하기</a></p>
 <p>링크는 24시간 유효합니다. 인증 후 로그인 화면에서 로그인해 주세요.</p>
 <p>인증 링크가 포함되어 있으므로 이 파일을 공유하거나 Git에 올리지 마세요.</p></body></html>`;
-  await writeFile(join(directory, `${Date.now()}-${randomUUID()}.html`), html, { mode: 0o600, flag: "wx" });
+  const filename = `${Date.now()}-${randomUUID()}`;
+  await writeFile(join(directory, `${filename}.html`), html, { mode: 0o600, flag: "wx" });
+  await writeFile(join(directory, `${filename}.txt`), `Sunny 개발용 인증 메일\n${message.email}\n\n아래 주소 한 줄을 그대로 주소창에 붙여넣으세요. HTML 소스를 복사하지 마세요.\n${url.href}\n`, { mode: 0o600, flag: "wx" });
 }

@@ -20,7 +20,7 @@
 
 모든 응답은 Cache-Control: no-store다. 아래 입력 외 필드는 거절하며 userId/ownerId를 받지 않는다.
 POST는 BETTER_AUTH_URL의 Origin과 application/json을 요구한다. JSON 본문 상한은 8 KiB다.
-인증 쿠키와 네이티브 리디렉션 헤더를 보존하고 JSON만 표시용 DTO로 제한한다.
+인증 쿠키를 보존하고 리디렉션은 허용한 내부 경로로 제한하며 JSON은 표시용 DTO만 반환한다.
 
 | 메서드 | 경로 | 입력 | 성공 |
 |---|---|---|---|
@@ -30,10 +30,12 @@ POST는 BETTER_AUTH_URL의 Origin과 application/json을 요구한다. JSON 본�
 | POST | /api/auth/sign-out | {} | success=true 및 쿠키 폐기 |
 | POST | /api/auth/sign-up/email | name, email, password | verificationPending=true; 회원 세션 없음 |
 | POST | /api/auth/send-verification-email | email | 계정 존재를 드러내지 않는 동일 안내 |
-| GET | /api/auth/verify-email | token, callbackURL 선택 | native 성공/실패 응답·리디렉션; 자동 로그인 없음 |
+| GET | /api/auth/verify-email | token, callbackURL 선택 | 토큰 없는 /login?auth=안내코드로 303; 자동 로그인 없음 |
+| POST | /api/auth/sign-in/social | provider=kakao | 허용한 카카오 인가 URL만 반환 |
+| GET | /api/auth/callback/kakao | native code/state | 성공 /account, 실패 /login?auth=안내코드 |
 
 입력 검사는 기존 frontend/lib/validate.ts의 순수 함수를 서버에서도 재사용한다.
-callbackURL은 /, /login, /signup, /account만 허용한다. 비밀번호 재설정·카카오·프로필 변경·토큰 발급·
+callbackURL은 /, /login, /signup, /account만 입력 허용하되 이메일 인증 결과는 /login으로 고정한다. 비밀번호 재설정·프로필 변경·토큰 발급·
 사용자 삭제 등 다른 native 경로는 이번 범위에서 404다. 요청 제한·Cookie/Origin은 native 검사에 더해
 서버 경계에서도 확인한다. 실제 UI는 password를 POST 본문으로 전달하고 getMember를 비동기 DB 세션 조회로 처리한다.
 상품/CMS mock 모드와 인증을 분리한다. 게스트는 회원 메뉴/마이페이지에서 회원으로 표시하지 않는다.
@@ -85,7 +87,7 @@ get-session은 무효·만료·위조 쿠키에 200/null을 반환하며 보호 
 | 비밀번호·별명 | 공용 validate.ts 사용: 비밀번호 8..128자·영문+숫자, 별명 2..12자 | 기존 화면 입력 규칙 유지, 운영 공동 검토 |
 | 공통 인증 제한 | 60초/30회 | IP/프록시 신뢰 경계·공유 제한 저장소 |
 | 로그인 | 60초/10회 | 계정 기준 보조 제한·운영 보안 정책 |
-| 게스트·가입 | 각각 60초/5회 | 게스트 재생성 남용·운영 수치 |
+| 게스트·가입·카카오 시작 | 각각 60초/5회 | 게스트 재생성 남용·운영 수치 |
 | 메일 재발송 | 60초/3회 | 공유 제한·메일 한도·실제 도메인 |
 
 현재 요청 제한 저장소는 memory다. 프로세스 재시작/여러 인스턴스 간 한도를 보장하지 않으므로
@@ -101,3 +103,30 @@ Vercel 운영용으로 완료했다고 보고하지 않는다. AUTH_ENABLED 기�
 적용 뒤 adapter introspection과 실제 HTTP 의미의 Request/Response + PostgreSQL 테스트로 컬럼·로그인·
 인증 대기/완료·게스트 보존·만료/폐기·쿠키·권한을 검증한다. 테스트 mailer는 링크를 메모리에만 보관한다.
 실제 Resend 전송·운영 DB 검증과 구분한다. 화면→Next API→PostgreSQL 및 로컬 파일 인증 메일은 별도 통합 확인한다.
+
+## 2026-10-16 추가 계약 검토 — 이메일 링크와 카카오 (같은 #90 / PR #92)
+
+구현 전 검토 기준: token/callbackURL의 잘못 인코딩된 링크는 정해진 한 가지 형태만 한 번 복원하고(Next의 key-only query 재직렬화가 붙인 빈 = 포함)
+서명/만료를 Better Auth에서 검사한다. 인증 성공/실패는 토큰 없는 `/login?auth=...`로 303 이동한다.
+callbackURL은 기존 내부 경로만 허용하며 외부·중복·알 수 없는 필드/이중 인코딩은 거부한다.
+로컬 HTML은 올바른 이스케이프를 유지하고 같은 비공개 위치에 원문 URL이 담긴 txt도 만든다.
+
+추가 API:
+- POST /api/auth/sign-in/social: `{provider:"kakao"}`만 입력. 서버가 callback=/account,
+  error callback=/login을 고정한다. `{url:"https://kauth.kakao.com/oauth/authorize?..."}`만 반환한다.
+  URL에는 OAuth state가 포함되며 세션/access/refresh token은 반환하지 않는다. 키 미설정은 503.
+- GET /api/auth/callback/kakao: native OAuth code/state 검사 후 서버 DB 세션·HttpOnly 쿠키 생성.
+  Origin 없는 callback GET은 허용하되 state/cookie 검사를 생략하지 않는다. 다른 provider/POST callback은 거부한다.
+  성공은 /account, 오류는 허용한 안내 코드만 담은 /login으로 이동한다. 원본 error_description은 전달하지 않는다.
+
+카카오 제공자의 인증된 이메일은 그대로 인정하고, 미인증 이메일이면 서비스 메일 인증 후 카카오로 재로그인한다.
+이메일 미제공은 가입을 거부하고 권한/동의 안내를 한다(임의 이메일·추가 이메일 우회 생성 없음).
+같은 이메일의 기존 credential 회원은 자동 연결하지 않고 원래 로그인 방법을 안내한다.
+카카오 member의 비밀번호는 생성하지 않는다. providerId/accountId로 식별하고 재로그인 시 같은 UUID를 사용한다.
+게스트는 로그인 후에도 보존하고 업무 소유권 이전은 하지 않는다. provider 토큰은 DB 저장 시 암호화한다.
+요청 scope는 account_email/profile_nickname만 사용하며 고객 프로필 이미지는 받지 않는다.
+
+키 미설정 상태에서도 이메일 인증은 계속 동작한다. 카카오 토큰 교환/프로필 응답은 자동 테스트에서 모의하고
+사용자/계정/세션/state는 실제 PG로 확인한다. 실제 카카오 로그인은 개발자 앱/키·Redirect URI·이메일 제공 권한
+설정 후 수동 검증이 필요하다. 서비스 자체 동의 증빙·별명 수정/추가 가입 화면은 후속 공동 계약이 필요하며
+현재 법적 동의 이력 수집 완료/운영 가입 완료로 보고하지 않는다. 새 migration/라이브러리는 추가하지 않는다.

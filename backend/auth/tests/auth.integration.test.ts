@@ -61,7 +61,8 @@ async function verify(email:string) {
   const sent=mail.find(m=>m.email===email); assert.ok(sent,"Verification mail was not awaited");
   const target=new URL(sent.url);
   const response=await handleAuth(new Request(target),auth,{baseURL,emailReady:true});
-  assert.ok([200,302].includes(response.status),"Verification failed");
+  assert.equal(response.status,303,"Verification failed");
+  assert.equal(new URL(response.headers.get("location")!).searchParams.get("auth"),"email-verified");
   assert.equal(response.headers.getSetCookie().length,0,"Verification must not auto-login");
 }
 
@@ -119,7 +120,7 @@ test("origin, mass assignment, native token/delete endpoints, and unconfigured m
   assert.equal((await call("sign-in/anonymous",{ownerId:randomUUID()})).status,400);
   assert.equal((await call("delete-anonymous-user",{})).status,404);
   assert.equal((await call("token")).status,404);
-  assert.equal((await call("verify-email?token=EXAMPLE&callbackURL=https://evil.example.invalid")).status,400);
+  assert.equal((await call("verify-email?token=EXAMPLE&callbackURL=https://evil.example.invalid")).status,303);
   assert.equal((await call("sign-up/email",{name:"Synthetic",email:`${prefix}-disabled@example.invalid`,password},undefined,{emailReady:false})).status,503);
   assert.equal((await admin.query('SELECT count(*)::int AS n FROM auth."user" WHERE email=$1',[`${prefix}-disabled@example.invalid`])).rows[0].n,0);
 });
@@ -154,4 +155,28 @@ test("HTTPS base URL issues Secure HttpOnly cookies without exposing guest token
     headers:{origin:secureURL,"content-type":"application/json"},body:"{}"}),secure,{baseURL:secureURL,emailReady:false});
   assert.equal(response.status,200);const data=await response.json(); ids.add(data.user.id); assertPrivate(data);
   assert.ok(response.headers.getSetCookie().some(c=>/; Secure/i.test(c)&&/HttpOnly/i.test(c)));
+});
+
+
+test("encoded HTML-preview query verifies the original signed token and strips it from the redirect", async () => {
+  const member = await signup("encoded");
+  const { createEmailVerificationToken } = await import(require.resolve("better-auth/api"));
+  const expired = await createEmailVerificationToken((await auth.$context).secret, member.email, undefined, -60);
+  const expiredURL = new URL(`${baseURL}/api/auth/verify-email`); expiredURL.searchParams.set("token",expired);
+  const expiredResponse = await handleAuth(new Request(expiredURL), auth, {baseURL,emailReady:true});
+  assert.equal(expiredResponse.headers.get("location"),`${baseURL}/login?auth=verification-expired`);
+  assert.equal((await admin.query('SELECT "emailVerified" FROM auth."user" WHERE id=$1',[member.id])).rows[0].emailVerified,false);
+  const sent = mail.find(message => message.email === member.email)!;
+  const original = new URL(sent.url); original.searchParams.set("callbackURL", "/login");
+  const broken = new URL(original); broken.search = encodeURIComponent(original.search.slice(1).replaceAll("&", "&amp;"));
+  const response = await handleAuth(new Request(broken), auth, {baseURL, emailReady:true});
+  assert.equal(response.status,303);
+  assert.equal(response.headers.get("location"), `${baseURL}/login?auth=email-verified`);
+  assert.equal(response.headers.getSetCookie().length,0);
+  assert.equal((await admin.query('SELECT "emailVerified" FROM auth."user" WHERE id=$1',[member.id])).rows[0].emailVerified,true);
+  const token = original.searchParams.get("token")!;
+  const parts=token.split("."); parts[2]=(parts[2].startsWith("x")?"y":"x")+parts[2].slice(1);
+  original.searchParams.set("token",parts.join("."));
+  const denied=await handleAuth(new Request(original),auth,{baseURL,emailReady:true});
+  assert.equal(denied.headers.get("location"),`${baseURL}/login?auth=verification-invalid`);
 });

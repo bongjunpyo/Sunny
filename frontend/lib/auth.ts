@@ -11,6 +11,7 @@ export function authErrorMessage(error: unknown): string {
   return error instanceof AuthError ? error.message : "연결을 확인하고 다시 시도해 주세요.";
 }
 const messages: Record<string, string> = {
+  KAKAO_UNAVAILABLE: "카카오 로그인을 준비하고 있습니다. 이메일 로그인을 이용해 주세요.",
   EMAIL_NOT_VERIFIED: "이메일 인증을 먼저 완료해 주세요.",
   INVALID_EMAIL_OR_PASSWORD: "이메일 또는 비밀번호를 확인해 주세요.",
   INVALID_SIGNUP_INPUT: "이메일·별명·비밀번호 입력을 확인해 주세요.",
@@ -62,4 +63,13 @@ export async function resendVerification(email: string): Promise<void> {
 }
 export async function signOut(): Promise<void> {
   await request("sign-out", {}); changed();
+}
+
+/** Only redirect to the server-approved Kakao authorization endpoint. */
+export async function signInWithKakao(): Promise<string> {
+  const data = await request("sign-in/social", { provider: "kakao" });
+  let url: URL;
+  try { url = new URL(data?.url); } catch { throw new AuthError("INVALID_AUTH_RESPONSE", "카카오 로그인 주소를 확인하지 못했습니다."); }
+  if (url.origin !== "https://kauth.kakao.com" || url.pathname !== "/oauth/authorize") throw new AuthError("INVALID_AUTH_RESPONSE", "카카오 로그인 주소를 확인하지 못했습니다.");
+  return url.href;
 }

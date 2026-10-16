@@ -49,6 +49,9 @@ frontend/
 | `BETTER_AUTH_URL` | X | Better Auth / Origin 검사 | 앱의 고정 origin. 로컬 기본 http://localhost:3000 |
 | `RESEND_API_KEY` | X | 인증 메일 발송 | Resend 서버 API 키 |
 | `AUTH_EMAIL_FROM` | X | 인증 메일 발송 | 검증된 팀 도메인의 인증 발신자 |
+| `KAKAO_ENABLED` | X | 카카오 로그인 | true + 두 키가 있을 때만 활성화 |
+| `KAKAO_CLIENT_ID` | X | 카카오 로그인 | 카카오 앱 REST API 키, 서버 전용 |
+| `KAKAO_CLIENT_SECRET` | X | 카카오 로그인 | 카카오 앱 Client Secret, 서버 전용 |
 | `AUTH_DEV_LOCAL_MAIL` | X | 개발 인증 메일 | development + loopback에서만 true 허용. 비공개 로컬 파일 저장 |
 
 브라우저가 Sanity·DB·R2·기상청을 직접 부르지 않으므로 서버 키에 `NEXT_PUBLIC_`이 필요 없다. 바뀌면 [`../frontend/.env.example`](../frontend/.env.example)도 같은 PR에서 고친다.
@@ -194,8 +197,11 @@ AUTH_DEV_LOCAL_MAIL=true
 
 NODE_ENV=development이고 BETTER_AUTH_URL이 localhost/127.0.0.1/[::1]인 경우만 적용된다. 운영에서는
 이 옵션이 true여도 로컬 저장을 허용하지 않는다. 실제 발송 설정이 없으면 운영 가입은 계속 차단된다.
-`frontend/.sunny-auth-mail/`에 가입/재발송마다 HTML 메일이 생성된다(디렉터리 700·파일 600, Git 제외).
-Finder에서 해당 폴더의 최신 파일을 열고 **이메일 인증 완료하기**를 누르면 /login으로 이동한다.
+`frontend/.sunny-auth-mail/`에 가입/재발송마다 HTML/txt 메일이 생성된다(디렉터리 700·파일 600, Git 제외).
+Finder에서 해당 폴더의 최신 HTML을 열고 **이메일 인증 완료하기**를 누르거나 txt의 원문 URL 한 줄을
+주소창에 붙여넣으면 된다. HTML 소스의 &amp; 문구를 주소창에 복사하지 않는다.
+잘못 인코딩된 token=... 쿼리는 정해진 형태만 한 번 복원하며 서명/만료는 그대로 검사한다.
+인증 후에는 토큰 없는 /login?auth=email-verified로 이동하며, 실패하면 재발송 안내를 표시한다.
 인증 링크 자체는 API JSON/터미널에 출력하지 않고 HTTP 메일함도 만들지 않는다. 파일을 공유하지 않는다.
 가입 직후 auth.user/emailVerified=false와 auth.account(비밀번호 해시)가 저장되며, 인증 후 별도 로그인해야
 auth.session이 생긴다. 약관은 현재 UI 확인만 하고 이력을 저장하지 않으며 선택 마케팅 동의는 비활성화했다.
@@ -231,3 +237,31 @@ source-map-js 1.2.1(high) 권고가 확인됐다. Better Auth/pg 신규 직접 �
 | main 머지 (봉준표) | 프로덕션 배포 |
 
 프로덕션 환경변수 변경은 **팀장 확인 후** 한다.
+
+
+## 카카오 로그인 — 같은 #90 / PR #92 추가 구현
+
+기존 Better Auth 1.7.10과 auth 테이블을 사용한다. 별도 SDK/라이브러리/테이블을 추가하지 않는다.
+`frontend/.env.local`에서 위 서버 전용 KAKAO_* 세 이름을 준비하고 개발 서버를 재시작한다.
+키 미설정/플래그 false이면 카카오 버튼만 준비 중으로 표시하고 이메일 인증은 유지한다.
+
+개발자 콘솔에서 담당자가 직접 준비할 항목:
+1. 팀 카카오 앱의 카카오 로그인 활성화, REST API 키와 Client Secret 확인.
+2. Redirect URI `http://localhost:3000/api/auth/callback/kakao` 등록. localhost/127.0.0.1 혼용 금지.
+   운영은 고정 HTTPS 도메인 + 동일 경로를 별도로 등록하며 임의 Vercel preview 주소를 신뢰하지 않는다.
+3. account_email/profile_nickname 동의항목과 이메일 제공 권한 확인. profile_image/전화번호/생일은 요청하지 않는다.
+   이메일 제공 조건은 [카카오 설정 안내](https://developers.kakao.com/docs/ko/kakaologin/prerequisite)와
+   [Better Auth 카카오](https://better-auth.com/docs/authentication/kakao)를 확인한다.
+4. 앱의 테스트 허용 계정/공개 상태 및 개인정보 처리방침·서비스 자체 동의 절차를 확인한다.
+
+키는 채팅/PR/스크린샷에 붙이지 않는다. 코드 검증은 모의 카카오 응답 + 실제 로컬 PG이며
+실제 카카오 계정 연동/실제 Resend 전달/운영 활성화 완료를 뜻하지 않는다.
+동일 이메일 기존 회원 자동 연결 OFF, 게스트 보존, 카카오 이메일 미제공 거부·미인증 메일 인증을 유지한다.
+카카오 제공자가 유효하고 인증된 이메일을 반환한 경우 별도 서비스 메일을 중복 발송하지 않는다.
+동의 증빙 DB·추가 이메일 수집/명시적 계정 연결은 후속 공동 계약이며 현재 범위에서 우회 구현하지 않는다.
+
+실제 Next 개발 서버가 실행 중일 때 저장소 루트에서 `node backend/auth/tests/http-flow.mjs`로
+새 합성 .invalid 회원의 가입/DB 저장 → 정상·잘못 인코딩된 메일 인증 → 로그인/DB 세션 → 로그아웃을 확인한다.
+기존 메일/실 사용자 링크를 대신 사용하지 않는다. 테스트는 로컬 origin·개발 파일 메일 설정만 허용한다.
+검증용 EmailProof 회원과 비공개 OS 임시 fixture를 남겨 브라우저 확인에 사용할 수 있다.
+테스트 도중 실패하면 생성된 합성 회원/메일이 남을 수 있다. 실제 고객 데이터/기존 볼륨은 삭제하지 않는다.

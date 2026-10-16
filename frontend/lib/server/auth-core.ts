@@ -2,11 +2,12 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { anonymous } from "better-auth/plugins";
 import type { Pool } from "pg";
+import type { KakaoOptions } from "better-auth/social-providers";
 import { PASSWORD_MIN } from "../validate.ts";
 
 export type VerificationMailer = (message: { email: string; url: string }) => Promise<void>;
 
-export function createAuth(pool: Pool, config: { baseURL: string; secret: string; mailer: VerificationMailer }) {
+export function createAuth(pool: Pool, config: { baseURL: string; secret: string; mailer: VerificationMailer; kakao?: KakaoOptions }) {
   const origin = new URL(config.baseURL).origin;
   const base = new URL(origin);
   if (base.protocol !== "https:" && !(base.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(base.hostname))) {
@@ -20,8 +21,13 @@ export function createAuth(pool: Pool, config: { baseURL: string; secret: string
       minPasswordLength: PASSWORD_MIN, maxPasswordLength: 128 },
     emailVerification: { sendOnSignUp: true, sendOnSignIn: false, expiresIn: 86400,
       autoSignInAfterVerification: false,
-      sendVerificationEmail: async ({ user, url }) => { await config.mailer({ email: user.email, url }); } },
-    account: { accountLinking: { enabled: false } },
+      sendVerificationEmail: async ({ user, url }) => {
+        const target = new URL(url); target.searchParams.set("callbackURL", "/login");
+        await config.mailer({ email: user.email, url: target.href });
+      } },
+    socialProviders: config.kakao ? { kakao: config.kakao } : {},
+    onAPIError: { errorURL: `${origin}/login` },
+    account: { accountLinking: { enabled: false }, encryptOAuthTokens: true, storeStateStrategy: "database" },
     session: { expiresIn: 604800, updateAge: 86400, cookieCache: { enabled: false } },
     advanced: { database: { generateId: "uuid" }, cookiePrefix: "sunny",
       useSecureCookies: origin.startsWith("https://"),
@@ -30,6 +36,7 @@ export function createAuth(pool: Pool, config: { baseURL: string; secret: string
       customRules: { "/sign-in/email": { window: 60, max: 10 },
         "/sign-in/anonymous": { window: 60, max: 5 },
         "/sign-up/email": { window: 60, max: 5 },
+        "/sign-in/social": { window: 60, max: 5 },
         "/send-verification-email": { window: 60, max: 3 } } },
     plugins: [anonymous({ disableDeleteAnonymousUser: true })],
   });
