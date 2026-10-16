@@ -71,4 +71,4 @@ npx playwright test     # 페이지 스모크 테스트 (mock 모드 고정)
 
 ## 혼자 검증하는 법
 
-**mock 모드로 화면을 끝까지 완성한다.** 서버 API·Sanity·Supabase를 기다리지 않는다. Playwright 스모크 테스트가 통과하고 스크린샷이 의도와 같으면 PR을 연다.
+**mock 모드로 화면을 끝까지 완성한다.** 서버 API·Sanity·DB를 기다리지 않는다. Playwright 스모크 테스트가 통과하고 스크린샷이 의도와 같으면 PR을 연다.

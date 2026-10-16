@@ -81,7 +81,7 @@ export interface Story {
   /** YYYY-MM */
   date: string;
   stage: "영감" | "모델링" | "발색 시험" | "제작";
-  /** 커버 그림 종류. 코드로 그린 시안이다 */
+  /** 커버 종류. sea = 윤슬 AI 생성 영상(SeaCover) */
   cover: "sea";
   body: string[];
   notes: string[];

@@ -41,8 +41,8 @@ export default async function ArchivePage() {
         </div>
 
         <p className={styles.note}>
-          커버는 코드로 그린 분위기 시안입니다. 실제 촬영이나 AI 생성물로 바꿀 때는 생성물이라고
-          표기합니다.
+          커버 영상은 AI 생성물입니다 — 초안 이미지를 Kling(Higgsfield API)으로 움직였습니다. 실제
+          촬영이 아닙니다.
         </p>
       </main>
       <Footer />

@@ -10,7 +10,7 @@ Closes #
 
 - [ ] front — 페이지 · 공통 · 3D 뼈대 (봉준표)
 - [ ] interaction — 스크롤 연출 · 발색 비교 · 씬 파라미터 (조수희)
-- [ ] back — 서버 API · Sanity · Supabase · 배포 (이재원)
+- [ ] back — 서버 API · Sanity · PostgreSQL · 배포 (이재원)
 - [ ] docs — 문서 · 계약
 
 ## 다른 영역에 영향이 있나

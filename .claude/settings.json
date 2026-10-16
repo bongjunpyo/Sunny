@@ -25,9 +25,7 @@
       "Bash(gh issue close:*)",
       "Bash(gh release:*)",
       "Bash(gh api -X:*)",
-      "Bash(vercel:*)",
-      "Bash(supabase db push:*)",
-      "Bash(supabase db reset:*)"
+      "Bash(vercel:*)"
     ]
   }
 }

@@ -26,11 +26,9 @@ playwright-report/
 test-results/
 frontend/e2e/shots/
 
-# Sanity · Supabase
+# Sanity
 .sanity/
 backend/sanity/dist/
-backend/supabase/.temp/
-backend/supabase/.branches/
 
 # OS · 편집기
 .DS_Store

@@ -6,12 +6,28 @@
   left: var(--sun-x, 78%);
   transform: translate(-50%, -50%) scale(var(--sun-scale, 1));
   will-change: transform, left;
-  filter: drop-shadow(0 0 30px #bb6e2528);
+  /* 영상·사진의 검은 배경을 페이지 배경에 녹인다.
+     transform 이 이 상자 안의 합성을 격리하므로 자식이 아니라 상자 자체에 건다 */
+  mix-blend-mode: screen;
+  /* 네모 상자 경계가 보이지 않게 후광 바깥을 원형으로 서서히 지운다 (원반 = 88.7%) */
+  mask-image: radial-gradient(closest-side, #000 91%, transparent 100%);
 }
 
-.sun svg {
+.still,
+.motion {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+/* 영상이 정지 사진 위를 덮는다. 모션 감소면 영상을 숨긴다 */
+@media (prefers-reduced-motion: reduce) {
+  .motion {
+    display: none;
+  }
 }
 
 @media (max-width: 700px) {

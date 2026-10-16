@@ -9,9 +9,9 @@
 | 위치 | 내용 |
 |---|---|
 | `backend/sanity/` | Sanity Studio · 콘텐츠 스키마 (컬렉션 · 제품 · 제작 기록 · 이미지) |
-| `backend/supabase/` | 마이그레이션 SQL · 접근 정책(RLS) · 가짜 seed 데이터 |
+| `backend/postgres/` (후속 이슈에서 생성) | 개발 DB Compose · 역할 초기화 · 마이그레이션 SQL · 접근 정책(RLS) · 가짜 seed 데이터 |
 | `frontend/app/api/` | Next.js 서버 API (Route Handlers) |
-| `frontend/lib/server/` | 서버 전용 클라이언트 — Sanity · Supabase · 기상청 |
+| `frontend/lib/server/` | 서버 전용 클라이언트 — Sanity · PostgreSQL · 인증 · R2 · 기상청 |
 
 서버 API가 `frontend/` 안에 있는 이유: 기획서 5-1이 **Next.js 서버 API**이고, 화면과 한 앱으로 Vercel에 배포하기 때문이다.
 
@@ -21,7 +21,9 @@
 |---|---|
 | 서버 API | Next.js Route Handlers (`app/api/**/route.ts`) |
 | CMS | Sanity (Studio · GROQ) |
-| DB | Supabase PostgreSQL · RLS · Supabase CLI 마이그레이션 |
+| DB | PostgreSQL(독립) · RLS · 버전 관리되는 SQL 마이그레이션 |
+| 인증 | Better Auth · PostgreSQL DB 세션 · HttpOnly 쿠키 (#71 채택, 구현 전) |
+| 고객 사진 | Cloudflare R2 비공개 버킷 · 서버가 발급한 짧은 수명 서명 URL (#71 채택, 구현 전) |
 | 외부 데이터 | 기상청 생활기상지수 API (공공데이터포털) — 자외선지수 |
 | 배포 | Vercel (GitHub 연동 · PR 미리보기) |
 
@@ -38,7 +40,7 @@
 
 ## 개발 환경
 
-**Docker는 필요 없다.** Sanity와 Supabase는 호스팅 서비스다.
+**Docker는 개발 DB(PostgreSQL)에만 쓰고, 재원만 설치한다.** Next.js는 Docker 없이 `npm run dev`로 띄운다. Sanity는 호스팅 서비스다.
 
 ```
 # 서버 API — frontend 개발 서버에 같이 뜬다
@@ -50,18 +52,18 @@ cd backend/sanity
 npm run dev                                   # http://localhost:3333
 ```
 
-- Supabase 스키마는 **마이그레이션 파일로만** 바꾼다 — `backend/supabase/migrations/`
-- 로컬 DB로 시험하고 싶으면 `supabase start`(Docker 필요)를 쓴다. 선택 사항이고 재원만 한다
+- DB 스키마는 **마이그레이션 파일로만** 바꾼다 — 경로·실행 도구는 후속 이슈에서 확정(#71 설계 8절)
+- Next.js 앱은 **관리자 DB 계정으로 연결하지 않는다** — `NOSUPERUSER · NOBYPASSRLS` 앱 전용 계정만 쓴다
 - 환경변수 이름의 원본은 [`README.md`](README.md). 실제 값은 `frontend/.env.local`(각자)과 Vercel 프로젝트 설정(배포)에만 둔다
 
 ## 절대 하지 말 것
 
 1. **서버 전용 키를 브라우저에 노출** — `NEXT_PUBLIC_` 금지. `lib/server/` 파일은 맨 위에 `import "server-only"`
-2. **`SUPABASE_SERVICE_ROLE_KEY`를 필요 없는 곳에 쓰기** — 기본은 `anon` 키 + RLS. service role은 RLS를 무시한다
+2. **앱 런타임에 관리자·테이블 소유자·`BYPASSRLS` DB 계정 쓰기** — 이 계정들은 RLS를 무시한다. 기본은 앱 전용 계정 + RLS
 3. **RLS 없이 테이블 만들기** — 주문 요청·설문은 개인정보다
-4. **Supabase 대시보드에서 스키마 직접 수정** — 기록이 안 남아 다른 PC·배포와 어긋난다. 마이그레이션 파일로만
+4. **DBeaver 등 DB 도구에서 스키마 직접 수정** — 기록이 안 남아 다른 PC·배포와 어긋난다. 마이그레이션 파일로만 (DB 도구는 조회·검증용)
 5. **실제 개인정보를 커밋·로그·seed에 넣기** — seed는 가짜 이름·가짜 연락처만
-6. **Sanity 데이터셋 삭제 · Supabase 테이블 DROP · Vercel 프로덕션 환경변수 교체** — 팀장 확인 후에만
+6. **Sanity 데이터셋 삭제 · DB 테이블 DROP · 개발 DB 볼륨 삭제(`down -v`) · R2 버킷·객체 삭제 · Vercel 프로덕션 환경변수 교체** — 팀장 확인 후에만
 7. **계약을 혼자 바꾸기** — `CONTRACT_API.md` 수정은 준표와 같은 PR에서
 8. **화면 컴포넌트 수정** — `components/`·`app/(site)/`는 준표·수희 영역. 필요하면 이슈 댓글로 요청
 9. **라이브러리 임의 추가** — 이슈로 제안

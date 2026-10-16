@@ -20,7 +20,7 @@
 |---|---|---|
 | [`frontend/`](frontend/) | 화면 — Next.js · GSAP · React Three Fiber | 봉준표 (팀장) |
 | [`frontend/components/interaction/`](frontend/components/interaction/) | 스크롤 연출 · 발색 비교 · 씬 파라미터 | 조수희 |
-| [`backend/`](backend/) · `frontend/app/api/` · `frontend/lib/server/` | 서버 API · Sanity CMS · Supabase · 배포 | 이재원 |
+| [`backend/`](backend/) · `frontend/app/api/` · `frontend/lib/server/` | 서버 API · Sanity CMS · PostgreSQL · 배포 | 이재원 |
 | [`docs/`](docs/) | 사람·AI 공용 규칙과 계약 | 봉준표 |
 | [`web-demo/`](web-demo/) | 기술 견본 (학습 교재, 동결) | 봉준표 |
 
