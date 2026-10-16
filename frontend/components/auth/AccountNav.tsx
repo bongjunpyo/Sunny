@@ -2,16 +2,25 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getMember } from "../../lib/auth.ts";
+import { usePathname } from "next/navigation";
+import { getMember, AUTH_CHANGED_EVENT } from "../../lib/auth.ts";
 
-/** 머리말의 회원 메뉴. 로그인 상태는 브라우저에서만 알 수 있다.
- *  서버에서 그린 화면과 어긋나지 않도록, 확인이 끝나기 전에는 "로그인"을 보여준다. */
+/** 서버 세션을 조회하고 인증 변경·페이지 이동 때 회원 메뉴를 갱신한다. */
 export function AccountNav() {
+  const pathname = usePathname();
   const [nickname, setNickname] = useState<string | null>(null);
 
   useEffect(() => {
-    setNickname(getMember()?.nickname ?? null);
-  }, []);
+    let active = true; let latest = 0;
+    const refresh = () => {
+      const request = ++latest;
+      getMember().then(member => {
+        if (active && request === latest) setNickname(member?.nickname ?? null);
+      }).catch(() => { if (active && request === latest) setNickname(null); });
+    };
+    refresh(); window.addEventListener(AUTH_CHANGED_EVENT, refresh);
+    return () => { active = false; window.removeEventListener(AUTH_CHANGED_EVENT, refresh); };
+  }, [pathname]);
 
   return nickname ? (
     <Link href="/account">{nickname} 님</Link>
