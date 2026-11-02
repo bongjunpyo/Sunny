@@ -72,11 +72,11 @@ Next.js 서버 API (frontend/app/api/)            이재원
 
 ## 커스텀 사진 업로드 계약 — #26 검토 초안
 
-> **합의 전 초안.** `provisional: true`인 규칙과 `TBD` 정책은 운영값이 아니다. 봉준표·이재원이 이 PR에서 값을 확정하고 `provisional: false`로 바꾸기 전에는 사진 업로드를 프로덕션에 켜지 않는다.
+> **운영 정책 합의 전 초안.** `provisional: true`인 규칙과 `TBD` 정책은 운영값이 아니다. 봉준표·이재원이 후속 계약 PR에서 값을 확정하고 `provisional: false`로 바꾸기 전에는 사진 업로드를 프로덕션에 켜지 않는다.
 
 ### 채택 설계와 합의할 경계
 
-제공자는 [PostgreSQL·Better Auth·R2 설계](../backend/postgres-design.md)의 7절과 #71/PR #75를 따른다. 이 절은 PR #65에서 합의할 사진 API 수정안이며 구현 완료를 뜻하지 않는다.
+제공자는 [PostgreSQL·Better Auth·R2 설계](../backend/postgres-design.md)의 7절과 #71/PR #75를 따른다. 이 절은 PR #65에서 합의한 사진 API 초안이며 구현 완료를 뜻하지 않는다.
 
 | 항목 | 사진 API의 기준 |
 |---|---|
@@ -90,9 +90,9 @@ Next.js 서버 API (frontend/app/api/)            이재원
 
 게스트의 자동 삭제를 막는 `disableDeleteAnonymousUser: true`와 업무 owner FK의 CASCADE 삭제 금지를 유지한다. 세션 분실 후 회원에게 자동 이전하거나 주문번호만으로 복구하지 않으며 복구 방식은 `TBD`다.
 
-닫힌 #70은 이전 인증 방식의 이력이다. 후속 인증 계약 조정은 [#88](https://github.com/bongjunpyo/Sunny/issues/88)·[PR #89](https://github.com/bongjunpyo/Sunny/pull/89)의 검토 항목에 연결하되, 두 작업을 확정된 인증 API 계약으로 간주하지 않는다. **머지 선행 조건**은 새 인증 계약의 세션 검증·게스트 ID·쿠키/Origin/CSRF·401/403 동작을 준표·재원이 합의하고 이 절과 대조하는 것이다. Better Auth 버전·adapter ID 타입·native 응답/헤더 호환성·세션 수명·인증 요청 제한은 그 계약에서 확정한다.
+인증 동작은 PR #92의 `backend/auth-contract.md`([c14e105](https://github.com/bongjunpyo/Sunny/blob/c14e10572825f95176ee7c9b398ff1f842aa2636/backend/auth-contract.md))와 대조했다(2026-11-01 팀장 리뷰, 2026-11-02 재확인). DB 세션 재조회 · 게스트 별도 사용자 · 이메일 미인증 회원 세션 없음 · Origin 불일치 403 · 무효 세션 401이 이 절과 일치한다. 인증 계약의 정본 절은 #92에서 이 문서에 추가하며, Better Auth 버전 · 세션 수명 · 인증 요청 제한은 그 절에서 확정한다. 사진 계약은 #81 → #92의 머지를 기다리지 않고 먼저 공동 검토·머지하며, 구현 PR #94를 대조하는 기준으로 삼는다. 머지는 팀장만 한다.
 
-이번 사진 PR은 설문→리뷰, 주문 제품 옵션 전체, 테스트 결제 계약을 함께 변경하지 않는다. 해당 변경안은 #88의 후속 공동 계약 범위다. 아래 주문 항목은 사진 배치·동의 연결에 한정한다.
+이 사진 절의 주문 항목은 사진 배치·동의 연결에 한정한다. 주문 제품 옵션 전체는 후속 주문 계약에서 정한다. 웹 설문·결제 제외와 회원 리뷰 보류는 #88/PR #89의 2026-11-02 팀장 결정에 따르며, 정본의 기존 설문 문구 정리는 별도 errata에서 처리한다.
 
 ### 흐름과 신뢰 경계
 
@@ -239,8 +239,9 @@ pending              → expired
 - 서버가 반환하는 MIME·용량·해상도는 재인코딩된 최종 파일 기준이다.
 - `inspecting` 중 같은 요청이 오면 `409 UPLOAD_INSPECTION_IN_PROGRESS`와 `Retry-After: 3`(초)을 반환한다. 화면은 이 응답 뒤 3초 간격으로 같은 `complete` 요청을 **최대 10회 추가 호출**한다. 매번 `409`라면 자동 재시도를 멈추고 "사진 확인에 시간이 걸리고 있습니다. 잠시 후 다시 확인해 주세요."라고 안내한다. 이후 사용자의 재확인은 같은 요청으로 하며 파일을 다시 업로드하지 않는다.
 - 이미 `verified`이면 기존 `200` 결과를 다시 반환한다.
-- `rejected`·`expired`이면 다시 살리지 않고 새 presign부터 시작한다.
-- 정제본 저장/DB 확정 실패는 `503`으로 안내하고 같은 asset의 상태를 재확인한다. 검증 실패와 구분하여 새 파일/새 asset을 자동 생성하지 않는다. inspecting이 남아 있으면 위 `409` 상한을 따르며 영구 대기 복구는 서버 책임이다.
+- pending 객체가 R2에 없으면 `409 UPLOAD_NOT_RECEIVED`를 반환하고 asset을 `pending`으로 유지한다. R2의 `NoSuchKey`로 확인된 객체 미수신을 장애 `503`으로 바꾸지 않는다. 완료 허용 기한 안이고 `expiresAt` 전이면 화면은 같은 `uploadUrl`로 PUT을 다시 수행하고, PUT 성공 뒤 `complete`를 호출한다. PUT URL이 만료됐으면 새 presign부터 시작한다. 파일이 없는 상태에서 complete만 자동 반복하거나 새 presign을 자동 연속 발급하지 않는다.
+- 이미 `rejected`이면 최초 검사 실패의 HTTP 상태와 `error.code`를 그대로 다시 반환한다. 파일을 재검사하거나 `pending`으로 되살리지 않는다. 화면은 해당 코드로 다른 사진을 선택하도록 안내한 뒤 새 presign부터 시작한다. `expired` 재호출은 `410 UPLOAD_EXPIRED`이며 새 presign을 안내한다.
+- 정제본 저장/DB 확정 실패 등 일시 장애는 `503 UPLOAD_STORAGE_UNAVAILABLE`로 안내하고 같은 asset의 `complete`를 재호출한다. 유효한 `Retry-After`(초)가 있으면 그 값만큼 기다리고, 없거나 유효하지 않으면 3초 뒤 재시도한다. **최대 10회 추가 호출** 뒤에도 실패하면 자동 반복을 멈추고 "사진 처리가 일시적으로 지연되고 있습니다. 잠시 후 다시 확인해 주세요."라고 안내한다. 사용자 재확인은 같은 asset으로 하며 새 파일/새 asset을 자동 생성하지 않는다. 재호출 결과가 `verified`면 기존 `200`, `inspecting`이면 위 `409`, 미수신이면 `UPLOAD_NOT_RECEIVED` 동작을 따른다. `503`과 검사 중 `409`가 번갈아도 하나의 자동 확인 과정에서 추가 호출은 합계 10회를 넘지 않으며, 영구 inspecting 복구는 서버 책임이다.
 
 ### `POST /api/uploads/[assetId]/read-url`
 
@@ -273,28 +274,30 @@ pending              → expired
 }
 ```
 
-| HTTP | `code` | 때 |
-|---:|---|---|
-| 400 | `INVALID_UPLOAD_REQUEST` | 필수 필드 누락·범위 밖 값 |
-| 401 | `AUTHENTICATION_REQUIRED` | 검증 가능한 회원·게스트 세션이 없거나 만료됨 |
-| 403 | `UPLOAD_SESSION_NOT_ELIGIBLE` | 세션은 있으나 새 인증 계약의 회원/게스트 자격에 맞지 않음 |
-| 403 | `UPLOAD_ORIGIN_REJECTED` | 앱 POST의 Origin/CSRF 검사 실패 |
-| 403 | `UPLOAD_ACCESS_DENIED` | 다른 사용자의 `assetId` 접근 |
-| 404 | `UPLOAD_NOT_FOUND` | 존재하지 않는 `assetId` |
-| 409 | `UPLOAD_INSPECTION_IN_PROGRESS` | 같은 파일을 이미 검사 중 |
-| 409 | `UPLOAD_NOT_VERIFIED` | read-url/주문에 pending 또는 inspecting 사진 사용 |
-| 410 | `UPLOAD_EXPIRED` | 앱 DB의 완료 허용 기한 만료로 expired 처리된 asset |
-| 413 | `FILE_TOO_LARGE` | 요청 크기 또는 실제 바이트 수 초과 |
-| 415 | `UNSUPPORTED_IMAGE_TYPE` | 허용하지 않는 형식·SVG·실제 형식 불일치 |
-| 422 | `INVALID_IMAGE_FILE` | 이미지로 디코딩할 수 없음 |
-| 422 | `IMAGE_DIMENSIONS_TOO_SMALL` | 방향 보정 후 최소 해상도 미달 |
-| 422 | `IMAGE_ASPECT_RATIO_NOT_ALLOWED` | 확정된 비율 범위 밖 |
-| 429 | `UPLOAD_RATE_LIMITED` | 검증된 회원/게스트가 최근 60분의 presign 발급 상한에 도달 |
-| 503 | `UPLOAD_STORAGE_UNAVAILABLE` | R2/확정 처리 장애로 안전하게 완료할 수 없음 |
+| HTTP | `code` | 때 | 화면 동작 |
+|---:|---|---|---|
+| 400 | `INVALID_UPLOAD_REQUEST` | 필수 필드 누락·범위 밖 값 | 입력을 고친 뒤 요청; 같은 본문 자동 반복 금지 |
+| 401 | `AUTHENTICATION_REQUIRED` | 검증 가능한 회원·게스트 세션이 없거나 만료됨 | 인증을 다시 확인; 다른 사용자에게 이전 사진을 자동 연결하지 않음 |
+| 403 | `UPLOAD_SESSION_NOT_ELIGIBLE` | 세션은 있으나 인증 계약의 회원/게스트 자격에 맞지 않음 | 자격·이메일 인증 안내; 같은 요청 자동 반복 금지 |
+| 403 | `UPLOAD_ORIGIN_REJECTED` | 앱 POST의 Origin/CSRF 검사 실패 | 요청 환경 오류 안내; 자동 반복 금지 |
+| 404 | `UPLOAD_NOT_FOUND` | 없거나 · 본인 소유가 아니거나 · 접근 차단된 `assetId` | 동일한 접근 불가 안내; 자동 반복·다른 사용자 사진 탐색 금지 |
+| 409 | `UPLOAD_INSPECTION_IN_PROGRESS` | 같은 파일을 이미 검사 중 | 3초 간격, 최대 10회 추가 complete 후 안내·자동 반복 중단 |
+| 409 | `UPLOAD_NOT_RECEIVED` | pending 객체가 R2에 없음; asset은 pending 유지 | 완료 기한·expiresAt 전이면 같은 URL로 PUT 후 complete, PUT URL 만료면 새 presign |
+| 409 | `UPLOAD_NOT_VERIFIED` | read-url/주문에 pending 또는 inspecting 사진 사용 | 먼저 complete 결과를 확인; verified 전에는 조회·주문하지 않음 |
+| 410 | `UPLOAD_EXPIRED` | 앱 DB의 완료 허용 기한 만료로 expired 처리된 asset | 새 presign 안내; 기존 asset 되살리기 금지 |
+| 413 | `FILE_TOO_LARGE` | 요청 크기 또는 실제 바이트 수 초과 | 더 작은 사진 선택 후 새 presign |
+| 415 | `UNSUPPORTED_IMAGE_TYPE` | 허용하지 않는 형식·SVG·실제 형식 불일치 | 허용 형식의 다른 사진 선택 후 새 presign |
+| 422 | `INVALID_IMAGE_FILE` | 이미지로 디코딩할 수 없음 | 다른 사진 선택 후 새 presign |
+| 422 | `IMAGE_DIMENSIONS_TOO_SMALL` | 방향 보정 후 최소 해상도 미달 | 해상도 조건을 만족하는 다른 사진 선택 후 새 presign |
+| 422 | `IMAGE_ASPECT_RATIO_NOT_ALLOWED` | 확정된 비율 범위 밖 | 비율 조건을 만족하는 사진 선택 후 새 presign |
+| 429 | `UPLOAD_RATE_LIMITED` | 검증된 회원/게스트가 최근 60분의 presign 발급 상한에 도달 | Retry-After의 남은 시간 안내; 자동 presign 금지 |
+| 503 | `UPLOAD_STORAGE_UNAVAILABLE` | R2/확정 처리 장애로 안전하게 완료할 수 없음 | complete는 Retry-After 우선·없으면 3초, 최대 10회 추가 후 안내·중단; 다른 API는 아래 규칙 |
 
 오류 메시지는 화면 표시용 한국어 문장이고, 분기는 `code`로 한다. 서명 URL에 포함되는 객체 경로·서명 항목 외에 bucket/key를 별도 필드로 반환하지 않는다. 오류 응답과 로그에는 내부 스토리지 경로·서명 URL·키·원본 오류·개인정보를 넣지 않는다.
 
-이 표는 **Next.js 앱 API**의 JSON 계약이다. R2에 직접 보내는 PUT/GET은 이 JSON 모양이나 앱의 410을 보장하지 않는다. R2의 만료/서명 오류(예: 403)를 앱의 세션 401과 혼동하지 않는다. PUT 실패 시 complete로 성공 처리하지 않고 유효 기한과 네트워크 결과를 확인한다. 새 presign은 발급 상한을 다시 적용하며, GET 실패는 유효한 앱 세션으로 read-url을 재요청하고 실패가 계속되면 자동 반복을 멈춰 안내한다. 미업로드 객체·일반 rejected의 재호출에 대한 세부 오류 매핑과 자동 재발급 상한은 공동 검토 항목이다.
+complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적용한다. RLS 아래에서 조회되지 않는 자원과 접근 차단 자원은 같은 `404 UPLOAD_NOT_FOUND` 코드·메시지로 처리하며, 타인 자원의 존재를 구분하려고 관리자 권한으로 재조회하지 않는다. 세션 자격·Origin/CSRF의 `403`과 구분한다.
+
+이 표는 **Next.js 앱 API**의 JSON 계약이다. R2에 직접 보내는 PUT/GET은 이 JSON 모양이나 앱의 410을 보장하지 않는다. R2의 만료/서명 오류(예: 403)를 앱의 세션 401과 혼동하지 않는다. PUT 실패 시 complete로 성공 처리하지 않고 유효 기한과 네트워크 결과를 확인한다. 새 presign은 발급 상한을 다시 적용한다. presign의 503은 발급 성공 여부가 불명확할 수 있으므로 자동 재발급하지 않고 사용자 재시도를 안내한다. GET 실패는 유효한 앱 세션으로 read-url을 재요청하며, read-url의 503도 Retry-After 우선·없으면 3초 간격으로 최대 10회 추가 요청한 뒤 안내하고 자동 반복을 멈춘다. 동일 asset에 대한 URL 발급 재시도 횟수는 그 확인 과정에서 누적하며 오류 응답이 달라졌다고 초기화하지 않는다. 미수신·rejected·expired 재호출은 위 complete 규칙을 따른다.
 
 ### 보관·삭제 정책 — 합의 필요
 
@@ -308,7 +311,7 @@ pending              → expired
 
 기간과 삭제 실행 주체(예약 작업 또는 운영 절차)가 `TBD`인 동안 프로덕션 업로드를 켜지 않는다.
 
-삭제한 pending 객체도 살아 있는 PUT URL로 다시 생성될 수 있다. 서명 만료와 업로드 완료 여유 시간 이후에도 고아 객체를 반복 정리한다. 정제본 저장 후 DB 확정 실패, DB 삭제/객체 삭제 실패, 주문에서 재사용 중인 사진의 참조 확인·보관 근거를 포함해 재시도와 정리 기준을 합의한다. 이 PR은 실제 객체·DB·기존 서비스 데이터를 삭제하지 않는다.
+삭제한 pending 객체도 살아 있는 PUT URL로 다시 생성될 수 있다. 서명 만료와 업로드 완료 여유 시간 이후에도 고아 객체를 반복 정리한다. 정제본 저장 후 DB 확정 실패, DB 삭제/객체 삭제 실패, 주문에서 재사용 중인 사진의 참조 확인·보관 근거를 포함해 재시도와 정리 기준을 합의한다.
 
 ### 주문 동의 필드
 
@@ -373,17 +376,19 @@ pending              → expired
 
 ### 공동 검토와 구현 수용 기준
 
-- 새 인증 계약과 회원/게스트 자격·401/403·쿠키/Origin/CSRF를 대조하고, 다른 사용자·게스트→회원 전환 후 이전 사진의 접근을 거부한다.
+- #92의 인증 대조 결과를 정본 인증 절에도 반영하고, 회원/게스트 자격·401/403·쿠키/Origin/CSRF를 구현과 대조한다. 다른 사용자·게스트→회원 전환 후 이전 사진의 접근은 존재하지 않는 사진과 같은 404로 거부한다.
 - 기존 7칸·동일 사진 재사용·0장·409 재시도·429 발급 상한을 회원/게스트 각각 확인한다.
 - pending 덮어쓰기·동시 complete·검사 후 원본 변경에도 검사한 정제본만 verified로 확정하고 같은 complete는 동일 최종 결과를 반환한다.
+- PUT 미수신은 pending 유지·409 UPLOAD_NOT_RECEIVED, rejected 재호출은 최초 HTTP/code 유지, 503과 검사 중 409가 섞여도 추가 호출 합계 10회 상한·안내·중단을 확인한다.
 - R2 저장 뒤 DB 확정 실패·영구 inspecting·만료 뒤 pending 재생성·삭제 실패를 복구하는 실행 주체와 시간/횟수 정책을 정한다.
 - URL 만료/외부 403과 앱 인증 오류를 구분하고, 로그아웃 후 새 발급 차단·CORS·3D 텍스처 갱신·no-store를 검증한다.
-- 사진 규칙/디코딩 자원 상한·PUT/GET TTL/완료 기한·보관/삭제·동의 정책은 합의 전 `provisional`/`TBD`로 유지한다. 이 PR에서는 문서만 검증하며 실제 R2/인증/DB 테스트 완료를 주장하지 않는다.
+- 사진 규칙/디코딩 자원 상한·PUT/GET TTL/완료 기한·보관/삭제·동의 정책은 합의 전 `provisional`/`TBD`로 유지한다.
 
 참고: [R2 서명 URL의 재사용·PUT/GET·S3 도메인](https://developers.cloudflare.com/r2/api/s3/presigned-urls/), [R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/), [Better Auth DB 세션](https://better-auth.com/docs/concepts/session-management), [anonymous 옵션](https://better-auth.com/docs/plugins/anonymous). 2026-10-16 공식 문서 대조. 구체적인 버전·SDK·adapter는 구현 이슈에서 고정한다.
 
 ## 변경 이력
 
+- 2026-11-02: PR #65 2차 리뷰 반영 — 타인 접근 404 통일, 미수신 409, rejected·503 재호출 규칙, 인증 대조 결과와 사진 계약 우선 머지 순서 반영
 - 2026-10-16: PR #65 최신 main 충돌 해소안 — Better Auth 회원/게스트 경계, private R2의 재사용 가능한 PUT/GET, 동일 바이트 검증·별도 verified 객체·복구/정리, 서버 동의 시각 기록으로 정렬 (공동 합의 전)
 - 2026-10-04: PR #65 리뷰 반영 — 7칸 사진 배치, 검사 중 재시도, presign 계정별 상한, 3D 가시안 조회 URL 용도 명시
 - 2026-09-24: #26 커스텀 사진 업로드 계약 검토 초안 추가 (정책값·보관 기간 합의 전)
