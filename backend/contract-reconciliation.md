@@ -2,17 +2,26 @@
 
 > 상태: 공동 계약 검토용 제안. **정본과 구현 완료를 의미하지 않는다.**
 > 이슈: [#88](https://github.com/bongjunpyo/Sunny/issues/88) · 브랜치: `docs/back-contract-reconciliation`
-> 작성 기준: 2026-10-16 KST · 비교 main: `0d159a96c752b1fbecc1ed1ebf753598e59b9edc`
+> 입력 대조 기준: 2026-10-16 KST · 비교 main: `0d159a96c752b1fbecc1ed1ebf753598e59b9edc` · 범위 결정 반영: 2026-11-02 KST
 
 API·스키마 정본은 [CONTRACT_API.md](../docs/CONTRACT_API.md), 채택된 서버 설계 근거는
 [postgres-design.md](postgres-design.md)다. 이 문서는 정본에 반영할 차이와 판단할 항목만 다룬다.
 합의가 정본에 반영되면 여기의 제안은 정본 링크로 위임하고 별도 운영 규격으로 유지하지 않는다.
 
+## 팀장 결정 (2026-11-02)
+
+- **웹 설문 제외**: 설문 API·테이블은 만들지 않는다. 선호 색상 조사는 제품 담당이 웹 밖(구글폼 등)에서 리서치로 진행한다.
+- **결제 제외**: 실제 결제와 Toss 테스트 모드 모두 채택하지 않는다. 3D 가시안 확인 뒤 주문 요청을 저장하고 주문 내역으로 이동하며, SDK·결제 키·결제 상태 테이블을 만들지 않는다.
+- **회원 리뷰 보류**: R01~R03·T12·`app.reviews`는 지금 구현하지 않는다. 별도 요구 근거와 범위의 공동 재검토가 있어야 재개한다.
+
+결정 근거: [PR #89 팀장 리뷰](https://github.com/bongjunpyo/Sunny/pull/89#issuecomment-6570430630).
+
 ## 1. 입력 자료와 검토 범위
 
 검토 입력은 `sunny-api-spec-review-demo-v2.xlsx`(29개 API), `sunny-data-flow-v2.html`,
 `sunny-db-erd.html` 및 그 모델 `sunny-db-erd-model.json`이다. 원래 82개 API 중 현재
-브랜드 아카이브·커스텀 주문·결제 시연 범위로 정리한 v2이며, 엑셀 자체가 팀 합의를 대체하지 않는다.
+브랜드 아카이브·커스텀 주문·리뷰·결제 시연 후보를 정리한 입력 v2이며, 엑셀 자체가 팀 합의를 대체하지 않는다.
+입력에 있던 리뷰·결제 항목은 대조 이력으로 남기되 위 팀장 결정에 따라 각각 보류·제외한다.
 아래 지문으로 동일 입력을 구별한다. 원본 산출물은 별도 전달본이며 저장소에 포함하지 않는다.
 
 | 입력 | SHA-256 |
@@ -26,20 +35,17 @@ API·스키마 정본은 [CONTRACT_API.md](../docs/CONTRACT_API.md), 채택된 �
 DB 적용 상태는 ERD의 **2026-10-14 조회 기록**과 PR #81의 SQL을 대조한 것으로,
 2026-10-16의 실행 중 DB를 새로 검사했다는 의미는 아니다.
 
-## 2. 기존 PR 상태와 선행 조건
+## 2. 선행 조건
 
-2026-10-16 GitHub PR 메타데이터와 전체 리뷰 타임라인 조회 기준이다. 상태는 이후 달라질 수 있다.
-
-| 작업 | 확인 상태 | 남은 일 / 책임 |
-|---|---|---|
-| [PR #81](https://github.com/bongjunpyo/Sunny/pull/81), #79 | open · Draft · mergeable=true · head `76a0169dd6678c6ffb82862c938a8bba90ca9e1c` · 댓글 없음 | 기반 검토와 담당자 본인 말로 학습 질문 답 작성 후 준표가 머지 판단. 사용자 DBeaver 연결 완료 안내와 PR의 후속 연결 문구는 담당자가 증빙 기준으로 정리 |
-| [PR #65](https://github.com/bongjunpyo/Sunny/pull/65), #26 | open · Draft 아님 · mergeable=false · head `9671debbf623e89e164791e16104cbd9a08baae7` | 기존 `docs/contract-photo-upload`에서 최신 main을 **merge**해 충돌 해결. Supabase·인증 선행 #70·1회용 URL 가정을 최신 설계에 맞춰 공동 수정 |
-| [PR #75](https://github.com/bongjunpyo/Sunny/pull/75), #71 | 채택 설계는 main에 존재 | 제공자 선택을 다시 TBD로 돌리지 않음. 세부 API·adapter·운영 정책 합의는 별도 |
-| [#80](https://github.com/bongjunpyo/Sunny/issues/80) | open · 이재원 배정 · 별도 하늘상태 API 계약 과제 | v2의 29개에는 `/api/sky`가 없음. 기존 과제를 삭제한 것으로 해석하지 않으며, #80에서 정한 계약→서버→화면 절차 유지 |
+PR 상태는 [GitHub에서 본다](https://github.com/bongjunpyo/Sunny/pulls).
 
 #81은 인증·업무 테이블이 없는 기반 PR이다. 그 자체는 사진 계약 머지를 기다리지 않고 검토할 수 있다.
 **업무 migration/API 구현**은 기반과 해당 공동 계약이 모두 준비된 뒤 시작한다.
 #65의 사진 리뷰 수정은 기존 브랜치에 이어 붙이며 이 제안서 PR로 사진 계약을 중복 교체하지 않는다.
+2026-11-02 팀장 리뷰에서 #92의 인증 검토안과 사진 계약의 전제를 대조했으므로,
+사진 계약 #65는 #81 → #92 머지를 기다리지 않고 먼저 머지한다. 인증 정본 절은 #92에서 추가하고,
+구현 PR #94는 사진 계약 기준으로 리뷰한다. 제공자 선택은 #71/PR #75의 채택 설계를 유지한다.
+#80 하늘상태 API는 입력의 29개 목록 밖인 별도 과제이며 여기서 삭제하거나 UV와 통합하지 않는다.
 닫힌 #70·#69는 예전 제공자를 전제하므로 완료된 새 인증·DB 구현으로 해석하지 않는다.
 
 ## 3. 정본에서 바뀌어야 할 부분
@@ -47,12 +53,12 @@ DB 적용 상태는 ERD의 **2026-10-14 조회 기록**과 PR #81의 SQL을 대�
 | 현재 정본 / 이전 초안 | 반영할 변경 | 결정 수준 |
 |---|---|---|
 | 인증 항목만 있고 세부 DTO 없음 | Better Auth DB 세션·HttpOnly 쿠키·검증된 게스트, 이메일 인증/재설정/카카오 입력·반환·실패 흐름 추가 | 제공자/기본 정책 채택, DTO·버전 검토 |
-| PostgreSQL 주문·선호 색상 설문, `POST /api/survey` | 설문을 제외하고 회원 리뷰로 대체. 기존 설문 API는 만들지 않음 | 최신 사용자 요구, 공동 계약 반영 필요 |
+| PostgreSQL 주문·선호 색상 설문, `POST /api/survey` | **설문 제외**. API·테이블을 만들지 않고 제품 담당이 웹 밖에서 조사. 리뷰로 자동 대체하지 않음 | 2026-11-02 팀장 결정; 정본 설문 errata는 준표, backend/README.md 정리는 다음 back PR |
 | 주문 필드·동의 미정 | 주문별 서버 생성 ID, 종류·색·길이·7칸 배치·가시안 확인·사진 동의 | 7칸은 기존 팀 리뷰, 나머지 v2와 사용자 요구 대조 |
-| #65의 Supabase 저장소 및 기존 인증 전제 | private R2 + 검증된 회원/게스트, 검사한 동일 바이트의 별도 verified 객체 | #71 채택 설계에 정렬 |
+| 초기 사진 초안의 이전 저장소·인증 전제 | private R2 + 검증된 회원/게스트, 검사한 동일 바이트의 별도 verified 객체 | #71 채택 설계 및 #65 사진 계약에 정렬 |
 | 일회용 URL·덮어쓰기 방지 가정 | 짧은 수명 URL의 만료 전 재사용 전제. pending/verified 경로 분리·정리 정책 | 채택 설계에 정렬 |
-| 리뷰 없음 | 로그인한 비게스트 회원만 목록 조회, 본인 주문에만 작성. 게스트 주문은 회원에게 이전하지 않음 | 최신 사용자 요구 |
-| 실제 상거래 결제 기능을 포함한 원본 명세 | Toss 테스트 모드의 시도·확인·조회만. 실청구·정산·자동 제작/배송 전환 제외 | 최신 사용자 요구, 세부 연동 검토 |
+| 리뷰 없음 | **회원 리뷰 보류**. R01~R03·T12·app.reviews는 구현하지 않음 | 2026-11-02 팀장 결정; 별도 요구 근거 확인 후 재검토 |
+| 실제 상거래 결제와 Toss 테스트 시연 후보 | **모든 결제 제외**. 주문 요청 저장 → 본인 주문 내역 조회로 연결; O02·O03은 P0 | 2026-11-02 팀장 결정; 버튼·안내 문구는 준표 담당 |
 | 공통 오류·시간·목록 DTO 미정 | `{ error: { code, message } }` 후보, 소유권 오류와 재시도·시간·페이지네이션 합의 | 제안, 실제 adapter와 대조 필요 |
 
 공통 사유와 실패 동작도 계약의 일부다. 인증 누락/만료, 비게스트 회원 조건 미충족,
@@ -61,41 +67,42 @@ DB 적용 상태는 ERD의 **2026-10-14 조회 기록**과 PR #81의 SQL을 대�
 
 ## 4. API 목록 대조 — 29개
 
-ID와 P0/P1은 v2 문서의 분류다. **표의 경로·성공 상태·DTO가 확정된 라이브러리 동작이라는 의미는 아니다.**
-현재 main은 제품/기록/UV/주문/설문 6개 초안만 있다. 제품·기록·UV·주문 5개는 상세화,
-설문 1개는 제외, 나머지 24개는 신규 제안이다. #65의 아직 미머지인 사진 경로도 이 24개에 포함한다.
+ID·메서드·경로는 입력 v2의 대조 이력이다. **표의 경로·성공 상태·DTO가 확정된 라이브러리 동작이라는 의미는 아니다.**
+2026-10-16 입력 대조에서는 정본의 기존 초안 6개 중 5개를 상세화하고 설문 1개를 제외하며,
+나머지 24개를 신규 제안으로 분류했다. 아래는 팀장 결정 반영 후 **계약 검토 대상 23개 · 리뷰 보류 3개 · 결제 제외 3개**다.
+O02·O03은 주문 요청 저장 직후 내역을 보여 주는 데 필요하므로 P1에서 P0으로 올렸다. 검토 대상은 구현 완료를 뜻하지 않는다.
 
-| ID | 메서드 | 경로 | 인증·권한 | 단계 |
-|---|---|---|---|---|
-| A01 | POST | `/api/auth/sign-in/anonymous` | 비로그인 → 검증된 게스트 | P0 |
-| A02 | POST | `/api/auth/sign-up/email` | 공개 | P0 |
-| A03 | POST | `/api/auth/send-verification-email` | 공개; 요청 제한 | P0 |
-| A04 | GET | `/api/auth/verify-email` | 유효한 인증 토큰 | P0 |
-| A05 | POST | `/api/auth/sign-in/email` | 공개 → 이메일 인증 회원 | P0 |
-| A06 | GET | `/api/auth/get-session` | 쿠키가 있으면 서버 검증 | P0 |
-| A07 | POST | `/api/auth/sign-out` | 서버 검증 회원·게스트 세션 | P0 |
-| A08 | POST | `/api/auth/request-password-reset` | 공개; 요청 제한 | P0 |
-| A09 | POST | `/api/auth/reset-password` | 유효한 재설정 토큰 | P0 |
-| A10 | POST | `/api/auth/sign-in/social` | 공개 | P0 |
-| A11 | GET | `/api/auth/callback/kakao` | Better Auth OAuth state 검증 | P0 |
-| C01 | GET | `/api/terms` | 공개 | P0 |
-| C02 | GET | `/api/products` | 공개 | P0 |
-| C03 | GET | `/api/products/{slug}` | 공개 | P0 |
-| C04 | GET | `/api/archive` | 공개 | P0 |
-| C05 | GET | `/api/uv` | 공개 | P0 |
-| F01 | GET | `/api/uploads/photo-rules` | 공개 | P0 |
-| F02 | POST | `/api/uploads/presign` | 서버 검증 회원·게스트 세션 | P0 |
-| F03 | POST | `/api/uploads/{assetId}/complete` | 서버 검증 회원·게스트 세션 | P0 |
-| F04 | POST | `/api/uploads/{assetId}/read-url` | 서버 검증 회원·게스트 세션 | P0 |
-| O01 | POST | `/api/orders` | 서버 검증 회원·게스트 세션 | P0 |
-| O02 | GET | `/api/orders/{orderId}` | 서버 검증 회원·게스트 세션 | P1 |
-| O03 | GET | `/api/orders` | 서버 검증 회원·게스트 세션 | P1 |
-| R01 | GET | `/api/reviews` | 로그인 회원만; 게스트 제외 | P0 |
-| R02 | POST | `/api/orders/{orderId}/review` | 로그인 회원만; 게스트 제외 | P0 |
-| R03 | PATCH | `/api/reviews/{reviewId}` | 로그인 회원만; 게스트 제외 | P1 |
-| P01 | POST | `/api/orders/{orderId}/demo-payment-attempts` | 서버 검증 회원·게스트 세션 | P0 |
-| P02 | POST | `/api/demo-payments/{attemptId}/confirm` | 서버 검증 회원·게스트 세션 | P0 |
-| P03 | GET | `/api/demo-payments/{attemptId}` | 서버 검증 회원·게스트 세션 | P0 |
+| ID | 메서드 | 경로 | 인증·권한 | 단계 | 상태 |
+|---|---|---|---|---|---|
+| A01 | POST | `/api/auth/sign-in/anonymous` | 비로그인 → 검증된 게스트 | P0 | 계약 검토 |
+| A02 | POST | `/api/auth/sign-up/email` | 공개 | P0 | 계약 검토 |
+| A03 | POST | `/api/auth/send-verification-email` | 공개; 요청 제한 | P0 | 계약 검토 |
+| A04 | GET | `/api/auth/verify-email` | 유효한 인증 토큰 | P0 | 계약 검토 |
+| A05 | POST | `/api/auth/sign-in/email` | 공개 → 이메일 인증 회원 | P0 | 계약 검토 |
+| A06 | GET | `/api/auth/get-session` | 쿠키가 있으면 서버 검증 | P0 | 계약 검토 |
+| A07 | POST | `/api/auth/sign-out` | 서버 검증 회원·게스트 세션 | P0 | 계약 검토 |
+| A08 | POST | `/api/auth/request-password-reset` | 공개; 요청 제한 | P0 | 계약 검토 |
+| A09 | POST | `/api/auth/reset-password` | 유효한 재설정 토큰 | P0 | 계약 검토 |
+| A10 | POST | `/api/auth/sign-in/social` | 공개 | P0 | 계약 검토 |
+| A11 | GET | `/api/auth/callback/kakao` | Better Auth OAuth state 검증 | P0 | 계약 검토 |
+| C01 | GET | `/api/terms` | 공개 | P0 | 계약 검토 |
+| C02 | GET | `/api/products` | 공개 | P0 | 계약 검토 |
+| C03 | GET | `/api/products/{slug}` | 공개 | P0 | 계약 검토 |
+| C04 | GET | `/api/archive` | 공개 | P0 | 계약 검토 |
+| C05 | GET | `/api/uv` | 공개 | P0 | 계약 검토 |
+| F01 | GET | `/api/uploads/photo-rules` | 공개 | P0 | 계약 검토 |
+| F02 | POST | `/api/uploads/presign` | 서버 검증 회원·게스트 세션 | P0 | 계약 검토 |
+| F03 | POST | `/api/uploads/{assetId}/complete` | 서버 검증 회원·게스트 세션 | P0 | 계약 검토 |
+| F04 | POST | `/api/uploads/{assetId}/read-url` | 서버 검증 회원·게스트 세션 | P0 | 계약 검토 |
+| O01 | POST | `/api/orders` | 서버 검증 회원·게스트 세션 | P0 | 계약 검토 |
+| O02 | GET | `/api/orders/{orderId}` | 서버 검증 회원·게스트 세션 | P0 | 계약 검토 |
+| O03 | GET | `/api/orders` | 서버 검증 회원·게스트 세션 | P0 | 계약 검토 |
+| R01 | GET | `/api/reviews` | 로그인 회원만; 게스트 제외 | — | 보류 |
+| R02 | POST | `/api/orders/{orderId}/review` | 로그인 회원만; 게스트 제외 | — | 보류 |
+| R03 | PATCH | `/api/reviews/{reviewId}` | 로그인 회원만; 게스트 제외 | — | 보류 |
+| P01 | POST | `/api/orders/{orderId}/demo-payment-attempts` | 서버 검증 회원·게스트 세션 | — | 제외 |
+| P02 | POST | `/api/demo-payments/{attemptId}/confirm` | 서버 검증 회원·게스트 세션 | — | 제외 |
+| P03 | GET | `/api/demo-payments/{attemptId}` | 서버 검증 회원·게스트 세션 | — | 제외 |
 
 ### 4.1. 인증 계약에서 명시할 것
 
@@ -105,8 +112,8 @@ ID와 P0/P1은 v2 문서의 분류다. **표의 경로·성공 상태·DTO가 �
   비밀번호 재설정은 메일 링크와 기존 세션 무효화를 유지한다. 카카오는 자동 계정 연결 OFF를 유지한다.
 - 익명 자동 삭제를 막고 업무 FK는 사용자 삭제 시 CASCADE로 지우지 않는다. 미인증 이메일 회원의 7일 정리는
   설계의 제외 조건(게스트·업무 참조·유효 세션/토큰·타 제공자)을 모두 만족할 때만 검토한다. 실행 주기/주체는 TBD다.
-- `frontend/lib/auth.ts`의 password 없는 mock 로그인·가입 입력과 즉시 Member 반환은 후속 화면 계약 변경 대상이다.
-  이재원이 서버 계약을 제안하고 준표가 화면 타입·함수·mock을 함께 맞춘다.
+- 입력 v2의 인증 DTO를 #92의 `backend/auth-contract.md`와 대조하고, T01~T04는 #92 리뷰에서 정한다.
+  서버 검토안·정본·화면의 실제 입력/반환을 공동 확인하며, 이 제안서로 인증 화면을 변경하지 않는다.
 - 11개 native 경로와 프로젝트의 표시용 DTO는 별개로 검증한다. Better Auth 버전·adapter 생성 SQL·실제 상태 코드,
   Set-Cookie/Location 보존·리디렉션 허용 목록·클라이언트 호환성·Origin/CSRF·Secure/SameSite를 확정한다.
   세션 토큰·OAuth 토큰·비밀번호 해시는 API JSON에 반환하지 않는다. DB ID가 기본 UUID라고 가정하지 않는다.
@@ -121,7 +128,8 @@ ID와 P0/P1은 v2 문서의 분류다. **표의 경로·성공 상태·DTO가 �
 3. DB 상태를 원자적으로 확보하고 R2 저장/DB 확정 실패·고아 객체·재시도·서명 만료 후 pending 재생성의 정리 책임을 정한다.
 4. #65 제안인 최근 60분 사용자별 presign 20개와 429/Retry-After를 회원·게스트에 맞춘다.
    complete 검사 중 409는 Retry-After 3초, 최대 10회 추가 호출 후 안내하고 자동 반복을 멈춘다.
-   이미 verified인 재호출은 동일 최종 결과, rejected/expired는 새 presign 안내를 검토한다.
+   이미 verified인 재호출은 동일 최종 결과다. rejected는 최초 HTTP/code를 재반환하고 expired는 410으로 안내한다.
+   미수신 409·타인 접근 404·503 재시도는 #65의 2차 리뷰 반영 계약을 따른다. 재시도 수치를 이 문서에서 중복 확정하지 않는다.
 5. `read-url`은 **POST** 단건이며 본인 verified 사진만 허용한다. 최대 7개를 병렬 호출하고 중복 asset ID는 한 번만 요청한다.
    고객 사진 응답은 no-store로 제안한다. URL을 영구 저장하지 않고 3D 텍스처의 만료·재발급 흐름을 정한다.
 6. JPEG/PNG·10 MiB·1000×1000은 `provisional: true`인 임시값이다. 형식/용량/해상도/비율·PUT/GET TTL·보관/삭제·동의 정책
@@ -147,35 +155,30 @@ ID와 P0/P1은 v2 문서의 분류다. **표의 경로·성공 상태·DTO가 �
 orders·7개 beads·consents는 한 트랜잭션으로 저장한다. 슬롯 범위 CHECK/복합 PK만으로 **정확히 7행**은 보장되지 않으므로
 원자 저장 및 필요 시 지연 constraint trigger를 검토하고 부분 저장·직접 삭제 경로를 함께 막아야 한다.
 
-### 4.4. 리뷰 — 설문 대체
+주문 동선은 **3D 가시안 확인 → 주문 요청 저장(`POST /api/orders`) → 본인 주문 내역**이다.
+O02·O03은 회원·게스트 모두 서버가 검증한 자기 세션의 주문만 조회한다. 게스트의 회원 전환·세션 분실로
+이전 주문이 자동 조회되거나 소유권이 이전되지 않는다. 주문 상태는 **주문 요청**으로 다루며 `PAID`·"결제 완료"를 두지 않는다.
+버튼 이름과 실제 결제·제작이 일어나지 않는다는 안내 문구는 준표가 화면에서 정한다.
 
-`GET /api/reviews`는 로그인한 **isAnonymous=false 회원**에게만 허용한다. 게스트도 세션을 갖지만 회원 리뷰 권한은 없다.
-작성은 본인 회원 주문에만 허용하고, 수정 후보는 본인 리뷰만 허용한다. 주문당 1개(UNIQUE order_id), 평점,
-본문 길이·작성 가능한 제작 단계·수정/보관 정책은 아직 제안/TBD다. 테스트 결제 승인은 제작 완료 증거가 아니다.
+### 4.4. 회원 리뷰 — 보류
 
-회원은 다른 회원의 리뷰 목록을 볼 수 있으므로 작성자 owner 전용 RLS만으로는 목록 요구를 충족하지 못한다.
-서버가 검증한 회원 컨텍스트로 리뷰 SELECT를 허용하되 쓰기는 owner로 제한하는 정책을 제안한다.
-공개 투영은 리뷰 ID·제품/종류/색·표시 이름·본문·평점·시각만 내보내고 **타인의 orderId·ownerId·연락처·고객 사진 URL은 제외**한다.
-리뷰의 제품·표시 이름 스냅샷은 서버가 본인 주문/계정에서 복사하여, 목록을 위해 타인의 주문 RLS를 풀지 않는다.
+2026-11-02 팀장 결정으로 R01~R03·T12·`app.reviews`를 보류한다. 현재 API·테이블·RLS·화면을 만들지 않는다.
+기존 입력의 회원 조회·본인 주문 작성·수정·리뷰 투영은 채택된 요구가 아니다. 별도 요구 근거와 범위를 공동 재검토한 뒤에만 재개한다.
+선호 색상 조사 리서치를 리뷰 기능으로 대체하지 않는다.
 
-### 4.5. Toss 결제 시연
+### 4.5. 결제 — 제외
 
-- 고객 주문 ID, 결제 시도 ID, Toss `provider_order_id`/`tossOrderId`는 구분한다. 시도는 본인 주문에만 만든다.
-- 서버가 테스트용 금액/통화를 먼저 저장하고 SDK에 전달한다. 예시 12,000원은 정책 확정 금액이 아니다.
-  확인 요청의 paymentKey·Toss orderId·amount를 서버 저장값·주문 소유권·테스트 모드와 대조한다.
-- 테스트 client/secret의 일치와 SDK/키 종류·허용 결제 수단은 연동 시 공식 문서와 실제 테스트 응답으로 검증한다.
-  키 이름을 보고 추정만 하거나 브라우저 성공 리디렉션만으로 승인 처리하지 않는다. 비밀 키는 서버에만 둔다.
-- 테스트 승인 확인·조회만 연결한다. mode='test' 제약과 실환경 키 거부, 결과 `TEST_APPROVED`,
-  actualCharge=false/settlement=false를 제안한다. 실제 PAID·정산·자동 제작/배송 시작 상태와 연결하지 않는다.
-- CREATED/CONFIRMING/TEST_APPROVED/TEST_FAILED/UNKNOWN/EXPIRED는 상태 후보다. 중복 confirm은 같은 결과를 주고,
-  동시 요청·응답 유실은 기존 시도를 조회/대사한 뒤 판단한다. 불명확한 결과에 새 결제 시도를 자동 생성하지 않는다.
-  멱등 키 범위/만료와 상태 전이·조회/대사 실행 주체·재시도 상한은 공동 합의한다.
+2026-11-02 팀장 결정으로 실제 결제와 Toss 테스트 결제 모두 제외한다. P01~P03·T14·`app.demo_payment_attempts`는
+대조 이력만 남기며 SDK·결제 키 환경변수·결제 상태 테이블·결제 API를 만들지 않는다.
+시연도 결제 경로 없이 주문 요청 저장과 본인 주문 내역 조회까지만 다룬다. 결제 금액·승인·정산·실결제 전환을 구현하지 않는다.
 
 ## 5. ERD 검토 — 적용 1개 / 후보 10개
 
 ERD는 11개 엔티티·106개 컬럼이다. 그중 `sunny_meta.schema_migrations` 1개·6컬럼만 기반 적용 기록이며,
-나머지 인증 4개·업무 6개, 총 100개 컬럼은 후보다. 최신 main에는 #81의 migration 도구가 아직 없다.
-아래 컬럼 목록은 입력 ERD의 대조 목록이며 실제 DDL 정의가 아니다.
+나머지 인증 4개·업무 6개, 총 100개 컬럼은 **입력 자료의 후보 이력**이다.
+팀장 결정 반영 후 `app.reviews` 11컬럼은 보류, `app.demo_payment_attempts` 14컬럼은 제외다.
+검토 대상은 이력 테이블을 포함한 9개 엔티티·81컬럼이며 실제 DDL 정의나 현재 실행 DB의 상태가 아니다.
+설문 API·설문 테이블은 만들지 않는다.
 
 | 테이블 | 컬럼 수 | 컬럼 대조 | 상태 |
 |---|---|---|---|
@@ -187,24 +190,24 @@ ERD는 11개 엔티티·106개 컬럼이다. 그중 `sunny_meta.schema_migration
 | `app.orders` | 14 | `id`, `owner_id`, `product_slug`, `product_kind`, `color`, `length_cm`, `customer_name`, `customer_contact`, `status`, `preview_confirmed_at`, `idempotency_key`, `request_payload_hash`, `created_at`, `updated_at` | 미적용 후보 |
 | `app.order_beads` | 4 | `order_id`, `slot_index`, `owner_id`, `photo_asset_id` | 미적용 후보 |
 | `app.order_consents` | 7 | `order_id`, `consent_type`, `owner_id`, `accepted`, `policy_version`, `accepted_at`, `recorded_at` | 미적용 후보 |
-| `app.reviews` | 11 | `id`, `order_id`, `owner_id`, `product_slug`, `product_kind`, `color`, `author_display_name`, `content`, `rating`, `created_at`, `updated_at` | 미적용 후보 |
-| `app.demo_payment_attempts` | 14 | `id`, `order_id`, `owner_id`, `mode`, `provider_order_id`, `provider_payment_key`, `amount_krw`, `currency`, `status`, `idempotency_key`, `created_at`, `confirmed_at`, `last_error_code`, `updated_at` | 미적용 후보 |
+| `app.reviews` | 11 | `id`, `order_id`, `owner_id`, `product_slug`, `product_kind`, `color`, `author_display_name`, `content`, `rating`, `created_at`, `updated_at` | **보류** — 현재 구현하지 않음 |
+| `app.demo_payment_attempts` | 14 | `id`, `order_id`, `owner_id`, `mode`, `provider_order_id`, `provider_payment_key`, `amount_krw`, `currency`, `status`, `idempotency_key`, `created_at`, `confirmed_at`, `last_error_code`, `updated_at` | **제외** — 만들지 않음 |
 | `sunny_meta.schema_migrations` | 6 | `version`, `name`, `checksum`, `applied_at`, `applied_by`, `execution_ms` | 기반 적용 기록 |
 
 | 관계 / 제약 | 검토 결과 |
 |---|---|
 | auth.user → orders/photo_assets | ID 타입과 실제 Better Auth adapter SQL을 먼저 맞추고 FK 연결. 업무 참조가 있으면 사용자 삭제 RESTRICT/NO ACTION |
-| orders(id,owner_id) → order_beads/order_consents/reviews/demo_payment_attempts | 부모 복합 UNIQUE와 자식 복합 FK로 타인 주문 연결 차단 후보 |
+| orders(id,owner_id) → order_beads/order_consents | 부모 복합 UNIQUE와 자식 복합 FK로 타인 주문 연결 차단 후보. reviews는 보류, demo_payment_attempts는 제외 |
 | photo_assets(id,owner_id) → order_beads(photo_asset_id,owner_id) | null 허용·같은 asset 반복 허용. asset_id 단독 UNIQUE를 beads에 추가하지 않음. verified 조건은 FK와 별도로 검사 |
 | orders → beads | 정확히 7은 트랜잭션/지연 검사까지 검토. 부분 생성·슬롯 삭제도 실패해야 함 |
 | orders → consents | 0..2개 사진 동의. 사진 포함 시 제작 true, 선택 동의 거절 허용. 주문 개인정보 동의 정책은 별도 TBD |
-| orders → reviews | 0..1은 후보이며 회원 본인 주문 작성과 회원 전체 조회의 권한을 분리 |
-| orders → demo_payment_attempts | 0..N 시도, provider_order_id UNIQUE 후보, 테스트 mode CHECK, 금액/통화 제약·중복 처리 후보 |
+| orders → reviews | **보류** — 관계·권한·제약을 현재 구현하지 않음 |
+| orders → demo_payment_attempts | **제외** — 결제 관계·상태·제약을 만들지 않음 |
 | Sanity → product_slug | 외부 CMS 논리 참조이며 SQL FK가 아님. 주문 시 제품 종류·색·길이 검증과 스냅샷 정책 필요 |
 
 RLS는 auth/app 역할 분리 위에서 설계한다. sunny_app에 인증 토큰/계정 조회 권한을 주지 않는다.
 서버가 DB 세션에서 확인한 owner와 회원 여부만 **동일 client의 요청별 트랜잭션**에 전달한다.
-`app.user_id`와 리뷰용 `app.is_member` 후보는 인증 수단이 아니며 요청 본문·임의 헤더에서 받지 않는다.
+`app.user_id`는 인증 수단이 아니며 요청 본문·임의 헤더에서 받지 않는다. 리뷰용 `app.is_member` 후보는 보류하며 현재 도입하지 않는다.
 컨텍스트가 없으면 거부하고 COMMIT/ROLLBACK 뒤 풀의 이전 사용자 값이 남지 않아야 한다.
 보호 업무 테이블은 ENABLE/FORCE RLS, UPDATE는 USING/WITH CHECK 모두 검토하며 runtime에 DDL·TRUNCATE를 허용하지 않는다.
 R2 객체 바이트에는 PostgreSQL RLS가 직접 적용되지 않으므로 URL 발급/주문 연결 시 서버 소유권 검사를 유지한다.
@@ -212,7 +215,8 @@ R2 객체 바이트에는 PostgreSQL RLS가 직접 적용되지 않으므로 URL
 ## 6. 공동 검토 결정표
 
 채택된 제공자·게스트 분리·7칸·이메일 인증 24시간은 설계/팀 리뷰에 근거한다.
-리뷰·결제 시연 요구는 최신 사용자 요청이지만 정본에는 미반영이다. 아래 TBD를 운영값으로 확정하지 않는다.
+리뷰는 보류하고 결제는 제외한다. T01~T04는 #92 리뷰에서, T05~T08은 업로드를 켜기 전에,
+T09는 주문 계약 PR에서 정한다. T10·T11·T13도 해당 계약/구현 이슈에서 검토하며 아래 TBD를 운영값으로 확정하지 않는다.
 
 | ID | 결정할 내용 | 담당 / 진입 조건 |
 |---|---|---|
@@ -227,32 +231,32 @@ R2 객체 바이트에는 PostgreSQL RLS가 직접 적용되지 않으므로 URL
 | T09 주문 업무·중복 방지 | 이름·연락 수단·주소 수집 범위·필수값·개인정보 동의, 요청 가능한 제품 상태, 주문 처리 상태 전이, 중복 제출/Idempotency-Key 정책, O02/O03 조회 범위. | 공동 계약 |
 | T10 자외선지수 | 지역 선정·생활기상지수 시간 의미·캐시 갱신 주기/유효기간·요청 필드·응답 JSON. stale 표시 원칙은 유지. | 공동 계약 |
 | T11 CMS·화면 DTO | 제품 옵션 저장 구조, 제작 기록 단계·date 표현, 목록/상세 응답 래핑과 페이지네이션. mock/contract/server 동일성 대조. | 화면·서버 공동 |
-| T12 리뷰 상세 정책 | 설문 기능은 최신 사용자 요청으로 제외. 로그인 회원만 조회·본인 주문만 작성은 확정. 작성 가능 제작 단계·평점·본문 길이·수정·보관·신고/관리 절차·주문당 1개 안을 합의. | 공동 계약 |
+| T12 리뷰 상세 정책 | **보류**. R01~R03·app.reviews를 현재 구현하지 않음. 별도 요구 근거와 범위부터 재검토. | 2026-11-02 팀장 결정; 재개 전 공동 검토 |
 | T13 배포·동작 검증 | 운영 PostgreSQL 위치/TLS/백업/연결 제한, Vercel 네트워크·R2 개발/운영 CORS·실제 이미지 처리 라이브러리·SDK 추가 이슈. | 서버·배포 이슈 |
-| T14 시연 운영·마이그레이션 | SDK/테스트 키 유형·시연 금액/결제수단·키 세트 검증·멱등/조회 복구·작성 상태 정책을 계약으로 확정. 인증 UUID 설정/복합 FK/RLS/정확히 7칸 trigger를 새 migration으로 적용. | 공동 계약 후 별도 구현 이슈 |
+| T14 결제 시연 | **제외**. 실제·테스트 결제 API/SDK/키/상태 테이블을 만들지 않음. 결제와 무관한 UUID·FK·RLS·정확히 7칸 migration은 T01/T09 및 별도 back 이슈에서 검토. | 2026-11-02 팀장 결정 |
 
 ## 7. 반영 순서·담당·검증 기준
 
 | 순서 | 즉시 할 일 | 담당 / 완료 증거 |
 |---|---|---|
-| 1 | 이 제안의 범위·TBD를 검토해 인증·주문·리뷰·테스트 결제의 공동 계약 이슈/허용 파일을 확정 | 이재원 제안, 준표와 합의. 이 문서 PR 머지만으로 API 계약이 확정되는 것은 아님 |
-| 2 | 인증/게스트 계약을 정본에 반영하고 기존 #65에서 R2·게스트·URL 변경 및 main 충돌 해결 | 기존 사진 PR 재원, 정본 반영·공동 승인 준표/재원. 계약 파일을 동시에 고치는 후속 PR은 앞선 머지를 반영해 순차 처리 |
+| 1 | #89의 설문·결제 제외/리뷰 보류와 #65의 2차 사진 리뷰를 반영 | 이재원 문서 수정 → 준표 재확인·squash merge. #65는 인증 정본 머지를 기다리지 않음 |
+| 2 | #65 뒤 #92에서 인증 정본 절 추가, #94는 사진 계약 기준으로 리뷰 | 준표·재원이 같은 PR에서 합의. 계약 파일을 고치는 후속 PR은 앞선 머지를 반영해 순차 처리 |
 | 병행 | #81 기반 PR의 질문 답·확인 문구 정리와 리뷰 | 이재원 본인 답, 팀장 머지. 새 업무 SQL을 섞지 않음 |
-| 3 | 정본의 설문→리뷰, 주문 DTO/7칸/동의, 테스트 결제를 합의한 작은 계약 PR들로 반영 | 실제 응답 예시 = mock = 타입, P0/P1 및 오류·시각 대조. 화면 변경은 준표 범위 |
+| 3 | #89 뒤 정본의 설문 제거 errata, 별도 주문 DTO/7칸/동의 및 O01~O03 P0 계약 반영 | 설문 정본 errata는 준표. backend/README.md 설문 문구는 다음 back PR. 화면·mock·타입은 준표와 공동 대조 |
 | 4 | 기반 + 해당 계약이 준비되면 서버 pool/트랜잭션 → 인증 schema/adapter/API | 별도 back 이슈, 최소 권한·교차 사용자 거부·세션 무효화·컨텍스트 격리 검증 |
-| 5 | 사진 → 주문 → 리뷰 → 테스트 결제 구현 | 각 back 이슈와 migration 분리. 사진 없는 7칸 주문은 주문 계약 확정 후 먼저 검증 가능 |
+| 5 | 사진 → 주문 요청 저장·본인 주문 조회 구현 | 각 back 이슈와 migration 분리. 사진 없는 7칸 주문도 해당 계약 확정 후 검증. 설문·결제 구현 없음, 리뷰 보류 |
 | 병행 | Sanity/약관/UV 및 기존 #80 | 각각 계약 확정 뒤 별도 범위로 진행. `/api/sky`를 UV와 임의 통합하지 않음 |
 
 합의와 구현의 검증은 구별한다. 이번 문서 검토에서는 API 29개/ERD 11개·106컬럼 대조,
-입력 지문, PR 상태, Markdown diff/허용 파일을 확인한다. API 실행·DB migration·Toss 테스트 승인·R2 업로드의
+입력 지문, 범위 상태 표시, Markdown diff/허용 파일을 확인한다. API 실행·DB migration·R2 업로드의
 통합 검증은 아직 하지 않았으며 해당 구현 PR의 수용 기준으로 남긴다.
 
 후속 계약/구현에서 반드시 확인할 실패 사례:
 
-- 만료/위조 세션, 게스트의 리뷰 조회·작성, 회원의 타인 주문 리뷰, 타인 사진·주문 조회/연결 거부.
+- 만료/위조 세션과 타인 사진·주문 조회/연결 거부. 게스트는 자기 세션의 주문만 조회하며 회원 전환 시 자동 이전 없음.
 - 6칸/8칸/중복 index·범위 밖 index 거부, 동일 asset 재사용과 7칸 all-null 주문 허용, 부분 저장 rollback.
 - 사진 포함 제작 동의 거절/오래된 정책 버전 거부, 브랜드 공개 거절 주문 허용, 서버 동의 시각 기록.
 - pending 덮어쓰기·동시 complete·R2 저장 뒤 DB 실패에도 검증 바이트만 확정, URL 만료와 정리 재시도.
-- 리뷰 목록에 타인 주문/소유자/연락처/고객 사진 URL이 없고 회원 조회를 위해 주문 RLS를 완화하지 않음.
-- 결제 금액/번호/소유자/테스트 키 불일치 거부, 중복/응답 유실 대사, 테스트 승인이 제작/실결제로 전환되지 않음.
+- 설문·결제 API/테이블/SDK/키가 구현 범위에 섞이지 않고, 보류된 리뷰 API/테이블을 만들지 않음.
+- 주문 요청 저장 후 본인 내역을 조회하고, PAID·"결제 완료" 상태나 결제·자동 제작 경로가 생기지 않음.
 - API 계약·mock·실제 응답 동일성, 잘못된 DB 계정 거부, 컨텍스트 누수와 auth/app 역할의 교차 접근 거부.
