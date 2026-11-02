@@ -1,11 +1,21 @@
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { anonymous } from "better-auth/plugins";
 import type { Pool } from "pg";
 import type { KakaoOptions } from "better-auth/social-providers";
 import { PASSWORD_MIN } from "../validate.ts";
 
 export type VerificationMailer = (message: { email: string; url: string }) => Promise<void>;
+const deliveryState = new AsyncLocalStorage<{ failed: boolean }>();
+
+/** Better Auth 1.7.10 swallows some mail errors; retain only a request-local flag. */
+export async function withVerificationDelivery<T>(operation: () => Promise<T>) {
+  const state = { failed: false };
+  const response = await deliveryState.run(state, operation);
+  return { response, deliveryFailed: state.failed };
+}
 
 export function createAuth(pool: Pool, config: { baseURL: string; secret: string; mailer: VerificationMailer; kakao?: KakaoOptions }) {
   const origin = new URL(config.baseURL).origin;
@@ -23,7 +33,13 @@ export function createAuth(pool: Pool, config: { baseURL: string; secret: string
       autoSignInAfterVerification: false,
       sendVerificationEmail: async ({ user, url }) => {
         const target = new URL(url); target.searchParams.set("callbackURL", "/login");
-        await config.mailer({ email: user.email, url: target.href });
+        try { await config.mailer({ email: user.email, url: target.href }); }
+        catch {
+          const state = deliveryState.getStore();
+          if (state) state.failed = true;
+          // Never forward the provider exception, recipient or verification URL.
+          throw new APIError("SERVICE_UNAVAILABLE", { code: "AUTH_EMAIL_UNAVAILABLE", message: "Verification email delivery failed" });
+        }
       } },
     socialProviders: config.kakao ? { kakao: config.kakao } : {},
     onAPIError: { errorURL: `${origin}/login` },
