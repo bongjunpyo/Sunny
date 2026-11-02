@@ -76,6 +76,9 @@ OS 임시 폴더에 700/600 권한의 manifest/summary/조회 이미지가 기�
 
 ## 복구·삭제·다음 단계
 
+R2 `NoSuchKey`가 확인되면 409 `UPLOAD_NOT_RECEIVED`로 응답하고 현재 검사 토큰을 해제해 pending으로 되돌린다.
+유효한 PUT URL로 파일을 올린 뒤 같은 asset의 complete를 호출한다. 서비스가 이를 503으로 다시 포장하지 않는다.
+그 외 버킷/권한/네트워크 장애는 503으로 구분하며 미수신 complete만 자동 반복하지 않는다.
 중단된 inspecting은 lease 만료 뒤 동일 complete가 회수한다. 검증 실패는 rejected, 일시 장애는 503이며
 재호출은 같은 asset을 쓴다. 기한이 지난 pending/중단 작업은 expired로 막는다.
 검사 시도별 object_key와 published_at, pending_cleanup_after는 운영 정리 작업의 근거만 제공한다.

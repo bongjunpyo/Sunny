@@ -11,10 +11,11 @@ import { createUploadService } from "../../../frontend/lib/server/uploads/servic
 import { handleUpload } from "../../../frontend/lib/server/uploads/handler.ts";
 import { inspectPhoto } from "../../../frontend/lib/server/uploads/image.ts";
 import { UploadError, type PresignInput } from "../../../frontend/lib/server/uploads/policy.ts";
-import type { PhotoStorage } from "../../../frontend/lib/server/uploads/storage.ts";
+import { createR2Storage, type PhotoStorage } from "../../../frontend/lib/server/uploads/storage.ts";
 
 const require=createRequire(new URL("../../../frontend/package.json",import.meta.url));
 const {Pool}=require("pg"),sharp=require("sharp");
+const {S3Client,NoSuchKey}=require("@aws-sdk/client-s3");
 const baseURL="http://localhost:4301", prefix=`r2-it-${randomUUID()}`;
 const ids:string[]=[], mail:{email:string;url:string}[]=[];
 let admin:InstanceType<typeof Pool>, app:ReturnType<typeof createRuntimePool>,authPool:ReturnType<typeof createRuntimePool>;
@@ -26,7 +27,7 @@ let onRead:((key:string)=>Promise<void>)|undefined, onWrite:((key:string)=>Promi
 let failWrite=false, signFailure=false, reads=0;
 const storage:PhotoStorage={
   async signPut(key){if(signFailure)throw new Error("synthetic-signing-error");return `https://objects.example.invalid/${key}?signature=synthetic`;},
-  async read(key){reads++; const snapshot=Buffer.from(objects.get(key)??[]);await onRead?.(key);if(!snapshot.length)throw new Error("Missing synthetic object");return snapshot;},
+  async read(key){reads++; const object=objects.get(key);const snapshot=object&&Buffer.from(object);await onRead?.(key);if(!snapshot)throw new UploadError("UPLOAD_NOT_RECEIVED");return snapshot;},
   async write(key,data){if(failWrite)throw new Error("Synthetic storage outage");objects.set(key,Buffer.from(data));await onWrite?.(key);},
   async signGet(key){return `https://objects.example.invalid/${key}?signature=synthetic`;},
 };
@@ -148,14 +149,23 @@ test("concurrent complete returns 409 Retry-After:3 and performs only one inspec
   await error(duplicate,409,"UPLOAD_INSPECTION_IN_PROGRESS");release();onRead=undefined;
   assert.equal((await first).status,200);
 });
-test("rejected is terminal, empty/missing object is retryable, expired state persists",async()=>{
+test("rejected is terminal, R2 NoSuchKey reaches HTTP as 409 and stays retryable, expired persists",async(t)=>{
   const bad=await presign(guest,Buffer.from("<svg/>"));
   await error(await call("complete",guest,bad.id),415,"UNSUPPORTED_IMAGE_TYPE");
   objects.set(bad.pending_key,png);
   await error(await call("complete",guest,bad.id),415,"UNSUPPORTED_IMAGE_TYPE");
   const missing=await presign();objects.delete(missing.pending_key);
-  await error(await call("complete",guest,missing.id),503,"UPLOAD_STORAGE_UNAVAILABLE");
-  assert.equal((await repo.get(guest.id,missing.id)).status,"pending");
+  const r2=createR2Storage({accountId:"0".repeat(32),bucket:"synthetic-test",accessKeyId:"synthetic-access",secretAccessKey:"synthetic-secret"});
+  t.mock.method(S3Client.prototype,"send",async()=>{throw new NoSuchKey({$metadata:{httpStatusCode:404},message:"Private synthetic key"});});
+  const missingService=createUploadService(repo,{...storage,read:r2.read});
+  for(let attempt=0;attempt<2;attempt++){
+    const response=await call("complete",guest,missing.id,undefined,{service:missingService});
+    assert.equal(JSON.stringify(await response.clone().json()).includes("Private synthetic key"),false);
+    assert.equal(response.headers.get("retry-after"),null);
+    await error(response,409,"UPLOAD_NOT_RECEIVED");
+    const pending=await repo.get(guest.id,missing.id);
+    assert.equal(pending.status,"pending");assert.equal(pending.inspection_token,null);assert.equal(pending.rejection_code,null);
+  }
   objects.set(missing.pending_key,png);assert.equal((await call("complete",guest,missing.id)).status,200);
   const expired=await presign();
   await admin.query(`UPDATE app.photo_assets SET created_at=clock_timestamp()-interval '1000 seconds',
@@ -177,6 +187,13 @@ test("inspection capacity is bounded and an in-progress duplicate still receives
   assert.equal((await repo.get(guest.id,third.id)).status,"pending");
 });
 test("storage outage and DB finalization failure recover without losing orphan candidate keys",async()=>{
+  const unreadable=await presign(member);
+  const readOutage=createUploadService(repo,{...storage,read:async()=>{throw new Error("Synthetic private read outage");}});
+  const response=await call("complete",member,unreadable.id,undefined,{service:readOutage});
+  assert.equal(JSON.stringify(await response.clone().json()).includes("private"),false);
+  await error(response,503,"UPLOAD_STORAGE_UNAVAILABLE");
+  assert.equal((await repo.get(member.id,unreadable.id)).status,"pending");
+  assert.equal((await call("complete",member,unreadable.id)).status,200);
   const failed=await presign();failWrite=true;
   await error(await call("complete",guest,failed.id),503,"UPLOAD_STORAGE_UNAVAILABLE");failWrite=false;
   assert.equal((await repo.get(guest.id,failed.id)).status,"pending");
