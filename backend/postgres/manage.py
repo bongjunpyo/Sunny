@@ -43,6 +43,68 @@ class Migration:
     sql: str
 
 
+def sql_structure(sql: str) -> str:
+    """Mask PostgreSQL literals/identifiers/comments before checking statements.
+
+    Keep separators and backslashes only when they are SQL/psql syntax. Block
+    comments nest; E strings, doubled quotes and tagged dollar bodies may contain
+    apparent transaction commands that must not be treated as executable SQL.
+    """
+    masked = list(sql)
+    index = 0
+    while index < len(sql):
+        start = index
+        if sql.startswith("--", index):
+            end = sql.find("\n", index + 2)
+            index = len(sql) if end < 0 else end
+        elif sql.startswith("/*", index):
+            depth = 1
+            index += 2
+            while index < len(sql) and depth:
+                if sql.startswith("/*", index):
+                    depth += 1
+                    index += 2
+                elif sql.startswith("*/", index):
+                    depth -= 1
+                    index += 2
+                else:
+                    index += 1
+            if depth:
+                raise DBError("Unterminated SQL block comment")
+        elif sql[index] in ("'", '"'):
+            quote = sql[index]
+            escaped = (quote == "'" and index > 0 and sql[index - 1] in "eE"
+                       and (index < 2 or not re.match(r"[\w$]", sql[index - 2])))
+            index += 1
+            while index < len(sql):
+                if escaped and sql[index] == "\\":
+                    index += 2
+                elif sql[index] == quote:
+                    index += 1
+                    if index < len(sql) and sql[index] == quote:
+                        index += 1
+                    else:
+                        break
+                else:
+                    index += 1
+            else:
+                raise DBError("Unterminated SQL quoted value")
+        elif sql[index] == "$" and (index == 0 or not re.match(r"[\w$]", sql[index - 1])):
+            delimiter = re.match(r"\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$", sql[index:])
+            if not delimiter:
+                index += 1
+                continue
+            end = sql.find(delimiter[0], index + len(delimiter[0]))
+            if end < 0:
+                raise DBError("Unterminated SQL dollar body")
+            index = end + len(delimiter[0])
+        else:
+            index += 1
+            continue
+        masked[start:index] = " " * (index - start)
+    return "".join(masked)
+
+
 def read_migrations(directory: Path = MIGRATIONS) -> list[Migration]:
     migrations = []
     for path in sorted(directory.glob("*.sql")):
@@ -54,9 +116,11 @@ def read_migrations(directory: Path = MIGRATIONS) -> list[Migration]:
             sql = raw.decode("utf-8")
         except UnicodeDecodeError as error:
             raise DBError(f"Migration must be UTF-8: {path.name}") from error
-        if not sql.strip() or re.search(r"(?m)^\s*\\", sql):
+        structure = sql_structure(sql)
+        if not structure.strip() or "\\" in structure:
             raise DBError(f"Migration must contain SQL only: {path.name}")
-        if re.search(r"(?im)^\s*(BEGIN|COMMIT|ROLLBACK|START\s+TRANSACTION)\s*;", sql):
+        if any(re.match(r"\s*(BEGIN|START|COMMIT|END|ROLLBACK|ABORT)\b|\s*PREPARE\s+TRANSACTION\b",
+                        statement, re.I) for statement in structure.split(";")):
             raise DBError(f"Runner owns transaction boundaries: {path.name}")
         migrations.append(Migration(int(match[1]), path.name, hashlib.sha256(raw).hexdigest(), sql))
     if not migrations or [m.version for m in migrations] != list(range(1, len(migrations) + 1)):
@@ -116,6 +180,7 @@ END $$;
 \endif
 """]
     for migration in migrations:
+        owner_role = "SET LOCAL ROLE sunny_owner;" if migration.version >= 2 else ""
         parts.append(rf"""\if :history_exists
 SELECT EXISTS (SELECT 1 FROM sunny_meta.schema_migrations WHERE version = {migration.version}) AS already_applied
 \gset
@@ -125,7 +190,10 @@ SELECT EXISTS (SELECT 1 FROM sunny_meta.schema_migrations WHERE version = {migra
 \if :already_applied
 \echo skipped {migration.name}
 \else
+RESET ROLE;
+SET search_path = pg_catalog, pg_temp;
 BEGIN;
+{owner_role}
 SELECT clock_timestamp() AS migration_started_at
 \gset
 {migration.sql}
@@ -184,7 +252,7 @@ def command(args: list[str], *, settings: dict[str, str] | None = None,
             input_sql: str | None = None, env: dict | None = None,
             allowed_failure: bool = False) -> subprocess.CompletedProcess:
     result = subprocess.run(args, cwd=ROOT, env=env, input=input_sql,
-                            text=True, capture_output=True, timeout=180)
+                            text=True, encoding="utf-8", capture_output=True, timeout=180)
     if result.returncode and not allowed_failure:
         detail = redacted(result.stderr.strip(), settings or {})
         raise DBError(detail or "Command failed")
@@ -217,16 +285,19 @@ def sql(settings: dict[str, str], query: str) -> str:
     return result.stdout.strip()
 
 
-def tcp_sql(settings: dict[str, str], role: str, query: str, *, wrong_password: bool = False) -> subprocess.CompletedProcess:
+def tcp_sql(settings: dict[str, str], role: str, query: str, *, wrong_password: bool = False,
+            database: str = "sunny") -> subprocess.CompletedProcess:
     if role not in ROLE_KEYS:
         raise DBError("Unknown runtime role")
+    if database not in ("sunny", "postgres", "template1"):
+        raise DBError("Unknown development database")
     if not shutil.which("psql"):
         raise DBError("Host TCP check needs psql in PATH; DBeaver can also check TCP")
     env = compose_env(settings)
     env.update(PGPASSWORD="intentionally-wrong-test-password" if wrong_password else settings[ROLE_KEYS[role]],
-               PGCONNECT_TIMEOUT="5", PGSSLMODE="disable")
+               PGCONNECT_TIMEOUT="5", PGSSLMODE="disable", LC_ALL="C")
     return command(["psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "-h", "127.0.0.1",
-                    "-p", settings["SUNNY_PG_PORT"], "-U", role, "-d", "sunny"],
+                    "-p", settings["SUNNY_PG_PORT"], "-U", role, "-d", database],
                    settings=settings, input_sql=query, env=env, allowed_failure=True)
 
 
@@ -309,12 +380,43 @@ def status(settings: dict[str, str]) -> None:
 
 def check(settings: dict[str, str]) -> None:
     status(settings)
+    ownership = sql(settings, """SELECT count(*) FROM (
+        SELECT nspowner AS owner FROM pg_namespace WHERE nspname IN ('sunny_meta','auth','app')
+        UNION ALL
+        SELECT c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname IN ('sunny_meta','auth','app')
+        UNION ALL
+        SELECT p.proowner FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname IN ('sunny_meta','auth','app')
+    ) objects WHERE owner <> 'sunny_owner'::regrole;""")
+    if ownership != "0":
+        raise DBError("Schema/table/sequence/function owner must be sunny_owner")
+    public_execute = sql(settings, """SELECT EXISTS (
+        SELECT 1 FROM aclexplode(COALESCE((
+            SELECT defaclacl FROM pg_default_acl
+            WHERE defaclrole = 'sunny_owner'::regrole AND defaclnamespace = 0 AND defaclobjtype = 'f'
+        ), acldefault('f', 'sunny_owner'::regrole))) a
+        WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+    ) OR EXISTS (
+        SELECT 1 FROM pg_default_acl d CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+        WHERE d.defaclrole = 'sunny_owner'::regrole AND d.defaclobjtype = 'f'
+          AND d.defaclnamespace IN (SELECT oid FROM pg_namespace WHERE nspname IN ('sunny_meta','auth','app'))
+          AND a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+    );""")
+    if public_execute != "f":
+        raise DBError("Default function EXECUTE must be revoked from PUBLIC globally")
+    owner_flags = sql(settings, """SELECT rolcanlogin OR rolinherit OR rolsuper OR rolcreatedb
+        OR rolcreaterole OR rolbypassrls FROM pg_roles WHERE rolname = 'sunny_owner';""")
+    if owner_flags != "f":
+        raise DBError("sunny_owner must be NOLOGIN/NOINHERIT and unprivileged")
+    print("Object ownership and global function default privileges verified")
     for role in ROLE_KEYS:
         result = tcp_sql(settings, role, "SELECT current_database() || ':' || current_user; SELECT 1;")
         if result.returncode or result.stdout.strip() != f"sunny:{role}\n1":
             raise DBError(f"TCP authentication/SELECT 1 failed for {role}")
-        if tcp_sql(settings, role, "SELECT 1;", wrong_password=True).returncode == 0:
-            raise DBError(f"Wrong-password connection unexpectedly succeeded for {role}")
+        wrong = tcp_sql(settings, role, "SELECT 1;", wrong_password=True)
+        if wrong.returncode == 0 or "password authentication failed" not in wrong.stderr:
+            raise DBError(f"Wrong-password authentication was not verified for {role}")
         print(f"TCP authenticated and wrong password rejected: {role}")
     for role, schema, forbidden in (("sunny_app", "app", "auth"), ("sunny_auth", "auth", "app")):
         flags = tcp_sql(settings, role, f"""SELECT rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls
@@ -334,6 +436,15 @@ def check(settings: dict[str, str]) -> None:
             if result.returncode == 0 or "permission denied" not in result.stderr:
                 raise DBError(f"Runtime permission check failed for {role}")
         print(f"Runtime DDL, owner role and migration history access denied: {role}")
+        for database in ("postgres", "template1"):
+            privileges = tcp_sql(settings, role, f"""SELECT
+                has_database_privilege(current_user, '{database}', 'CONNECT') OR
+                has_database_privilege(current_user, '{database}', 'TEMP');""")
+            denied = tcp_sql(settings, role, "SELECT 1;", database=database)
+            if (privileges.returncode or privileges.stdout.strip() != "f" or denied.returncode == 0
+                    or "permission denied for database" not in denied.stderr):
+                raise DBError(f"Runtime access to {database} was not denied for {role}")
+        print(f"Other development database CONNECT/TEMP denied: {role}")
 
 
 def main() -> int:
