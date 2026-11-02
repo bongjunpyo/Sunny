@@ -110,7 +110,8 @@ runtime은 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOINHERIT/NOBYPASSRLS이고 DB CR
 runtime 검색 경로는 `pg_catalog, app` / `pg_catalog, auth`로 시스템 함수를 먼저 찾는다.
 `0001`은 `sunny_meta.schema_migrations`만 만든다. #90의 `0002_authentication.sql`은
 `auth.user/session/account/verification` 4개를 추가한다. #93의 `0003_photo_uploads.sql`은
-사진 메타데이터·검사 시도 업무 테이블을 추가한다. 주문·배치·동의·리뷰 테이블은 아직 생성하지 않는다.
+사진 메타데이터·검사 시도 업무 테이블을 추가한다. #100의 `0004_order_requests.sql`은 시연 주문·7칸·동의를 추가하는
+후속 검토 migration이며 기존 sunny DB에는 아직 적용하지 않았다. 리뷰·결제·설문 테이블은 만들지 않는다.
 
 ### DBeaver
 
@@ -296,3 +297,13 @@ source-map-js 1.2.1(high) 권고가 확인됐다. Better Auth/pg 신규 직접 �
 기존 메일/실 사용자 링크를 대신 사용하지 않는다. 테스트는 로컬 origin·개발 파일 메일 설정만 허용한다.
 검증용 EmailProof 회원과 비공개 OS 임시 fixture를 남겨 브라우저 확인에 사용할 수 있다.
 테스트 도중 실패하면 생성된 합성 회원/메일이 남을 수 있다. 실제 고객 데이터/기존 볼륨은 삭제하지 않는다.
+
+## 주문 요청 시연 — #100 / 계약 #101
+
+| 변수 | 위치 | 설명 |
+|---|---|---|
+| `ORDER_DEMO_ENABLED` | frontend/.env.local · 서버 전용 | 기본 false. AUTH_ENABLED=true·NODE_ENV=development·BETTER_AUTH_URL의 http loopback Origin일 때만 주문 시연 허용 |
+
+기존 `DATABASE_URL`의 sunny_app과 `AUTH_DATABASE_URL`의 sunny_auth를 재사용한다. 새 결제 키/SDK/외부 서비스는 없다.
+production·원격 주소는 flag와 무관하게 차단한다. 정본/시연 정책은 [주문 계약안](../docs/CONTRACT_API.md#주문-요청-저장본인-조회--시연-계약안),
+독립 DB 검증/3D 담당자 연결·남은 리뷰는 [orders/README.md](orders/README.md)를 본다. 기존 DB에 새 주문 migration을 적용하거나 운영을 활성화하지 않았다.

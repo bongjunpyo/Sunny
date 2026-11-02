@@ -93,7 +93,8 @@ after(async()=>{
 test("migration has owner UUID FK, FORCE RLS and isolated runtime privileges; context resets",async()=>{
   await verifyRuntimePool(app,"sunny_app");
   const {rows}=await admin.query(`SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity FROM pg_class c
-    JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='app' AND c.relkind='r' ORDER BY c.relname`);
+    JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='app' AND c.relkind='r'
+    AND c.relname IN ('photo_assets','photo_upload_attempts') ORDER BY c.relname`);
   assert.deepEqual(rows.map((r:{relname:string})=>r.relname),["photo_assets","photo_upload_attempts"]);
   assert.ok(rows.every((r:{relrowsecurity:boolean;relforcerowsecurity:boolean})=>r.relrowsecurity&&r.relforcerowsecurity));
   assert.equal((await app.query("SELECT count(*)::int AS n FROM app.photo_assets")).rows[0].n,0);

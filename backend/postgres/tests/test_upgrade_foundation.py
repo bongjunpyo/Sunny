@@ -21,9 +21,16 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(upgrade.identifier('sunny_upgrade_20261102_ab12'), '"sunny_upgrade_20261102_ab12"')
 
     def test_only_reviewed_legacy_history_or_current_history_is_accepted(self):
-        migrations = upgrade.db.read_migrations()
+        all_migrations = upgrade.db.read_migrations()
+        # The one-time upgrade supports exactly the reviewed 0001-0003 state,
+        # even when later feature migrations have been added to the repository.
+        migrations = [migration for migration in all_migrations if migration.version <= 3]
         rows = [dict(version=m.version, name=m.name, checksum=m.checksum) for m in migrations]
         upgrade.validate_source_history(rows, migrations)
+        if len(all_migrations) > 3:
+            with self.assertRaises(upgrade.db.DBError):
+                upgrade.validate_source_history(
+                    [dict(version=m.version, name=m.name, checksum=m.checksum) for m in all_migrations], all_migrations)
         rows[0]['checksum'] = upgrade.LEGACY_FOUNDATION
         upgrade.validate_source_history(rows, migrations)
         for changed in (rows[:2], [*rows, rows[-1]],
