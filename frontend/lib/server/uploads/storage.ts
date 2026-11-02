@@ -1,5 +1,5 @@
 import "server-only";
-import { S3Client, GetObjectCommand, PutObjectCommand, type GetObjectCommandOutput } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand, NoSuchKey, type GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { UploadError, uploadPolicy } from "./policy.ts";
 
@@ -36,6 +36,10 @@ export function createR2Storage(config: R2Config): PhotoStorage {
         if ((result.ContentLength ?? 0) > maxBytes) throw new UploadError("FILE_TOO_LARGE");
         if (!result.Body) throw new UploadError("UPLOAD_STORAGE_UNAVAILABLE");
         return await boundedObjectRead(result.Body as AsyncIterable<Uint8Array>, maxBytes);
+      } catch (error) {
+        // Only a confirmed missing object is retryable as an unreceived upload, not every 404/outage.
+        if (error instanceof NoSuchKey) throw new UploadError("UPLOAD_NOT_RECEIVED");
+        throw error;
       } finally {
         clearTimeout(timer);
         controller.abort();

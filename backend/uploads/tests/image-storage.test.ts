@@ -8,6 +8,7 @@ import { boundedObjectRead, createR2Storage, r2Config } from "../../../frontend/
 import { uploadDevelopmentEnabled } from "../../../frontend/lib/server/uploads/runtime.ts";
 const require = createRequire(new URL("../../../frontend/package.json", import.meta.url));
 const sharp = require("sharp");
+const { S3Client, NoSuchKey, NoSuchBucket, S3ServiceException } = require("@aws-sdk/client-s3");
 const image = (width=1200,height=1000) => sharp({create:{width,height,channels:3,background:"#eeddee"}});
 const code = (expected:string) => (error:unknown) => error instanceof UploadError && error.code===expected;
 
@@ -56,6 +57,25 @@ test("S3 signatures bind PUT Content-Type, exact key and expiry; GET disables ca
   assert.match(put.searchParams.get("X-Amz-SignedHeaders")!,/content-type/);assert.match(put.pathname,/pending\/fake$/);
   const get=new URL(await store.signGet("verified/fake",300,time));
   assert.equal(get.searchParams.get("response-cache-control"),"no-store");assert.match(get.pathname,/verified\/fake$/);
+});
+test("R2 NoSuchKey becomes a safe retryable UPLOAD_NOT_RECEIVED error",async(t)=>{
+  const missing=new NoSuchKey({$metadata:{httpStatusCode:404},message:"Private synthetic key must not escape"});
+  t.mock.method(S3Client.prototype,"send",async()=>{throw missing;});
+  const store=createR2Storage({accountId:"0".repeat(32),bucket:"synthetic-test",accessKeyId:"synthetic-access",secretAccessKey:"synthetic-secret"});
+  await assert.rejects(store.read("pending/synthetic",100),code("UPLOAD_NOT_RECEIVED"));
+});
+test("R2 bucket, permission, transient and ambiguous 404 errors are not missing uploads",async(t)=>{
+  const failures=[
+    new NoSuchBucket({$metadata:{httpStatusCode:404},message:"Synthetic bucket failure"}),
+    new S3ServiceException({name:"AccessDenied",$fault:"client",$metadata:{httpStatusCode:403},message:"Synthetic permission failure"}),
+    new S3ServiceException({name:"SlowDown",$fault:"server",$metadata:{httpStatusCode:503},message:"Synthetic outage"}),
+    Object.assign(new Error("Synthetic generic 404"),{$metadata:{httpStatusCode:404}}),
+    Object.assign(new Error("Synthetic timeout"),{name:"TimeoutError"}),
+  ];
+  let failure:Error;
+  t.mock.method(S3Client.prototype,"send",async()=>{throw failure;});
+  const store=createR2Storage({accountId:"0".repeat(32),bucket:"synthetic-test",accessKeyId:"synthetic-access",secretAccessKey:"synthetic-secret"});
+  for(failure of failures) await assert.rejects(store.read("pending/synthetic",100),(error)=>error===failure);
 });
 test("input and runtime flags reject extra owner fields, missing keys and production activation",()=>{
   const input={purpose:"custom_order_photo",fileName:"test.jpg",mimeType:"image/jpeg",size:100};

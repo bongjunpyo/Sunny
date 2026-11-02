@@ -14,6 +14,7 @@ const errors = {
   UPLOAD_SESSION_NOT_ELIGIBLE: [403, "이메일 인증을 완료한 뒤 다시 로그인해 주세요."],
   UPLOAD_ORIGIN_REJECTED: [403, "허용되지 않은 요청입니다."],
   UPLOAD_NOT_FOUND: [404, "사진을 찾을 수 없습니다."],
+  UPLOAD_NOT_RECEIVED: [409, "사진 파일이 아직 업로드되지 않았습니다. 업로드 후 다시 확인해 주세요."],
   UPLOAD_INSPECTION_IN_PROGRESS: [409, "사진을 확인하고 있습니다. 잠시 후 다시 확인해 주세요."],
   UPLOAD_NOT_VERIFIED: [409, "확인이 끝난 사진만 사용할 수 있습니다."],
   UPLOAD_EXPIRED: [410, "사진 업로드 기한이 지났습니다. 다시 업로드해 주세요."],

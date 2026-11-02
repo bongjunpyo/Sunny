@@ -1,29 +1,28 @@
 # R2 사진 업로드 구현 대조안 — #93
 
-PR #65(9eef95d)의 사진 계약과 PR #92(c14e105)의 실제 DB 세션을 연결하는 **개발 구현**이다.
-정본 docs/CONTRACT_API.md를 확정하거나 운영 정책 합의를 대신하지 않는다.
-머지 순서는 #81 기반 → #92 인증, #65 공동 사진 계약 → 이 구현이다. 팀장만 머지한다.
+main에 머지된 PR #65 사진 정본과 PR #92의 실제 DB 세션을 연결하는 **개발 구현**이다.
+API·DTO·실패 응답의 원본은 [CONTRACT_API.md](../../docs/CONTRACT_API.md)의 사진 절이며,
+인증 자격은 같은 문서의 인증 절을 따른다. 이 메모는 구현/복구 근거이며 운영 합의를 대신하지 않는다.
+#81 기반·#65 사진 계약은 머지되었고 #92 인증 리뷰/머지 뒤 이 구현을 판단한다. 팀장만 머지한다.
 
 ## 구현 범위와 DTO
 
-| API | 입력 | 성공 |
-|---|---|---|
-| GET /api/uploads/photo-rules | 공개 | 200 {photoRules:{accept,maxBytes,minWidth,minHeight,aspectRatio:null,provisional:true}} |
-| POST /api/uploads/presign | {purpose:"custom_order_photo",fileName,mimeType,size} | 201 {assetId,uploadUrl,expiresAt} |
-| POST /api/uploads/:assetId/complete | 본문 없음 | 200 {assetId,status:"verified",mimeType,bytes,width,height} |
-| POST /api/uploads/:assetId/read-url | 본문 없음 | 200 {readUrl,expiresAt} |
+photo-rules / presign / complete / read-url의 입력과 반환은 정본 사진 절에 위임한다.
 
 보호 API는 같은 Origin과 Better Auth **DB 재조회 세션**이 필요하다. 게스트 또는
 emailVerified=true 회원만 허용한다. 자동 게스트 생성·회원 소유권 이전은 없다.
 fileName은 유효성 확인 후 버린다. owner/key/bucket/파일명/해시/검사 토큰은 응답하지 않는다.
 성공·실패 모두 no-store. 앱 API에는 쿠키를, R2 PUT/GET에는 credentials:omit를 사용한다.
 
-## 공동 검토가 필요한 구체화
+## 정본 대조와 개발 검토값
 
-- RLS 아래에서 타인 ID와 없는 ID 모두 **404 UPLOAD_NOT_FOUND**로 응답한다. 타인 존재를
-  확인하려고 RLS를 우회하지 않는다. PR #65의 타인 403 예시는 이 안으로 공동 수정 검토한다.
-- 미업로드 객체/일시적 R2 장애는 503 UPLOAD_STORAGE_UNAVAILABLE. rejected 재호출은
-  저장된 검사 오류를 그대로 반환한다. expired는 410. invalid input은 400.
+- RLS 아래에서 타인 ID와 없는 ID를 같은 오류로 거절한다. 타인 존재를 확인하려고 RLS를 우회하지 않는다.
+- 2026-11-03 정본 대조 보완: SDK의 `NoSuchKey`만 `UploadError("UPLOAD_NOT_RECEIVED")`로 바꾼다.
+  service는 현재 검사 토큰을 해제해 pending으로 되돌린 뒤 이 안전한 오류를 그대로 던지고,
+  handler의 공통 오류 응답으로 정본의 **409 UPLOAD_NOT_RECEIVED**를 전달한다.
+  사용자는 유효한 PUT URL로 파일을 올린 뒤 같은 asset의 complete를 호출한다. 미수신 complete만 자동 반복하지 않는다.
+  버킷 없음/권한/일반 404/네트워크 장애를 미수신으로 간주하지 않고 기존 503으로 처리한다.
+  rejected·expired의 재호출과 화면 재시도 상한도 정본 규칙을 따른다.
 - 개발 검토값: PUT/GET 각각 300초, complete 기한 900초, 검사 lease 120초,
   R2 각 작업 15초, sharp 처리 15초, 원본/정제본 각각 10 MiB, 최대 40,000,000픽셀·한 변 8,000,
   단일 프레임, 프로세스당 검사 최대 2개. 비율은 제한하지 않는다. 수치는 운영 합의값이 아니다.

@@ -38,7 +38,8 @@ export function createUploadService(repo: PhotoRepository, storage: PhotoStorage
             "IMAGE_DIMENSIONS_TOO_SMALL", "IMAGE_ASPECT_RATIO_NOT_ALLOWED"].includes(error.code);
           try { await repo.fail(owner, id, token, invalid ? (error as UploadError).code : undefined); }
           catch { /* Lease recovery handles database outage. Never log bytes, credentials, URLs or raw errors. */ }
-          if (invalid) throw error;
+          // Keep safe domain errors (including missing PUT -> 409) after releasing this inspection.
+          if (error instanceof UploadError) throw error;
           throw new UploadError("UPLOAD_STORAGE_UNAVAILABLE");
         }
       } finally { activeInspections--; }

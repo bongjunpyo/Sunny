@@ -197,7 +197,8 @@ AUTH_DATABASE_URL은 sunny_auth, DATABASE_URL은 sunny_app만 사용한다. 관�
 두 앱 pool도 `pg_catalog`를 먼저 검색하도록 지정해 #81의 DB 역할 설정을 덮어쓰지 않는다.
 `localhost`와 `127.0.0.1`은 다른 Origin이므로 브라우저 주소와 BETTER_AUTH_URL을 맞춘다.
 
-실제 API 입력/응답과 공동 검토 항목은 [auth-contract.md](auth-contract.md)를 본다.
+인증 API·DTO·오류·개발 정책의 정본은 [CONTRACT_API.md 인증 절](../docs/CONTRACT_API.md#인증-계약--pr-92)이다.
+구현 근거와 검증 범위는 [auth-contract.md](auth-contract.md)를 본다.
 로그인/가입 화면과 lib/auth.ts는 인증 API에 연결한다. 상품/CMS의 NEXT_PUBLIC_API_MODE와 무관하며
 브라우저 localStorage의 기존 mock 회원 값은 읽거나 자동 이관하지 않는다. 이전에 화면 시안에서 가입했다면 다시 가입한다.
 
@@ -250,9 +251,9 @@ SELECT "userId", "providerId", password IS NOT NULL AS has_password
 FROM auth.account;
 ```
 
-#81 미머지 기반을 이 브랜치에 merge해 재사용했다. 이 PR은 #81 머지와 공동 인증 계약 검토 후에만
-머지 판단한다. #65는 별도 사진 계약이며 여기서 사진/주문 데이터를 생성하지 않는다.
-세션 수명·비밀번호·요청 제한 수치는 auth-contract.md의 개발 검토값이다. 메모리 요청 제한은 단일 개발
+#81 기반과 #65 사진 계약은 main에 머지되어 이 브랜치에도 반영했다. 인증 정본의 공동 리뷰 후
+팀장이 #92 머지를 판단한다. 여기서 사진/주문 데이터를 생성하지 않는다.
+세션 수명·비밀번호·요청 제한 수치는 정본 인증 절의 개발 검토값이다. 메모리 요청 제한은 단일 개발
 프로세스용이며 **Vercel 다중 인스턴스 운영 전에 공유 제한 저장소/정책을 확정**해야 한다.
 운영 인증은 기본 비활성이며, 활성화 전에 공동 계약·실제 메일·HTTPS·검증된 DB TLS·공유 제한을 확인한다.
 2026-10-16 `npm audit --omit=dev`에서 기존 main의 Next 16.3.5(critical), sharp 0.35.4(high),
