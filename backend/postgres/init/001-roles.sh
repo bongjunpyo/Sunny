@@ -13,10 +13,11 @@ CREATE ROLE sunny_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NO
 CREATE ROLE sunny_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD :'app_password';
 CREATE ROLE sunny_auth LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD :'auth_password';
 REVOKE ALL ON DATABASE sunny FROM PUBLIC;
+REVOKE CONNECT, TEMP ON DATABASE postgres, template1 FROM PUBLIC;
 GRANT CONNECT ON DATABASE sunny TO sunny_app, sunny_auth;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
-ALTER ROLE sunny_app IN DATABASE sunny SET search_path = app, pg_catalog;
-ALTER ROLE sunny_auth IN DATABASE sunny SET search_path = auth, pg_catalog;
+ALTER ROLE sunny_app IN DATABASE sunny SET search_path = pg_catalog, app;
+ALTER ROLE sunny_auth IN DATABASE sunny SET search_path = pg_catalog, auth;
 COMMIT;
 \unset app_password
 \unset auth_password

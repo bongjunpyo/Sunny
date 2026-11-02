@@ -43,10 +43,52 @@ class MigrationTests(unittest.TestCase):
             db.read_migrations(self.directory)
 
     def test_non_sql_psql_commands_and_transaction_control_rejected(self):
-        for text in ("\\! echo unsafe\n", "COMMIT;\n", ""):
+        for text in ("\\! echo unsafe\n", "COMMIT;\n", "", "-- comment only",
+                     "END;", "ABORT;", "COMMIT WORK;", "COMMIT AND CHAIN;", "SELECT 1; END;",
+                     "BEGIN;", "BEGIN WORK;", "START TRANSACTION READ ONLY;", "ROLLBACK;",
+                     "/* prefix /* nested */ comment */ END TRANSACTION;", "PREPARE TRANSACTION 'x';",
+                     "SELECT 1; \\! id", "SELECT 1 \\gexec", "\\set unsafe on", "\\endif",
+                     "SELECT 'safe'; -- comment\n END;", "SELECT $$END;$$; ABORT;",
+                     "DO $body$ BEGIN RAISE NOTICE 'END;'; END $body$; COMMIT WORK;"):
             self.write("0001_first.sql", text)
             with self.subTest(text=text), self.assertRaises(db.DBError):
                 db.read_migrations(self.directory)
+
+    def test_sql_bodies_strings_identifiers_and_comments_allow_command_like_text(self):
+        for text in (
+            "DO $$ BEGIN PERFORM 1; END $$;",
+            "DO $body$ BEGIN RAISE NOTICE 'end; \\!'; END $body$;",
+            "SELECT CASE WHEN true THEN 1 ELSE 0 END AS x;",
+            r"SELECT 'a; end \ of story', 'it''s; COMMIT;', '/* not comment */';",
+            r"SELECT E'escaped\' quote; END; \\gexec';",
+            'SELECT 1 AS "label; END; \\!";',
+            "-- END; \\!\nSELECT 1; /* ABORT; /* nested \\gexec */ COMMIT; */",
+            r"SELECT '0001.sql' ~ '^[0-9]{4}\.sql$';",
+            r"SELECT $$/* not a comment */ END; '\gexec'$$;",
+        ):
+            self.write("0001_first.sql", text)
+            with self.subTest(text=text):
+                self.assertEqual(db.read_migrations(self.directory)[0].sql, text)
+
+    def test_unterminated_literals_and_comments_are_rejected(self):
+        for text in ("SELECT 'unfinished", 'SELECT "unfinished', "DO $$ unfinished",
+                     "SELECT 1; /* outer /* inner */"):
+            self.write("0001_first.sql", text)
+            with self.subTest(text=text), self.assertRaises(db.DBError):
+                db.read_migrations(self.directory)
+
+    def test_integration_setup_refuses_pending_migrations(self):
+        first = db.Migration(1, "0001_first.sql", "a" * 64, "SELECT 1;")
+        second = db.Migration(2, "0002_second.sql", "b" * 64, "SELECT 2;")
+        history = [dict(version=1, name=first.name, checksum=first.checksum)]
+        with patch.object(DatabaseIntegrationTests, "settings", None, create=True), \
+                patch.object(DatabaseIntegrationTests, "migrations", None, create=True), \
+                patch.object(DatabaseIntegrationTests, "initial_history", None, create=True), \
+                patch.object(db, "load_settings", return_value={}), \
+                patch.object(db, "read_migrations", return_value=[first, second]), \
+                patch.object(db, "history", return_value=history):
+            with self.assertRaisesRegex(RuntimeError, "pending migrations"):
+                DatabaseIntegrationTests.setUpClass()
 
     def test_applied_sql_edit_changes_checksum(self):
         path = self.write("0001_first.sql")
@@ -124,6 +166,8 @@ class DatabaseIntegrationTests(unittest.TestCase):
         db.validate_history(cls.migrations, cls.initial_history)
         if not cls.initial_history:
             raise RuntimeError("Apply the foundation migration first")
+        if len(cls.initial_history) != len(cls.migrations):
+            raise RuntimeError("Apply pending migrations before running integration tests")
 
     def test_repeat_apply_preserves_history(self):
         output = db.sql(self.settings, db.migration_script(self.migrations))
@@ -138,19 +182,50 @@ class DatabaseIntegrationTests(unittest.TestCase):
         self.assertEqual(db.history(self.settings), self.initial_history)
 
     def test_failed_migration_rolls_back_ddl_and_history(self):
-        probe = db.Migration(len(self.migrations) + 1, "0002_rollback_probe.sql", "1" * 64,
+        version = len(self.migrations) + 1
+        probe = db.Migration(version, f"{version:04d}_rollback_probe.sql", "1" * 64,
                              "CREATE TABLE app.rollback_probe(id integer); SELECT 1 / 0;")
         with self.assertRaisesRegex(db.DBError, "division by zero"):
             db.sql(self.settings, db.migration_script([*self.migrations, probe]))
         self.assertEqual(db.sql(self.settings, "SELECT to_regclass('app.rollback_probe') IS NULL;"), "t")
         self.assertEqual(db.history(self.settings), self.initial_history)
 
+    def test_future_migration_owns_objects_and_revokes_public_function_execute(self):
+        version = len(self.migrations) + 1
+        probe = db.Migration(version, f"{version:04d}_owner_probe.sql", "2" * 64, """
+            CREATE TABLE app.owner_probe(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY);
+            CREATE FUNCTION app.owner_probe_function() RETURNS integer LANGUAGE sql AS 'SELECT 1';
+            DO $$ BEGIN
+                IF current_user <> 'sunny_owner' OR EXISTS (
+                    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'app' AND c.relname LIKE 'owner_probe%'
+                      AND c.relowner <> 'sunny_owner'::regrole
+                ) OR (SELECT proowner <> 'sunny_owner'::regrole FROM pg_proc
+                      WHERE oid = 'app.owner_probe_function()'::regprocedure) THEN
+                    RAISE EXCEPTION 'unexpected probe ownership';
+                END IF;
+                IF has_function_privilege('sunny_app', 'app.owner_probe_function()', 'EXECUTE')
+                   OR has_function_privilege('sunny_auth', 'app.owner_probe_function()', 'EXECUTE') THEN
+                    RAISE EXCEPTION 'unexpected PUBLIC function EXECUTE';
+                END IF;
+                RAISE EXCEPTION 'owner and function defaults verified; rollback probe';
+            END $$;
+        """)
+        with self.assertRaisesRegex(db.DBError, "owner and function defaults verified; rollback probe"):
+            db.sql(self.settings, db.migration_script([*self.migrations, probe]))
+        self.assertEqual(db.sql(self.settings, "SELECT to_regclass('app.owner_probe') IS NULL "
+                                "AND to_regprocedure('app.owner_probe_function()') IS NULL;"), "t")
+        self.assertEqual(db.history(self.settings), self.initial_history)
+
+    def test_runtime_permissions_and_ownership_checks(self):
+        db.check(self.settings)
+
     def test_session_lock_serializes_migrators(self):
         command = [*db.compose_args(), "exec", "-T", "db", "sh", "-c",
                    'export PGPASSWORD="$POSTGRES_PASSWORD"; exec psql -X -qAt '
                    '-v ON_ERROR_STOP=1 -U sunny_admin -d sunny']
         with subprocess.Popen(command, env=db.compose_env(self.settings), stdin=subprocess.PIPE,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as holder:
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8") as holder:
             holder.stdin.write("SELECT pg_advisory_lock(20261014, 79); SELECT 'locked'; SELECT pg_sleep(3);\n")
             holder.stdin.flush()
             while True:

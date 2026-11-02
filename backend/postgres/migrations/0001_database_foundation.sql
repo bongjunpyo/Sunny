@@ -16,6 +16,7 @@ CREATE TABLE sunny_meta.schema_migrations (
     execution_ms bigint NOT NULL CHECK (execution_ms >= 0)
 );
 ALTER TABLE sunny_meta.schema_migrations OWNER TO sunny_owner;
+ALTER TABLE sunny_meta.schema_migrations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE sunny_meta.schema_migrations FROM PUBLIC, sunny_app, sunny_auth;
 
 -- No blanket runtime DML grant: each future migration grants only reviewed DML
@@ -24,5 +25,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE sunny_owner IN SCHEMA sunny_meta, auth, app
     REVOKE ALL ON TABLES FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE sunny_owner IN SCHEMA sunny_meta, auth, app
     REVOKE ALL ON SEQUENCES FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES FOR ROLE sunny_owner IN SCHEMA sunny_meta, auth, app
+-- PostgreSQL's built-in PUBLIC EXECUTE is global; a schema-local revoke cannot remove it.
+ALTER DEFAULT PRIVILEGES FOR ROLE sunny_owner
     REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;

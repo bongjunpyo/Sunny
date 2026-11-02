@@ -21,7 +21,7 @@ frontend/
 | 서비스 | 용도 | 프로젝트 이름 | 소유 계정 | 팀장 접근 |
 |---|---|---|---|---|
 | Sanity | 컬렉션 · 제품 · 제작 기록 · 이미지 | 만든 뒤 기록 | 만든 뒤 기록 | 초대 |
-| PostgreSQL | 주문 요청 · 선호 색상 설문 · 인증 세션 | 개발: Docker 로컬 DB · 운영: 미정 | 운영 호스팅 정한 뒤 기록 | — |
+| PostgreSQL | 주문 요청 · 인증 세션 | 개발: Docker 로컬 DB · 운영: 미정 | 운영 호스팅 정한 뒤 기록 | — |
 | Cloudflare R2 | 고객 사진(비공개) | 만든 뒤 기록 | 만든 뒤 기록 | 초대 |
 | 메일 발송 | 가입 인증 · 비밀번호 재설정 메일 | 이재원이 선택(#71) | 만든 뒤 기록 | — |
 | Vercel | 배포 · PR 미리보기 | 만든 뒤 기록 | 만든 뒤 기록 | 초대 |
@@ -74,6 +74,8 @@ DB는 `postgres:17-bookworm`, `sunny`, `127.0.0.1:5434`이며 컨테이너 내�
 프로젝트는 `sunny-dev`, 볼륨은 `sunny-dev_pgdata`. 기존 DB·Supabase 서비스·볼륨과 분리한다.
 포트가 이미 사용 중이면 도구가 실패하고 기존 프로세스를 종료하지 않는다.
 초기화 스크립트는 컨테이너 내부에 복사해 읽기 권한을 고정한 뒤 공식 entrypoint가 최초 1회 읽도록 한다.
+최초 이미지 다운로드가 느리면 `docker compose --env-file backend/.env.local -f backend/docker-compose.yml pull db`를 먼저 실행한다.
+`restart: unless-stopped`이므로 실행 중이던 DB는 Docker 재시작 시 다시 시작하며, 명시적으로 중지한 DB는 자동 시작하지 않는다.
 
 역할은 다음과 같다.
 
@@ -85,6 +87,8 @@ DB는 `postgres:17-bookworm`, `sunny`, `127.0.0.1:5434`이며 컨테이너 내�
 | `sunny_auth` | 인증 schema USAGE, CONNECT. 인증 구현에서 adapter에 필요한 DML 추가 |
 
 runtime은 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOINHERIT/NOBYPASSRLS이고 DB CREATE/TEMP 권한이 없다.
+`postgres`·`template1`의 PUBLIC CONNECT/TEMP도 회수하며 runtime의 접속은 거부된다.
+runtime 검색 경로는 `pg_catalog, app` / `pg_catalog, auth`로 시스템 함수를 먼저 찾는다.
 현재 생성된 table은 `sunny_meta.schema_migrations`뿐이다. 인증/업무 schema는 비어 있다.
 
 ### DBeaver
@@ -112,9 +116,14 @@ DBeaver Create Table/컬럼 편집으로 schema를 변경하지 않는다.
 
 `postgres/migrations/0001_database_foundation.sql`은 schema·이력 table·권한을 만든다.
 다음 SQL 파일은 0002부터 연속 순번을 쓰며, 적용한 파일을 고치거나 이름을 바꾸지 않는다.
-SQL 파일에 psql 메타 명령이나 BEGIN/COMMIT을 쓰지 않는다. runner가 파일별 트랜잭션을 소유한다.
+SQL 파일에 psql 메타 명령이나 트랜잭션 제어(BEGIN/START/COMMIT/END/ROLLBACK/ABORT/PREPARE TRANSACTION)를 쓰지 않는다.
+runner는 SQL 문자열·식별자·달러 본문·주석을 제외한 영역을 검사하고 파일별 트랜잭션을 소유한다.
 같은 psql 세션의 advisory lock 안에서 이력/checksum을 확인하고 DDL과 이력을 함께 commit한다.
 동일 파일의 재실행은 skip이며 이력 변조·누락·순번 불일치는 실패한다.
+0001은 schema를 만드는 관리자 기반 migration이다. 0002 이후에는 runner가 `SET LOCAL ROLE sunny_owner`를 적용해
+table·sequence·function을 소유 역할로 생성한다. 파일마다 역할·검색 경로를 초기화한다.
+함수의 PUBLIC EXECUTE 기본 권한은 schema별이 아닌 전역에서 회수한다. runtime 함수 실행은 후속 migration이 명시적으로 부여한다.
+`check`는 객체 소유자·전역 함수 기본 권한·비밀번호 인증·타 DB 접속 거부까지 검증한다.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -Werror -m unittest discover -s backend/postgres/tests -v
@@ -123,6 +132,8 @@ PYTHONDONTWRITEBYTECODE=1 SUNNY_DB_TESTS=1 python3 -Werror -m unittest discover 
 
 두 번째 명령은 **이 프로젝트의 로컬 sunny DB만** 사용한다. 실패 migration의 테스트 DDL은
 트랜잭션 rollback되고 이력에 남지 않는다. 비밀값/실고객 데이터는 테스트에 넣지 않는다.
+미적용 migration이 있으면 통합 테스트가 즉시 중단되므로 먼저 `migrate`를 완료한다.
+함수·identity sequence 소유자와 PUBLIC EXECUTE 테스트도 rollback되는 probe만 사용한다.
 
 ### 종료와 복구
 
@@ -136,6 +147,10 @@ python3 backend/postgres/manage.py up
 기존 Sunny 볼륨이 있고 비밀번호가 누락됐으면 `prepare`는 새 비밀번호를 생성하지 않는다.
 최초 초기화가 실패한 볼륨도 자동 재초기화하지 않는다. 로그와 실제 역할 존재를 확인하고
 검토한 복구 절차를 사용한다. 운영 DB·프로덕션 환경변수·기존 Supabase 폐기는 별도 작업이다.
+
+PR #81의 병합 전 0001·초기화 보완은 새 빈 DB에서 검증한다. 예전 0001을 이미 적용한 DB는 checksum이 달라
+자동 재적용되지 않으며 init 스크립트도 다시 실행되지 않는다. 이력을 직접 고치거나 기존 볼륨을 삭제하지 않는다.
+데이터가 있으면 보존·백업을 우선하고, 팀장과 별도의 이관 절차를 정한 뒤 적용한다.
 
 ## 배포
 
