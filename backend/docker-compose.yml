@@ -1,0 +1,38 @@
+name: sunny-dev
+
+services:
+  db:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    # Copy to the container filesystem so host bind-mount execute flags cannot
+    # make the official entrypoint try to execute a non-executable init script.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        cp /sunny-init/001-roles.sh /docker-entrypoint-initdb.d/001-roles.sh
+        chmod 0644 /docker-entrypoint-initdb.d/001-roles.sh
+        exec /usr/local/bin/docker-entrypoint.sh postgres
+    environment:
+      POSTGRES_DB: sunny
+      POSTGRES_USER: sunny_admin
+      POSTGRES_PASSWORD: ${SUNNY_PG_ADMIN_PASSWORD:?Run prepare first}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+      SUNNY_PG_APP_PASSWORD: ${SUNNY_PG_APP_PASSWORD:?Run prepare first}
+      SUNNY_PG_AUTH_PASSWORD: ${SUNNY_PG_AUTH_PASSWORD:?Run prepare first}
+    ports:
+      - "127.0.0.1:${SUNNY_PG_PORT:-5434}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init/001-roles.sh:/sunny-init/001-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  pgdata:
+    name: sunny-dev_pgdata
