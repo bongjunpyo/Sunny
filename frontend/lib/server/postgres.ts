@@ -10,7 +10,7 @@ export function createRuntimePool(connectionString: string, role: "sunny_auth" |
     throw new Error("Production database requires verified TLS");
   }
   return new Pool({ connectionString, max: 5, connectionTimeoutMillis: 5000,
-    idleTimeoutMillis: 10000, options: `-c search_path=${role === "sunny_auth" ? "auth" : "app"},pg_catalog` });
+    idleTimeoutMillis: 10000, options: `-c search_path=pg_catalog,${role === "sunny_auth" ? "auth" : "app"}` });
 }
 
 export async function verifyRuntimePool(pool: Pool, role: "sunny_auth" | "sunny_app") {

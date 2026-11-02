@@ -193,6 +193,7 @@ npm run dev
 Node 24를 사용한다. 로컬 준비 도구는 기존 frontend/.env.local 값을 덮어쓰지 않고 누락된 이름만
 추가하고 빈 placeholder만 채우며 값은 출력하지 않는다. 기존 AUTH_ENABLED=false가 있으면 담당자가 로컬에서 true로 변경해야 한다.
 AUTH_DATABASE_URL은 sunny_auth, DATABASE_URL은 sunny_app만 사용한다. 관리자 연결은 앱에 넣지 않는다.
+두 앱 pool도 `pg_catalog`를 먼저 검색하도록 지정해 #81의 DB 역할 설정을 덮어쓰지 않는다.
 `localhost`와 `127.0.0.1`은 다른 Origin이므로 브라우저 주소와 BETTER_AUTH_URL을 맞춘다.
 
 실제 API 입력/응답과 공동 검토 항목은 [auth-contract.md](auth-contract.md)를 본다.
@@ -210,10 +211,14 @@ npm run build
 인증 통합 테스트는 **로컬 127.0.0.1의 sunny DB만** 사용한다. test mailer가 인증 링크를 메모리에만
 보관하고 가짜 .invalid 회원·게스트를 만들었다가 자신이 만든 ID만 정리한다. 토큰/쿠키/비밀번호를 출력하지 않는다.
 실제 Resend 메일을 보내지 않는다. 운영 DB/실제 고객 데이터에 실행하지 않는다.
+Better Auth의 읽기 전용 migration 대조는 `schemaName=auth`를 명시한다. 검색 경로의 첫 schema를
+목표로 추정하는 CLI 기본값은 `pg_catalog` 우선인 런타임 연결에 사용하지 않으며, 반환된 DDL을 실행하지 않는다.
+게스트 재사용 시 갱신 쿠키, 실제 native 429의 Retry-After, 메일 장애 503과 동시 요청 격리도 검증한다.
 
 실제 발송에는 RESEND_API_KEY와 검증된 AUTH_EMAIL_FROM이 필요하다. 둘 다 없고 로컬 개발 메일도
 켜지지 않았다면 가입/재발송은 DB 변경 전 503이다. 로컬 개발은 frontend/.env.local에 아래를 명시한 후
 개발 서버를 재시작한다. prepare-local은 메일 방식을 임의로 선택하지 않는다.
+발송 도중 실패해도 가입 완료로 응답하지 않는다. 계정이 인증 대기로 남았다면 발송 복구 후 재발송한다.
 
 ```dotenv
 AUTH_DEV_LOCAL_MAIL=true
