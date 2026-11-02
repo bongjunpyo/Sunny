@@ -1,6 +1,6 @@
 import "server-only";
 import { verificationURL, kakaoErrorNotice } from "../auth-flow.ts";
-import type { SunnyAuth } from "./auth-core.ts";
+import { withVerificationDelivery, type SunnyAuth } from "./auth-core.ts";
 import { validateEmail, validateNickname, validatePassword } from "../validate.ts";
 
 const methods: Record<string, string> = {
@@ -42,8 +42,12 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
 export async function handleAuth(request: Request, auth: SunnyAuth, config: { baseURL: string; emailReady: boolean; localMail?: boolean; kakaoReady?: boolean }) {
   const url = new URL(request.url); const origin = new URL(config.baseURL).origin;
   const path = url.pathname.replace(/^\/api\/auth\//, "");
-  if (!methods[path]) return authError(404, "AUTH_ENDPOINT_NOT_AVAILABLE", "지원하지 않는 인증 요청입니다.");
-  if (methods[path] !== request.method) return authError(405, "METHOD_NOT_ALLOWED", "허용되지 않은 요청 방식입니다.");
+  if (!Object.hasOwn(methods, path)) return authError(404, "AUTH_ENDPOINT_NOT_AVAILABLE", "지원하지 않는 인증 요청입니다.");
+  if (methods[path] !== request.method) {
+    const response = authError(405, "METHOD_NOT_ALLOWED", "허용되지 않은 요청 방식입니다.");
+    response.headers.set("Allow", methods[path]);
+    return response;
+  }
   if (request.method === "POST" && request.headers.get("origin") !== origin) {
     return authError(403, "ORIGIN_NOT_ALLOWED", "허용되지 않은 요청 출처입니다.");
   }
@@ -88,13 +92,21 @@ export async function handleAuth(request: Request, auth: SunnyAuth, config: { ba
   if (path === "get-session") url.searchParams.set("disableCookieCache", "true");
   if (path === "get-session") nativeRequest = new Request(url, { headers: request.headers });
   if (path === "sign-in/anonymous") {
-    const existing = await auth.api.getSession({ headers: request.headers, query: { disableCookieCache: true } });
+    const checked = await auth.api.getSession({ headers: request.headers, query: { disableCookieCache: true }, returnHeaders: true });
+    const existing = checked.response;
     if (existing) {
-      if (!existing.user.isAnonymous) return authError(409, "MEMBER_SESSION_EXISTS", "로그인된 회원 세션을 사용해 주세요.");
-      return Response.json({ user: displayUser(existing.user), session: { expiresAt: existing.session.expiresAt } }, { headers: headers() });
+      const response = existing.user.isAnonymous
+        ? Response.json({ user: displayUser(existing.user), session: { expiresAt: existing.session.expiresAt } }, { headers: headers() })
+        : authError(409, "MEMBER_SESSION_EXISTS", "로그인된 회원 세션을 사용해 주세요.");
+      for (const cookie of checked.headers.getSetCookie()) response.headers.append("Set-Cookie", cookie);
+      return response;
     }
   }
-  const response = await auth.handler(nativeRequest);
+  const { response, deliveryFailed } = await withVerificationDelivery(() => auth.handler(nativeRequest));
+  if (deliveryFailed) {
+    if (path === "callback/kakao") return redirect("kakao-failed", response.headers.getSetCookie());
+    return authError(503, "AUTH_EMAIL_UNAVAILABLE", "인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  }
   const outHeaders = new Headers(response.headers); outHeaders.set("Cache-Control", "no-store");
   outHeaders.set("Referrer-Policy", "no-referrer");
   outHeaders.delete("Content-Length"); outHeaders.delete("Content-Encoding");
@@ -118,10 +130,12 @@ export async function handleAuth(request: Request, auth: SunnyAuth, config: { ba
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const code = data?.code;
-    const safeCode = ["EMAIL_NOT_VERIFIED", "INVALID_EMAIL_OR_PASSWORD", "PASSWORD_TOO_SHORT", "PASSWORD_TOO_LONG", "INVALID_EMAIL", "INVALID_TOKEN", "TOKEN_EXPIRED"].includes(code) ? code : "AUTH_REQUEST_FAILED";
-    const error = authError(response.status, safeCode, code === "EMAIL_NOT_VERIFIED" ? "이메일 인증을 먼저 완료해 주세요." : "인증 요청을 완료하지 못했습니다.");
+    const limited = response.status === 429;
+    const safeCode = limited ? "AUTH_RATE_LIMITED" : ["EMAIL_NOT_VERIFIED", "INVALID_EMAIL_OR_PASSWORD", "PASSWORD_TOO_SHORT", "PASSWORD_TOO_LONG", "INVALID_EMAIL", "INVALID_TOKEN", "TOKEN_EXPIRED"].includes(code) ? code : "AUTH_REQUEST_FAILED";
+    const error = authError(response.status, safeCode, limited ? "요청이 많습니다. 잠시 후 다시 시도해 주세요." : code === "EMAIL_NOT_VERIFIED" ? "이메일 인증을 먼저 완료해 주세요." : "인증 요청을 완료하지 못했습니다.");
     for (const cookie of response.headers.getSetCookie()) error.headers.append("Set-Cookie", cookie);
-    const retryAfter = response.headers.get("Retry-After"); if (retryAfter) error.headers.set("Retry-After", retryAfter);
+    const retryAfter = response.headers.get("Retry-After") ?? response.headers.get("X-Retry-After");
+    if (retryAfter && /^(?:0|[1-9][0-9]{0,5})$/.test(retryAfter)) error.headers.set("Retry-After", retryAfter);
     return error;
   }
   let result: unknown;

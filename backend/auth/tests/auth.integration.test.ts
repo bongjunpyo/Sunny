@@ -20,6 +20,7 @@ let auth: ReturnType<typeof createAuth>;
 let admin: InstanceType<typeof Pool>;
 let pool: ReturnType<typeof createRuntimePool>;
 let app: ReturnType<typeof createRuntimePool>;
+let requestNumber = 0;
 
 before(async () => {
   const env = parseEnv(await readFile(new URL("../../.env.local", import.meta.url), "utf8"));
@@ -38,8 +39,9 @@ after(async () => {
   await Promise.all([pool?.end(),app?.end(),admin?.end()]);
 });
 function jar(response:Response) { return response.headers.getSetCookie().map(c => c.split(";",1)[0]).join("; "); }
-async function call(path:string, body?:unknown, cookie?:string, options:{origin?:string; method?:string; emailReady?:boolean}={}) {
-  const h = new Headers({ origin:options.origin ?? baseURL, "content-type":"application/json" });
+async function call(path:string, body?:unknown, cookie?:string, options:{origin?:string; method?:string; emailReady?:boolean; ip?:string}={}) {
+  const h = new Headers({ origin:options.origin ?? baseURL, "content-type":"application/json",
+    "x-forwarded-for":options.ip ?? `192.0.2.${++requestNumber}` });
   if (cookie) h.set("cookie",cookie);
   const method=options.method ?? (body === undefined ? "GET":"POST");
   return handleAuth(new Request(`${baseURL}/api/auth/${path}`, { method, headers:h,
@@ -68,6 +70,10 @@ async function verify(email:string) {
 
 test("schema matches UUID model and both runtime roles reject privilege escalation", async()=>{
   await verifyRuntimePool(pool,"sunny_auth"); await verifyRuntimePool(app,"sunny_app");
+  for (const [client,schema] of [[pool,"auth"],[app,"app"]] as const) {
+    const path=(await client.query("SHOW search_path")).rows[0].search_path;
+    assert.deepEqual(path.split(",").map((part:string)=>part.trim()),["pg_catalog",schema]);
+  }
   const tables=await admin.query(`SELECT tablename,rowsecurity FROM pg_tables WHERE schemaname='auth' ORDER BY tablename`);
   assert.deepEqual(tables.rows.map((r:{tablename:string})=>r.tablename),["account","session","user","verification"]);
   assert.ok(tables.rows.every((r:{rowsecurity:boolean})=>r.rowsecurity));
@@ -107,6 +113,62 @@ test("guest UUID/session is reused; member login preserves guest identity withou
   const blocked=await call("sign-in/anonymous",{},jar(login)); assert.equal(blocked.status,409);
 });
 
+test("reusing an aged guest session forwards its renewed HttpOnly cookie",async()=>{
+  const guest=await call("sign-in/anonymous",{}); assert.equal(guest.status,200);
+  const dto=await guest.json(); ids.add(dto.user.id); const cookie=jar(guest);
+  await admin.query('UPDATE auth.session SET "expiresAt"=now()+interval \'2 days\', "updatedAt"=now()-interval \'5 days\' WHERE "userId"=$1',[dto.user.id]);
+  const again=await call("sign-in/anonymous",{},cookie); assert.equal(again.status,200);
+  const renewed=await again.json(); assertPrivate(renewed);
+  assert.equal(renewed.user.id,dto.user.id);
+  assert.ok(again.headers.getSetCookie().some(value=>value.startsWith("sunny.session_token=")&&/HttpOnly/i.test(value)),"Renewed cookie was dropped");
+  assert.ok(Date.parse(renewed.session.expiresAt)>Date.now()+6*86400000);
+  assert.equal((await admin.query('SELECT count(*)::int AS n FROM auth.session WHERE "userId"=$1',[dto.user.id])).rows[0].n,1);
+});
+
+test("native login throttling exposes a bounded Retry-After and safe error",async()=>{
+  for (let attempt=0;attempt<10;attempt++) {
+    const response=await call("sign-in/email",{email:`${prefix}-rate@example.invalid`,password},undefined,{ip:"198.51.100.92"});
+    assert.equal(response.status,401);
+  }
+  const limited=await call("sign-in/email",{email:`${prefix}-rate@example.invalid`,password},undefined,{ip:"198.51.100.92"});
+  assert.equal(limited.status,429);
+  const retry=Number(limited.headers.get("Retry-After"));
+  assert.ok(retry>=1&&retry<=60,"Missing or invalid standard retry header");
+  const result=await limited.json(); assertPrivate(result); assert.equal(result.error.code,"AUTH_RATE_LIMITED");
+  assert.equal(limited.headers.get("cache-control"),"no-store");
+});
+
+test("verification delivery failure stays sessionless and returns a private-safe 503",async()=>{
+  const email=`${prefix}-mail-failure@example.invalid`;
+  const failing=createAuth(pool,{baseURL,secret:randomBytes(48).toString("base64url"),
+    mailer:async()=>{throw new Error("SYNTHETIC_PRIVATE_PROVIDER_ERROR");}});
+  const send=()=>handleAuth(new Request(`${baseURL}/api/auth/sign-up/email`,{method:"POST",
+    headers:{origin:baseURL,"content-type":"application/json","x-forwarded-for":"198.51.100.93"},
+    body:JSON.stringify({name:"MailFailure",email,password})}),failing,{baseURL,emailReady:true});
+  let response:Response;
+  try { [response]=await Promise.all([send(),signup("mail-parallel")]); }
+  finally {
+    const found=await admin.query('SELECT id FROM auth."user" WHERE email=$1',[email]);
+    if(found.rows[0]) ids.add(found.rows[0].id);
+  }
+  assert.equal(response.status,503);
+  const text=await response.text(); assert.equal(text.includes("SYNTHETIC_PRIVATE_PROVIDER_ERROR"),false);
+  assert.equal(JSON.parse(text).error.code,"AUTH_EMAIL_UNAVAILABLE");
+  assert.equal(response.headers.getSetCookie().length,0);
+  const state=await admin.query('SELECT "emailVerified",(SELECT count(*)::int FROM auth.session s WHERE s."userId"=u.id) AS sessions FROM auth."user" u WHERE email=$1',[email]);
+  if(state.rows[0]) {assert.equal(state.rows[0].emailVerified,false);assert.equal(state.rows[0].sessions,0);}
+  const resend=await handleAuth(new Request(`${baseURL}/api/auth/send-verification-email`,{method:"POST",
+    headers:{origin:baseURL,"content-type":"application/json","x-forwarded-for":"198.51.100.94"},
+    body:JSON.stringify({email})}),failing,{baseURL,emailReady:true});
+  assert.equal(resend.status,503); assert.equal((await resend.json()).error.code,"AUTH_EMAIL_UNAVAILABLE");
+});
+
+test("only explicit auth paths and methods are advertised",async()=>{
+  for(const path of ["toString","constructor","__proto__"]) assert.equal((await call(path)).status,404);
+  const wrong=await call("sign-in/email");
+  assert.equal(wrong.status,405); assert.equal(wrong.headers.get("Allow"),"POST");
+});
+
 test("DB-revoked/expired sessions and forged cookies are rejected",async()=>{
   const guest=await call("sign-in/anonymous",{}); assert.equal(guest.status,200);
   const dto=await guest.json(); ids.add(dto.user.id); const cookie=jar(guest);
@@ -134,7 +196,12 @@ test("same app pool client uses transaction-local identity and clears it after c
 
 test("installed adapter reports no missing tables, columns, or unsafe type differences",async()=>{
   const {getMigrations}=await import(require.resolve("better-auth/db/migration"));
-  const migration=await getMigrations(auth.options);
+  const adapterRequire=createRequire(require.resolve("better-auth/db/migration"));
+  const {createKyselyAdapter}=await import(adapterRequire.resolve("@better-auth/kysely-adapter"));
+  const {kysely}=await createKyselyAdapter(auth.options);
+  // CLI planning otherwise uses current_schema() = pg_catalog with the hardened
+  // runtime search path. Explicitly inspect auth; never execute the returned DDL.
+  const migration=await getMigrations({...auth.options,database:{db:kysely,type:"postgres",schemaName:"auth",transaction:true}});
   assert.equal(migration.toBeCreated.length,0); assert.equal(migration.toBeAdded.length,0);
   assert.deepEqual(migration.unsafeChanges,[]); assert.deepEqual(migration.schemaProblems,[]);
 });
