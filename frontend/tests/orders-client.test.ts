@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { submitOrderRequest, getOrderRequests, getOrderRequest, OrderClientError } from "../lib/orders.ts";
 import type { OrderInput, OrderDetail } from "../lib/order-types.ts";
 const id="00000000-0000-4000-8000-000000000003", key="00000000-0000-4000-8000-000000000004";
-const input:OrderInput={productSlug:"light-study-01",productKind:"bracelet",color:"violet",lengthCm:18,
-  beadLayout:{squareCount:7,beads:Array.from({length:7},(_,index)=>({index,photoAssetId:null}))},previewConfirmed:true};
-const order:OrderDetail={orderId:id,status:"REQUESTED",mode:"DEMO",productSlug:input.productSlug,productKind:"bracelet",productName:"Synthetic",
-  color:"violet",lengthCm:18,photoCount:0,createdAt:"2026-11-03T00:00:00.000Z",previewConfirmedAt:"2026-11-03T00:00:00.000Z",beadLayout:input.beadLayout,consents:{}};
+const layout={squareCount:7 as const,beads:Array.from({length:7},(_,index)=>({index,photoAssetId:null}))};
+const input:OrderInput={items:[{productSlug:"light-study-01",productKind:"bracelet",color:"violet",lengthCm:18,quantity:1,beadLayout:layout,previewConfirmed:true}]};
+const order:OrderDetail={orderId:id,status:"REQUESTED",mode:"DEMO",itemCount:1,totalQuantity:1,photoCount:0,createdAt:"2026-11-03T00:00:00.000Z",
+ items:[{itemId:"00000000-0000-4000-8000-000000000005",productSlug:"light-study-01",productKind:"bracelet",productName:"Synthetic",color:"violet",lengthCm:18,quantity:1,photoCount:0,
+ previewConfirmedAt:"2026-11-03T00:00:00.000Z",beadLayout:layout,consents:{}}]};
 test("submission uses a stable caller key, real API and credentials even when catalog is mock",async t=>{
   t.mock.method(globalThis,"fetch",async(url:string,init:RequestInit)=>{
     assert.equal(url,"/api/orders");assert.equal(init.method,"POST");assert.equal(init.credentials,"same-origin");assert.equal(init.cache,"no-store");

@@ -110,8 +110,9 @@ runtime은 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOINHERIT/NOBYPASSRLS이고 DB CR
 runtime 검색 경로는 `pg_catalog, app` / `pg_catalog, auth`로 시스템 함수를 먼저 찾는다.
 `0001`은 `sunny_meta.schema_migrations`만 만든다. #90의 `0002_authentication.sql`은
 `auth.user/session/account/verification` 4개를 추가한다. #93의 `0003_photo_uploads.sql`은
-사진 메타데이터·검사 시도 업무 테이블을 추가한다. #100의 `0004_order_requests.sql`은 시연 주문·7칸·동의를 추가하는
-후속 검토 migration이며 기존 sunny DB에는 아직 적용하지 않았다. 리뷰·결제·설문 테이블은 만들지 않는다.
+사진 메타데이터·검사 시도 업무 테이블을 추가한다. #100의 `0004_order_requests.sql`은 시연 주문·7칸·동의를 추가하며,
+후속 `0005_cart_order_requests.sql`은 기존 주문을 보존하면서 여러 품목·수량과 목걸이 3개 배치를 추가한다.
+기존 sunny DB에는 0004·0005를 아직 적용하지 않았다. 리뷰·결제·설문 테이블은 만들지 않는다.
 
 ### DBeaver
 
@@ -306,4 +307,4 @@ source-map-js 1.2.1(high) 권고가 확인됐다. Better Auth/pg 신규 직접 �
 
 기존 `DATABASE_URL`의 sunny_app과 `AUTH_DATABASE_URL`의 sunny_auth를 재사용한다. 새 결제 키/SDK/외부 서비스는 없다.
 production·원격 주소는 flag와 무관하게 차단한다. 정본/시연 정책은 [주문 계약안](../docs/CONTRACT_API.md#주문-요청-저장본인-조회--시연-계약안),
-독립 DB 검증/3D 담당자 연결·남은 리뷰는 [orders/README.md](orders/README.md)를 본다. 기존 DB에 새 주문 migration을 적용하거나 운영을 활성화하지 않았다.
+독립 DB 검증/화면 연결·남은 리뷰는 [orders/README.md](orders/README.md)를 본다. 기존 DB에 새 주문 migration을 적용하거나 운영을 활성화하지 않았다.

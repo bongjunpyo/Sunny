@@ -73,3 +73,19 @@ export async function signInWithKakao(): Promise<string> {
   if (url.origin !== "https://kauth.kakao.com" || url.pathname !== "/oauth/authorize") throw new AuthError("INVALID_AUTH_RESPONSE", "카카오 로그인 주소를 확인하지 못했습니다.");
   return url.href;
 }
+
+export type SessionIdentity = { userId: string; isAnonymous: boolean };
+function sessionIdentity(data: unknown): SessionIdentity | null {
+  if(data===null)return null;
+  const user=(data as {user?:{id?:unknown;isAnonymous?:unknown}})?.user;
+  if(!user || typeof user.id!=="string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)
+    || typeof user.isAnonymous!=="boolean")throw new AuthError("INVALID_AUTH_RESPONSE","세션을 확인하지 못했습니다.");
+  return {userId:user.id.toLowerCase(),isAnonymous:user.isAnonymous};
+}
+export async function getSessionIdentity():Promise<SessionIdentity|null>{return sessionIdentity(await request("get-session"));}
+/** Call only from an explicit guest action; protected APIs never auto-create guests. */
+export async function startGuestSession():Promise<SessionIdentity>{
+  const identity=sessionIdentity(await request("sign-in/anonymous",{}));
+  if(!identity)throw new AuthError("INVALID_AUTH_RESPONSE","게스트 세션을 확인하지 못했습니다.");
+  changed();return identity;
+}

@@ -50,15 +50,28 @@ def main():
             raise RuntimeError("Isolated database did not become ready")
         subprocess.run(["docker", "exec", "-i", name, "sh"], input=(ROOT / "backend/postgres/init/001-roles.sh").read_bytes(),
                        stdout=subprocess.DEVNULL, check=True)
-        script = db.migration_script(db.read_migrations())
+        migrations=db.read_migrations()
+        def sql(script):
+            result=subprocess.run(["docker","exec","-i",name,"psql","-X","-qAt","-v","ON_ERROR_STOP=1","-U","sunny_admin","-d","sunny"],input=script.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            if result.returncode:raise RuntimeError("Isolated migration failed: "+result.stderr.decode()[-2000:])
+            return result.stdout.decode()
+        sql(db.migration_script(migrations[:4]))
+        sql('''BEGIN;
+INSERT INTO auth."user"(id,name,email,"emailVerified","isAnonymous") VALUES('11111111-1111-4111-8111-111111111111','LegacyTest','legacy-order@example.invalid',true,false);
+INSERT INTO app.orders(id,owner_id,product_slug,product_kind,product_name,catalog_source,color,length_cm,preview_confirmed,preview_confirmed_at,idempotency_key,request_payload_hash,created_at)
+VALUES('22222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111','light-study-01','bracelet','Legacy snapshot','DEMO_CATALOG','violet',18,true,'2026-11-03T00:00:00Z','33333333-3333-4333-8333-333333333333',repeat('a',64),'2026-11-03T00:00:00Z');
+INSERT INTO app.order_beads SELECT '22222222-2222-4222-8222-222222222222'::uuid,'11111111-1111-4111-8111-111111111111'::uuid,n,NULL FROM generate_series(0,6) n;
+COMMIT;''')
+        before=sql("SELECT to_jsonb(o) FROM app.orders o WHERE id='22222222-2222-4222-8222-222222222222';")
+        beads_before=sql("SELECT jsonb_agg(to_jsonb(b) ORDER BY slot_index) FROM app.order_beads b WHERE order_id='22222222-2222-4222-8222-222222222222';")
+        script=db.migration_script(migrations)
         for attempt in range(2):
-            result = subprocess.run(["docker", "exec", "-i", name, "psql", "-X", "-q", "-U", "sunny_admin", "-d", "sunny"],
-                                    input=script.encode(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if result.returncode:
-                # DDL is repository SQL only, no credentials or customer data in these diagnostics.
-                raise RuntimeError("Isolated migration failed: " + result.stderr.decode()[-2000:])
-            print("Migration apply/re-run", attempt + 1, ":", "; ".join(line for line in result.stdout.decode().splitlines()
-                  if line.startswith(("applied ", "skipped "))), flush=True)
+            output=sql(script)
+            print("Migration apply/re-run",attempt+1,":","; ".join(l for l in output.splitlines() if l.startswith(("applied ","skipped "))),flush=True)
+        after=sql("SELECT to_jsonb(o)-'checkout_id'-'item_position'-'quantity' FROM app.orders o WHERE id='22222222-2222-4222-8222-222222222222';")
+        beads_after=sql("SELECT jsonb_agg(to_jsonb(b)-'shape' ORDER BY slot_index) FROM app.order_beads b WHERE order_id='22222222-2222-4222-8222-222222222222';")
+        if before!=after or beads_before!=beads_after:raise RuntimeError("Legacy order values changed during 0005")
+        print("PASS: pre-0005 synthetic order and all seven slots preserved.",flush=True)
         settings = "\n".join([f"SUNNY_PG_PORT={port}"] + [f"SUNNY_PG_{role.upper()}_PASSWORD={value}" for role,value in passwords.items()]) + "\n"
         with env_file.open("x") as handle:
             wrote_env = True
@@ -70,10 +83,11 @@ def main():
         config.chmod(0o600)
         node_directory = Path(os.environ.get("SUNNY_NODE_BIN", "/Users/a0/.nvm/versions/node/v24.14.0/bin"))
         env = {**os.environ, "PATH":str(node_directory)+os.pathsep+os.environ["PATH"], "SUNNY_ORDER_TEST_CONFIG":str(config)}
-        for command in (["npm","run","test:orders"], ["npm","run","test:auth"], ["npm","run","test:uploads"],
-                        ["node","../backend/orders/tests/http-flow.mjs"]):
+        commands=[] if "--ui-only" in sys.argv else [["npm","run","test:orders"],["npm","run","test:auth"],["npm","run","test:uploads"]]
+        commands.append(["node","../backend/orders/tests/http-flow.mjs"])
+        for command in commands:
             subprocess.run(command,cwd=ROOT/"frontend",env=env,check=True)
-        print("PASS: isolated PG migration, order/auth/upload and live HTTP checks.",flush=True)
+        print("PASS: isolated PG migration and live HTTP checks"+(" (UI-only mode)." if "--ui-only" in sys.argv else "; order/auth/upload regression passed."),flush=True)
     finally:
         if wrote_env and env_file.exists() and env_file.read_text()==settings:
             env_file.unlink()

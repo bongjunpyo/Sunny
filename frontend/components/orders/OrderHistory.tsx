@@ -27,19 +27,23 @@ export function OrderHistory({orderId,submitted}:{orderId?:string;submitted?:str
     {error?<div role="alert"><p>{error}</p><button className={styles.button} onClick={()=>setAttempt(a=>a+1)}>다시 확인</button> <Link href="/login">로그인</Link></div>:null}
     {ready&&!error&&!orderId&&items.length===0?<p>아직 이 세션의 주문 요청이 없습니다. <Link href="/custom">커스텀 둘러보기</Link></p>:null}
     {items.length?<ul className={styles.list}>{items.map(o=><li key={o.orderId}><Link href={`/orders/${o.orderId}`}>
-      <strong>{o.productName} · {kind[o.productKind]}</strong><span>{COLOR_LABEL[o.color]} · {o.lengthCm} cm · 사진 배치 {o.photoCount}칸</span>
+      <strong>{o.itemCount}품목 · 총 {o.totalQuantity}개</strong>{o.items.map(i=><span key={i.itemId}>{i.productName} · {kind[i.productKind]} · {COLOR_LABEL[i.color]} · {i.lengthCm} cm · {i.quantity}개</span>)}
       <span>주문 요청 · 시연</span><time dateTime={o.createdAt}>{new Date(o.createdAt).toLocaleString("ko-KR")}</time>
     </Link></li>)}</ul>:null}
     {cursor?<button className={styles.button} disabled={busy} onClick={async()=>{setBusy(true);setError(null);
       try{const d=await getOrderRequests(cursor);setItems(old=>[...old,...d.items.filter(n=>!old.some(o=>o.orderId===n.orderId))]);setCursor(d.nextCursor);}
       catch(error){setError(orderErrorMessage(error));}finally{setBusy(false);}}}>{busy?"불러오는 중…":"더 보기"}</button>:null}
     {detail?<article className={styles.detail}>
-      <h2>{detail.productName} · {kind[detail.productKind]}</h2><p>{COLOR_LABEL[detail.color]} · {detail.lengthCm} cm · 주문 요청 · 시연</p>
+      <h2>{detail.itemCount}품목 · 총 {detail.totalQuantity}개</h2>
       <p>요청 일시: <time dateTime={detail.createdAt}>{new Date(detail.createdAt).toLocaleString("ko-KR")}</time></p>
-      <h3>비즈 배치 · 7칸</h3><ol className={styles.beads}>{detail.beadLayout.beads.map(b=><li key={b.index}><b>{b.index+1}번</b><span>{b.photoAssetId?"사진 사용":"무늬 없음"}</span></li>)}</ol>
-      <p>가시안 확인 기록: {new Date(detail.previewConfirmedAt).toLocaleString("ko-KR")}</p>
-      <h3>시연 동의 기록</h3>{Object.keys(detail.consents).length===0?<p>사진을 사용하지 않아 사진 동의 기록이 없습니다.</p>:
-        Object.entries(detail.consents).map(([type,c])=>c?<p key={type}>{type==="photoProductionConsent"?"사진 제작 이용":"브랜드 공개 이용"}: {c.accepted?"동의":"동의하지 않음"}<br/>{c.policyVersion} · 기록 {new Date(c.recordedAt).toLocaleString("ko-KR")}</p>:null)}
+      {detail.items.map(item=><section key={item.itemId} className={styles.item}>
+       <h3>{item.productName} · {kind[item.productKind]}</h3><p>{COLOR_LABEL[item.color]} · {item.lengthCm} cm · {item.quantity}개</p>
+       <h4>{"squareCount" in item.beadLayout?"비즈 배치 · 7칸":"비즈 배치 · 달 1개와 양옆 원형 2개"}</h4>
+       <ol className={styles.beads}>{item.beadLayout.beads.map(b=><li key={b.index}><b>{b.index+1}번</b><span>{"shape" in b?(b.shape==="moon"?"달":"원형"):b.photoAssetId?"사진 사용":"무늬 없음"}</span></li>)}</ol>
+       <p>가시안 확인 기록: {new Date(item.previewConfirmedAt).toLocaleString("ko-KR")}</p>
+       <h4>시연 동의 기록</h4>{Object.keys(item.consents).length===0?<p>사진을 사용하지 않아 사진 동의 기록이 없습니다.</p>:
+        Object.entries(item.consents).map(([type,c])=>c?<p key={type}>{type==="photoProductionConsent"?"사진 제작 이용":"브랜드 공개 이용"}: {c.accepted?"동의":"동의하지 않음"}<br/>{c.policyVersion} · 기록 {new Date(c.recordedAt).toLocaleString("ko-KR")}</p>:null)}
+      </section>)}
     </article>:null}
     <p><Link href={orderId?"/orders":"/account"}>{orderId?"내 주문 요청 목록":"마이페이지"} ↗</Link></p>
   </section>;

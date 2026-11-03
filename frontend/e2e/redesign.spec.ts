@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
-const shots = '/Users/bongjunpyo/Sunny/output/design-review/app-redesign/review';
+const shots = 'output/design-review/app-redesign/review';
 test('시안 화면과 제품·구매·Q&A 흐름', async ({ page }, testInfo) => {
     await mkdir(shots, { recursive: true });
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -38,9 +38,17 @@ test('시안 화면과 제품·구매·Q&A 흐름', async ({ page }, testInfo) =
     await page.reload();
     await expect(page.getByLabel('수량')).toHaveValue('2');
     await page.getByRole('link', { name: '주문서 화면 보기' }).click();
-    await expect(page.getByRole('button', { name: '토스페이먼츠 연결 준비 중' })).toBeDisabled();
-    await page.getByRole('link', { name: '결과 안내 화면 보기' }).click();
-    await expect(page.getByRole('heading', { name: '주문 연결을 준비하고 있어요.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '결제하기', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '게스트로 계속', exact: true })).toBeVisible();
+    await expect(page.getByText('1품목 · 총 2개', { exact: true })).toBeVisible();
+    await page.goto('/checkout/result');
+    await expect(page).toHaveURL(/\/orders$/);
+    await expect(page.getByRole('heading', { name: '내 주문 요청', exact: true })).toBeVisible();
+    await page.route('**/api/uploads/photo-rules', route => route.fulfill({
+        status: 200, contentType: 'application/json', body: JSON.stringify({photoRules: {
+            accept: ['image/png'], maxBytes: 2097152, minWidth: 1200, minHeight: 1300, aspectRatio: null, provisional: true,
+        }}),
+    }));
     await page.goto('/custom');
     await page.getByRole('button', { name: '비즈 목걸이', exact: true }).click();
     await expect(page.getByLabel('1번 비즈', { exact: true })).toHaveCount(0);
@@ -48,10 +56,13 @@ test('시안 화면과 제품·구매·Q&A 흐름', async ({ page }, testInfo) =
     await expect(page.locator('[data-bead="round"]')).toHaveCount(2);
     await page.getByRole('button', { name: '비즈 팔찌', exact: true }).click();
     await expect(page.getByLabel('1번 비즈', { exact: true })).toBeVisible();
-    await page.locator('#memory-photo').setInputFiles('public/images/sunny/journal-leaves.png');
-    await expect(page.locator('svg image')).toHaveCount(1);
+    await expect(page.getByText('PNG · 2MB 이하 · 1200×1300px 이상', { exact: false })).toBeVisible();
+    await expect(page.locator('#memory-photo')).toHaveAttribute('accept', 'image/png');
+    await expect(page.locator('#memory-photo')).toBeDisabled();
+    await expect(page.getByRole('button', { name: '게스트로 사진 올리기', exact: true })).toBeVisible();
     await page.getByRole('button', { name: '이 구성 장바구니에 담기' }).click();
-    await expect(page.locator('main').getByRole('alert')).toContainText('사진은 현재 화면');
+    await expect(page).toHaveURL(/\/cart$/);
+    await expect(page.getByLabel('수량 · 오후의 조각', { exact: true })).toHaveValue('3');
     if (testInfo.project.name === 'mobile') {
         await page.getByRole('button', { name: '전체 메뉴 열기' }).click();
         await page.getByRole('dialog').getByRole('link', { name: '장바구니' }).click();

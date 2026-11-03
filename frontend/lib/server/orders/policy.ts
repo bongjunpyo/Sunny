@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { LENGTH_OPTIONS, PHOTOCHROMIC_COLORS } from "../../types.ts";
 import { DEMO_ORDER_POLICIES } from "../../order-policy.ts";
-import type { OrderInput, OrderConsent } from "../../order-types.ts";
+import type { OrderInput, OrderItemInput, OrderConsent } from "../../order-types.ts";
 
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const failures = {
@@ -46,13 +46,20 @@ function consent(value: unknown): OrderConsent {
   }
   return { accepted: c.accepted, policyVersion: c.policyVersion };
 }
-export function parseOrderInput(value: unknown): OrderInput {
-  const b = object(value); keys(b,["productSlug","productKind","color","lengthCm","beadLayout","previewConfirmed"],Object.keys(DEMO_ORDER_POLICIES));
+function parseOrderItem(value: unknown): OrderItemInput {
+  const b = object(value); keys(b,["productSlug","productKind","color","lengthCm","beadLayout","previewConfirmed","quantity"],Object.keys(DEMO_ORDER_POLICIES));
   if (typeof b.productSlug !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(b.productSlug) || b.productSlug.length>100
     || !["bracelet","necklace"].includes(b.productKind as string) || !PHOTOCHROMIC_COLORS.includes(b.color as never)
     || typeof b.lengthCm !== "number" || !LENGTH_OPTIONS[b.productKind as "bracelet"|"necklace"].includes(`${b.lengthCm} cm`)
-    || b.previewConfirmed !== true) throw new OrderError("INVALID_ORDER_REQUEST");
-  const layout = object(b.beadLayout); keys(layout,["squareCount","beads"]);
+    || b.previewConfirmed !== true || !Number.isInteger(b.quantity) || Number(b.quantity)<1 || Number(b.quantity)>10) throw new OrderError("INVALID_ORDER_REQUEST");
+  const layout = object(b.beadLayout);
+  if(b.productKind==="necklace"){
+    keys(layout,["moonCount","roundCount"]);
+    if(layout.moonCount!==1 || layout.roundCount!==2 || Object.hasOwn(b,"photoProductionConsent") || Object.hasOwn(b,"photoBrandUseConsent")) throw new OrderError("INVALID_ORDER_REQUEST");
+    return {productSlug:b.productSlug,productKind:"necklace",color:b.color as OrderItemInput["color"],lengthCm:b.lengthCm,
+      quantity:Number(b.quantity),beadLayout:{moonCount:1,roundCount:2},previewConfirmed:true};
+  }
+  keys(layout,["squareCount","beads"]);
   if (layout.squareCount !== 7 || !Array.isArray(layout.beads) || layout.beads.length !== 7) throw new OrderError("INVALID_ORDER_REQUEST");
   const beads = layout.beads.map(value => {
     const slot = object(value); keys(slot,["index","photoAssetId"]);
@@ -67,13 +74,20 @@ export function parseOrderInput(value: unknown): OrderInput {
   const production = Object.hasOwn(b,"photoProductionConsent") ? consent(b.photoProductionConsent) : undefined;
   const brand = Object.hasOwn(b,"photoBrandUseConsent") ? consent(b.photoBrandUseConsent) : undefined;
   if ((hasPhotos && !production?.accepted) || (!hasPhotos && (production || brand))) throw new OrderError("INVALID_ORDER_REQUEST");
-  return { productSlug: b.productSlug, productKind: b.productKind as OrderInput["productKind"], color: b.color as OrderInput["color"],
-    lengthCm: b.lengthCm, beadLayout:{squareCount:7,beads}, previewConfirmed:true,
+  return { productSlug: b.productSlug, productKind: b.productKind as OrderItemInput["productKind"], color: b.color as OrderItemInput["color"],
+    lengthCm: b.lengthCm, quantity:Number(b.quantity), beadLayout:{squareCount:7,beads}, previewConfirmed:true,
     ...(production ? {photoProductionConsent:production}:{}), ...(brand ? {photoBrandUseConsent:brand}:{}) };
 }
-export function validateOrderPolicies(input: OrderInput) {
-  for (const type of Object.keys(DEMO_ORDER_POLICIES) as (keyof typeof DEMO_ORDER_POLICIES)[]) {
-    if (input[type] && input[type].policyVersion !== DEMO_ORDER_POLICIES[type].version) throw new OrderError("ORDER_POLICY_MISMATCH");
+export function parseOrderInput(value:unknown):OrderInput {
+  const root=object(value);keys(root,["items"]);
+  if(!Array.isArray(root.items) || root.items.length<1 || root.items.length>20)throw new OrderError("INVALID_ORDER_REQUEST");
+  const items=root.items.map(parseOrderItem);
+  if(items.reduce((total,item)=>total+item.quantity,0)>100)throw new OrderError("INVALID_ORDER_REQUEST");
+  return {items};
+}
+export function validateOrderPolicies(input:OrderInput){
+  for(const item of input.items)for(const type of Object.keys(DEMO_ORDER_POLICIES) as (keyof typeof DEMO_ORDER_POLICIES)[]){
+    if(item[type] && item[type].policyVersion!==DEMO_ORDER_POLICIES[type].version)throw new OrderError("ORDER_POLICY_MISMATCH");
   }
 }
 export const payloadHash = (input: OrderInput) => createHash("sha256").update(JSON.stringify(input)).digest("hex");

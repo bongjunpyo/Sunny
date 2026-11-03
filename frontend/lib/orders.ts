@@ -23,16 +23,21 @@ async function request(path:string,body?:OrderInput,key?:string){
   return data;
 }
 function isSummary(value:unknown):value is OrderSummary {
-  const v=value as Partial<OrderSummary>|null;
-  return !!v && typeof v.orderId==="string" && uuid.test(v.orderId) && v.status==="REQUESTED" && v.mode==="DEMO"
-    && typeof v.productName==="string" && ["bracelet","necklace"].includes(v.productKind??"") && typeof v.createdAt==="string"
-    && ["red","orange","blue","yellow","violet"].includes(v.color??"") && typeof v.lengthCm==="number";
+ const v=value as Partial<OrderSummary>|null;
+ if(!v||typeof v.orderId!=="string"||!uuid.test(v.orderId)||v.status!=="REQUESTED"||v.mode!=="DEMO"||typeof v.createdAt!=="string"
+  ||!Array.isArray(v.items)||v.items.length<1||v.items.length>20||v.itemCount!==v.items.length)return false;
+ return v.items.every(i=>typeof i.itemId==="string"&&uuid.test(i.itemId)&&typeof i.productName==="string"&&["bracelet","necklace"].includes(i.productKind)
+  &&["red","orange","blue","yellow","violet"].includes(i.color)&&Number.isInteger(i.quantity)&&i.quantity>=1&&i.quantity<=10&&Number.isInteger(i.photoCount))
+  &&v.totalQuantity===v.items.reduce((n,i)=>n+i.quantity,0)&&v.photoCount===v.items.reduce((n,i)=>n+i.photoCount,0);
 }
 function isDetail(value:unknown):value is OrderDetail {
-  if(!isSummary(value))return false;const d=value as OrderDetail;
-  return d.beadLayout?.squareCount===7 && Array.isArray(d.beadLayout.beads) && d.beadLayout.beads.length===7
-    && d.beadLayout.beads.every((b,i)=>b.index===i && (b.photoAssetId===null || (typeof b.photoAssetId==="string"&&uuid.test(b.photoAssetId))))
-    && !!d.consents && typeof d.previewConfirmedAt==="string";
+ if(!isSummary(value))return false;
+ return (value as OrderDetail).items.every(i=>{
+  const layout=i.beadLayout;
+  if(!layout||!Array.isArray(layout.beads)||!i.consents||typeof i.previewConfirmedAt!=="string")return false;
+  if("squareCount" in layout)return layout.squareCount===7&&layout.beads.length===7&&layout.beads.every((b,n)=>b.index===n&&(b.photoAssetId===null||uuid.test(b.photoAssetId)));
+  return layout.moonCount===1&&layout.roundCount===2&&layout.beads.length===3&&layout.beads.every((b,n)=>b.index===n&&b.shape===(n===1?"moon":"round")&&b.photoAssetId===null);
+ });
 }
 export async function submitOrderRequest(input:OrderInput,key:string):Promise<OrderCreated>{
   if(!uuid.test(key))throw new OrderClientError("INVALID_ORDER_REQUEST");
