@@ -174,7 +174,6 @@ python3 backend/postgres/manage.py up
 PR #81의 병합 전 0001·초기화 보완은 새 빈 DB에서 검증한다. 예전 0001을 이미 적용한 DB는 checksum이 달라
 자동 재적용되지 않으며 init 스크립트도 다시 실행되지 않는다. 이력을 직접 고치거나 기존 볼륨을 삭제하지 않는다.
 데이터가 있으면 보존·백업을 우선하고, 팀장과 별도의 이관 절차를 정한 뒤 적용한다.
-기존 인증·사진 데이터가 있는 개발 DB의 검증된 보존 이관은 [`postgres/foundation-upgrade.md`](postgres/foundation-upgrade.md)를 따른다.
 
 ## 인증 DB·서버 — #90
 
