@@ -1,19 +1,5 @@
-import type { Metadata } from "next";
-import { AccountView } from "../../components/auth/AccountView.tsx";
-import { Header } from "../../components/common/Header.tsx";
-import { Footer } from "../../components/common/Footer.tsx";
-import styles from "./page.module.css";
-
-export const metadata: Metadata = { title: "SUNNY — 마이페이지" };
-
-export default function AccountPage() {
-  return (
-    <>
-      <Header dark={false} />
-      <main className={styles.page}>
-        <AccountView />
-      </main>
-      <Footer />
-    </>
-  );
-}
+import { Header } from "../../components/common/Header";
+import { Footer } from "../../components/common/Footer";
+import { Account } from "../../components/site/Account";
+export const metadata = { title: "SUNNY — 내 기록" };
+export default function Page() { return <><Header /><main id="main"><Account /></main><Footer /></>; }
