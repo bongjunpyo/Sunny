@@ -116,14 +116,13 @@ DBeaver Create Table/컬럼 편집으로 schema를 변경하지 않는다.
 
 `postgres/migrations/0001_database_foundation.sql`은 schema·이력 table·권한을 만든다.
 다음 SQL 파일은 0002부터 연속 순번을 쓰며, 적용한 파일을 고치거나 이름을 바꾸지 않는다.
-SQL 파일에 psql 메타 명령이나 트랜잭션 제어(BEGIN/START/COMMIT/END/ROLLBACK/ABORT/PREPARE TRANSACTION)를 쓰지 않는다.
-runner는 SQL 문자열·식별자·달러 본문·주석을 제외한 영역을 검사하고 파일별 트랜잭션을 소유한다.
+SQL 파일의 psql 메타 명령과 트랜잭션 종료/시작은 거부한다. PostgreSQL과 같은 비ASCII 식별자·달러 태그 경계로 검사하며, SQL 함수의 `BEGIN ATOMIC … END`와 `ROLLBACK [WORK|TRANSACTION] TO [SAVEPOINT]`는 허용한다. runner가 파일별 트랜잭션을 소유한다.
 같은 psql 세션의 advisory lock 안에서 이력/checksum을 확인하고 DDL과 이력을 함께 commit한다.
 동일 파일의 재실행은 skip이며 이력 변조·누락·순번 불일치는 실패한다.
 0001은 schema를 만드는 관리자 기반 migration이다. 0002 이후에는 runner가 `SET LOCAL ROLE sunny_owner`를 적용해
 table·sequence·function을 소유 역할로 생성한다. 파일마다 역할·검색 경로를 초기화한다.
 함수의 PUBLIC EXECUTE 기본 권한은 schema별이 아닌 전역에서 회수한다. runtime 함수 실행은 후속 migration이 명시적으로 부여한다.
-`check`는 객체 소유자·전역 함수 기본 권한·비밀번호 인증·타 DB 접속 거부까지 검증한다.
+`check`는 domain·enum 등 독립 타입을 포함한 객체 소유자·전역 함수 기본 권한·비밀번호 인증·타 DB 접속 거부까지 검증한다. 직접 역할 전환은 별도 정적 차단하지 않으며, 이로 인한 잘못된 소유자는 적용 후 `check`에서 탐지한다.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -Werror -m unittest discover -s backend/postgres/tests -v
