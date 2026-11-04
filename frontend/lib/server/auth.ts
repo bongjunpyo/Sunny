@@ -2,7 +2,7 @@ import "server-only";
 import { createAuth, type SunnyAuth } from "./auth-core.ts";
 import { createRuntimePool, verifyRuntimePool } from "./postgres.ts";
 import { kakaoOptions } from "./auth-kakao.ts";
-import { sendVerificationEmail } from "./auth-email.ts";
+import { sendPasswordResetEmail } from "./auth-email.ts";
 
 let pending: Promise<SunnyAuth> | undefined;
 export async function getAuth(): Promise<SunnyAuth> {
@@ -18,7 +18,7 @@ export async function getAuth(): Promise<SunnyAuth> {
       pool.on("error", () => { /* Do not log connection credentials or SQL parameters. */ });
       try {
         await verifyRuntimePool(pool, "sunny_auth");
-        return createAuth(pool, { baseURL: BETTER_AUTH_URL, secret: BETTER_AUTH_SECRET, mailer: sendVerificationEmail, kakao: kakaoOptions() });
+        return createAuth(pool, { baseURL: BETTER_AUTH_URL, secret: BETTER_AUTH_SECRET, resetMailer: sendPasswordResetEmail, kakao: kakaoOptions() });
       } catch (error) { await pool.end(); throw error; }
     })().catch((error: unknown) => { pending = undefined; throw error; });
   }

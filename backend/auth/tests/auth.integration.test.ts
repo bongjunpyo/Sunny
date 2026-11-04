@@ -54,18 +54,10 @@ function assertPrivate(value:unknown) {
 async function signup(suffix:string, cookie?:string) {
   const email=`${prefix}-${suffix}@example.invalid`;
   const result=await call("sign-up/email", {name:"TestMember",email,password}, cookie);
-  assert.equal(result.status,200); assert.deepEqual(await result.json(),{verificationPending:true,message:"메일함에서 인증을 마쳐 주세요."});
+  assert.equal(result.status,200); assert.deepEqual(await result.json(),{registered:true,message:"가입을 완료했습니다. 로그인해 주세요."});
   const found=await admin.query('SELECT id FROM auth."user" WHERE email=$1',[email]);
   ids.add(found.rows[0].id);
   return {email,id:found.rows[0].id};
-}
-async function verify(email:string) {
-  const sent=mail.find(m=>m.email===email); assert.ok(sent,"Verification mail was not awaited");
-  const target=new URL(sent.url);
-  const response=await handleAuth(new Request(target),auth,{baseURL,emailReady:true});
-  assert.equal(response.status,303,"Verification failed");
-  assert.equal(new URL(response.headers.get("location")!).searchParams.get("auth"),"email-verified");
-  assert.equal(response.headers.getSetCookie().length,0,"Verification must not auto-login");
 }
 
 test("schema matches UUID model and both runtime roles reject privilege escalation", async()=>{
@@ -83,12 +75,13 @@ test("schema matches UUID model and both runtime roles reject privilege escalati
   for (const statement of ['CREATE TABLE auth.auth_probe(id int)','SELECT * FROM sunny_meta.schema_migrations','SET ROLE sunny_owner']) await assert.rejects(pool.query(statement));
 });
 
-test("unverified signup is sessionless; verified member can log in, fetch DB session, and log out",async()=>{
+test("signup needs no mail, stays honestly unverified and can log in, fetch session, and log out",async()=>{
   const member=await signup("member");
   assert.equal(await (await call("get-session")).json(),null);
   const denied=await call("sign-in/email",{email:member.email,password});
-  assert.equal(denied.status,403); assert.equal((await denied.json()).error.code,"EMAIL_NOT_VERIFIED");
-  await verify(member.email);
+  assert.equal(denied.status,200);
+  assert.equal((await admin.query('SELECT "emailVerified" FROM auth."user" WHERE id=$1',[member.id])).rows[0].emailVerified,false);
+  assert.equal(mail.length,0);
   const wrong=await call("sign-in/email",{email:member.email,password:"Wrong-synthetic-password!"}); assert.equal(wrong.status,401);
   const login=await call("sign-in/email",{email:member.email,password}); assert.equal(login.status,200);
   assert.equal(login.headers.get("cache-control"),"no-store");
@@ -106,8 +99,7 @@ test("guest UUID/session is reused; member login preserves guest identity withou
   const dto=await guest.json(); ids.add(dto.user.id); assertPrivate(dto); assert.equal(dto.user.isAnonymous,true); assert.equal(dto.user.email,undefined);
   assert.match(dto.user.id,/^[a-f0-9-]{36}$/); const cookie=jar(guest);
   const again=await call("sign-in/anonymous",{},cookie); assert.equal((await again.json()).user.id,dto.user.id);
-  const member=await signup("from-guest",cookie); await verify(member.email);
-  const login=await call("sign-in/email",{email:member.email,password},cookie); assert.equal(login.status,200);
+  const member=await signup("from-guest",cookie); const login=await call("sign-in/email",{email:member.email,password},cookie); assert.equal(login.status,200);
   const logged=await login.json(); assert.notEqual(logged.user.id,dto.user.id);
   assert.equal((await admin.query('SELECT "isAnonymous" FROM auth."user" WHERE id=$1',[dto.user.id])).rows[0].isAnonymous,true);
   const blocked=await call("sign-in/anonymous",{},jar(login)); assert.equal(blocked.status,409);
@@ -138,29 +130,13 @@ test("native login throttling exposes a bounded Retry-After and safe error",asyn
   assert.equal(limited.headers.get("cache-control"),"no-store");
 });
 
-test("verification delivery failure stays sessionless and returns a private-safe 503",async()=>{
-  const email=`${prefix}-mail-failure@example.invalid`;
-  const failing=createAuth(pool,{baseURL,secret:randomBytes(48).toString("base64url"),
-    mailer:async()=>{throw new Error("SYNTHETIC_PRIVATE_PROVIDER_ERROR");}});
-  const send=()=>handleAuth(new Request(`${baseURL}/api/auth/sign-up/email`,{method:"POST",
-    headers:{origin:baseURL,"content-type":"application/json","x-forwarded-for":"198.51.100.93"},
-    body:JSON.stringify({name:"MailFailure",email,password})}),failing,{baseURL,emailReady:true});
-  let response:Response;
-  try { [response]=await Promise.all([send(),signup("mail-parallel")]); }
-  finally {
-    const found=await admin.query('SELECT id FROM auth."user" WHERE email=$1',[email]);
-    if(found.rows[0]) ids.add(found.rows[0].id);
-  }
-  assert.equal(response.status,503);
-  const text=await response.text(); assert.equal(text.includes("SYNTHETIC_PRIVATE_PROVIDER_ERROR"),false);
-  assert.equal(JSON.parse(text).error.code,"AUTH_EMAIL_UNAVAILABLE");
-  assert.equal(response.headers.getSetCookie().length,0);
-  const state=await admin.query('SELECT "emailVerified",(SELECT count(*)::int FROM auth.session s WHERE s."userId"=u.id) AS sessions FROM auth."user" u WHERE email=$1',[email]);
-  if(state.rows[0]) {assert.equal(state.rows[0].emailVerified,false);assert.equal(state.rows[0].sessions,0);}
-  const resend=await handleAuth(new Request(`${baseURL}/api/auth/send-verification-email`,{method:"POST",
-    headers:{origin:baseURL,"content-type":"application/json","x-forwarded-for":"198.51.100.94"},
-    body:JSON.stringify({email})}),failing,{baseURL,emailReady:true});
-  assert.equal(resend.status,503); assert.equal((await resend.json()).error.code,"AUTH_EMAIL_UNAVAILABLE");
+test("signup and login work without a mail provider and never call the old signup mailer",async()=>{
+  const email=`${prefix}-no-mail@example.invalid`; let calls=0;
+  const standalone=createAuth(pool,{baseURL,secret:randomBytes(48).toString("base64url"),mailer:async()=>{calls++;throw new Error("NOT_CALLED");}});
+  const response=await handleAuth(new Request(`${baseURL}/api/auth/sign-up/email`,{method:"POST",headers:{origin:baseURL,"content-type":"application/json"},body:JSON.stringify({name:"NoMail",email,password})}),standalone,{baseURL,emailReady:false});
+  assert.equal(response.status,200); assert.equal(response.headers.getSetCookie().length,0); assert.equal(calls,0);
+  const user=(await admin.query('SELECT id,"emailVerified" FROM auth."user" WHERE email=$1',[email])).rows[0];ids.add(user.id);assert.equal(user.emailVerified,false);
+  assert.equal((await call("sign-in/email",{email,password},undefined,{emailReady:false})).status,200);
 });
 
 test("only explicit auth paths and methods are advertised",async()=>{
@@ -177,14 +153,13 @@ test("DB-revoked/expired sessions and forged cookies are rejected",async()=>{
   assert.equal(await (await call("get-session",undefined,"sunny.session_token=forged")).json(),null);
 });
 
-test("origin, mass assignment, native token/delete endpoints, and unconfigured mail are blocked",async()=>{
+test("origin, mass assignment, native token/delete and retired verification endpoints are blocked",async()=>{
   assert.equal((await call("sign-in/anonymous",{},undefined,{origin:"https://evil.example.invalid"})).status,403);
   assert.equal((await call("sign-in/anonymous",{ownerId:randomUUID()})).status,400);
   assert.equal((await call("delete-anonymous-user",{})).status,404);
   assert.equal((await call("token")).status,404);
-  assert.equal((await call("verify-email?token=EXAMPLE&callbackURL=https://evil.example.invalid")).status,303);
-  assert.equal((await call("sign-up/email",{name:"Synthetic",email:`${prefix}-disabled@example.invalid`,password},undefined,{emailReady:false})).status,503);
-  assert.equal((await admin.query('SELECT count(*)::int AS n FROM auth."user" WHERE email=$1',[`${prefix}-disabled@example.invalid`])).rows[0].n,0);
+  assert.equal((await call("verify-email?token=EXAMPLE&callbackURL=https://evil.example.invalid")).status,404);
+  assert.equal((await call("request-password-reset",{email:`${prefix}-disabled@example.invalid`},undefined,{emailReady:false})).status,503);
 });
 
 test("same app pool client uses transaction-local identity and clears it after commit/rollback",async()=>{
@@ -206,10 +181,10 @@ test("installed adapter reports no missing tables, columns, or unsafe type diffe
   assert.deepEqual(migration.unsafeChanges,[]); assert.deepEqual(migration.schemaProblems,[]);
 });
 
-test("signup/resend does not expose whether an email already exists",async()=>{
+test("duplicate signup keeps the same public result without changing the original credential",async()=>{
   const member=await signup("duplicate");
   const first=await call("sign-up/email",{name:"TestMember",email:member.email,password});
-  assert.equal(first.status,200); assert.equal((await first.json()).verificationPending,true);
+  assert.equal(first.status,200); assert.equal((await first.json()).registered,true);
   const existing=await call("send-verification-email",{email:member.email});
   const missing=await call("send-verification-email",{email:`${prefix}-missing@example.invalid`});
   assert.equal(existing.status,missing.status); assert.deepEqual(await existing.json(),await missing.json());
@@ -225,25 +200,8 @@ test("HTTPS base URL issues Secure HttpOnly cookies without exposing guest token
 });
 
 
-test("encoded HTML-preview query verifies the original signed token and strips it from the redirect", async () => {
-  const member = await signup("encoded");
-  const { createEmailVerificationToken } = await import(require.resolve("better-auth/api"));
-  const expired = await createEmailVerificationToken((await auth.$context).secret, member.email, undefined, -60);
-  const expiredURL = new URL(`${baseURL}/api/auth/verify-email`); expiredURL.searchParams.set("token",expired);
-  const expiredResponse = await handleAuth(new Request(expiredURL), auth, {baseURL,emailReady:true});
-  assert.equal(expiredResponse.headers.get("location"),`${baseURL}/login?auth=verification-expired`);
-  assert.equal((await admin.query('SELECT "emailVerified" FROM auth."user" WHERE id=$1',[member.id])).rows[0].emailVerified,false);
-  const sent = mail.find(message => message.email === member.email)!;
-  const original = new URL(sent.url); original.searchParams.set("callbackURL", "/login");
-  const broken = new URL(original); broken.search = encodeURIComponent(original.search.slice(1).replaceAll("&", "&amp;"));
-  const response = await handleAuth(new Request(broken), auth, {baseURL, emailReady:true});
-  assert.equal(response.status,303);
-  assert.equal(response.headers.get("location"), `${baseURL}/login?auth=email-verified`);
-  assert.equal(response.headers.getSetCookie().length,0);
-  assert.equal((await admin.query('SELECT "emailVerified" FROM auth."user" WHERE id=$1',[member.id])).rows[0].emailVerified,true);
-  const token = original.searchParams.get("token")!;
-  const parts=token.split("."); parts[2]=(parts[2].startsWith("x")?"y":"x")+parts[2].slice(1);
-  original.searchParams.set("token",parts.join("."));
-  const denied=await handleAuth(new Request(original),auth,{baseURL,emailReady:true});
-  assert.equal(denied.headers.get("location"),`${baseURL}/login?auth=verification-invalid`);
+test("retired signup verification paths cannot mark a user verified or issue a session", async () => {
+ const user=await signup("retired");
+ for(const path of ["verify-email?token=synthetic-only","send-verification-email"]){const result=await call(path,path.includes("?")?undefined:{email:user.email});assert.equal(result.status,404);assert.equal(result.headers.getSetCookie().length,0);}
+ assert.equal((await admin.query('SELECT "emailVerified" FROM auth."user" WHERE id=$1',[user.id])).rows[0].emailVerified,false);
 });

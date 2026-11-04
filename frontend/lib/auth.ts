@@ -18,6 +18,8 @@ const messages: Record<string, string> = {
   AUTH_EMAIL_UNAVAILABLE: "인증 메일을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요.",
   AUTH_SERVICE_UNAVAILABLE: "인증 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
   ORIGIN_NOT_ALLOWED: "현재 사이트 주소에서는 인증할 수 없습니다. 안내받은 주소로 접속해 주세요.",
+  INVALID_TOKEN: "재설정 링크가 만료됐거나 이미 사용됐습니다. 재설정 메일을 다시 받아 주세요.",
+  INVALID_PASSWORD: "비밀번호는 8~128자이며 영문과 숫자를 함께 입력해 주세요.",
 };
 async function request(path: string, body?: Record<string, unknown>) {
   const response = await fetch(`/api/auth/${path}`, {
@@ -53,13 +55,19 @@ export async function signIn(email: string, password: string): Promise<Member> {
   if (!result) throw new AuthError("INVALID_AUTH_RESPONSE", "회원 정보를 확인하지 못했습니다.");
   changed(); return result;
 }
-export async function signUp(email: string, nickname: string, password: string): Promise<{ verificationPending: true; verificationDelivery?: "local" }> {
+export async function signUp(email: string, nickname: string, password: string): Promise<{ registered: true }> {
   const result = await request("sign-up/email", { email: email.trim(), name: nickname.trim(), password });
-  if (result?.verificationPending !== true) throw new AuthError("INVALID_AUTH_RESPONSE", "가입 결과를 확인하지 못했습니다.");
-  return { verificationPending: true, ...(result.verificationDelivery === "local" ? { verificationDelivery: "local" as const } : {}) };
+  if (result?.registered !== true) throw new AuthError("INVALID_AUTH_RESPONSE", "가입 결과를 확인하지 못했습니다.");
+  return { registered: true };
 }
-export async function resendVerification(email: string): Promise<void> {
-  await request("send-verification-email", { email: email.trim() });
+export async function requestPasswordReset(email: string): Promise<void> {
+  const data = await request("request-password-reset", { email: email.trim() });
+  if (typeof data?.message !== "string") throw new AuthError("INVALID_AUTH_RESPONSE", "재설정 요청 결과를 확인하지 못했습니다.");
+}
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const data = await request("reset-password", { token, newPassword });
+  if (data?.success !== true) throw new AuthError("INVALID_AUTH_RESPONSE", "비밀번호 변경 결과를 확인하지 못했습니다.");
+  changed();
 }
 export async function signOut(): Promise<void> {
   await request("sign-out", {}); changed();

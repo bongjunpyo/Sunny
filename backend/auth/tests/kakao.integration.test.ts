@@ -100,18 +100,20 @@ test("valid Kakao callback creates UUID member + encrypted provider account + co
  assert.equal((await (await call("get-session",undefined,cookie(second))).json()).user.id,id);
  await call("sign-out",{},cookie(second)); assert.equal(await (await call("get-session",undefined,cookie(second))).json(),null);
 });
-test("missing email is rejected; unverified email stays sessionless until email verification",async t=>{
+test("missing email is rejected; unverified provider email stays sessionless until Kakao verifies it",async t=>{
  const missing=mockProvider(t,{id:randomInt(100000000,2000000000),kakao_account:{profile:{nickname:"NoEmail"}}});
  const first=await begin(); const denied=await call(`callback/kakao?code=${missing.code}&state=${first.state}`,undefined,first.jar);
  assert.equal(denied.headers.get("location"),`${baseURL}/login?auth=kakao-email-required`); missing.restore();
- const email=`${prefix}-unverified@example.invalid`; const remote=mockProvider(t,profile(email,false));
+ const email=`${prefix}-unverified@example.invalid`; const identity=profile(email,false); const remote=mockProvider(t,identity);
  const flow=await begin(); const response=await call(`callback/kakao?code=${remote.code}&state=${flow.state}`,undefined,flow.jar);
  const id=await track(email); assert.ok(id);
  assert.equal(response.headers.get("location"),`${baseURL}/login?auth=kakao-email-unverified`);
  assert.equal((await admin.query('SELECT count(*)::int AS n FROM auth.session WHERE "userId"=$1',[id])).rows[0].n,0);
- assert.ok(mail.find(message=>message.email===email));
- const verification=await handleAuth(new Request(mail.find(message=>message.email===email)!.url),auth,{baseURL,emailReady:true,kakaoReady:true});
- assert.equal(verification.headers.get("location"),`${baseURL}/login?auth=email-verified`);
+ assert.equal(mail.length,0);
+ identity.kakao_account.is_email_verified=true;
+ const refresh=await begin(); await call(`callback/kakao?code=${remote.code}&state=${refresh.state}`,undefined,refresh.jar);
+ // 1.7.10 updates the DB before its in-memory user snapshot; the next login reads the verified DB user.
+ assert.equal((await admin.query('SELECT "emailVerified" FROM auth."user" WHERE id=$1',[id])).rows[0].emailVerified,true);
  const retry=await begin(); const logged=await call(`callback/kakao?code=${remote.code}&state=${retry.state}`,undefined,retry.jar);
  assert.equal(logged.headers.get("location"),`${baseURL}/account`);
 });
