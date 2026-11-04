@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { signUp, resendVerification, authErrorMessage } from "../../lib/auth.ts";
+import { signUp, authErrorMessage } from "../../lib/auth.ts";
 import {
   validateEmail,
   validateNickname,
@@ -20,8 +20,6 @@ export function SignupForm() {
   const [requiredTerms, setRequiredTerms] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [localMail, setLocalMail] = useState(false);
-  const [notice, setNotice] = useState("");
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [busy, setBusy] = useState(false);
   const legal = useTermsDialog();
@@ -40,10 +38,9 @@ export function SignupForm() {
     setBusy(true);
     setFormError(null);
     try {
-      const result = await signUp(email, nickname, password);
+      await signUp(email, nickname, password);
       setPassword("");
       setPending(true);
-      setLocalMail(result.verificationDelivery === "local");
     } catch (error) {
       setFormError(authErrorMessage(error));
     } finally {
@@ -53,18 +50,9 @@ export function SignupForm() {
 
   if (pending) return (
     <div>
-      <h2>이메일 인증을 완료해 주세요.</h2>
-      <p role="status">가입 요청을 접수했습니다. 인증 링크를 연 뒤 로그인해 주세요.</p>
-      {localMail ? <p>개발용 인증 메일은 이 컴퓨터의 비공개 메일 파일에 저장했습니다. 실제 이메일은 발송하지 않습니다.</p> : <p>메일함을 확인해 주세요.</p>}
-      {formError ? <p className={styles.formError} role="alert">{formError}</p> : null}
-      {notice ? <p role="status">{notice}</p> : null}
-      <button className={styles.ghost} type="button" disabled={busy} onClick={async () => {
-        setBusy(true); setFormError(null); setNotice("");
-        try { await resendVerification(email); setNotice("인증이 필요한 경우 인증 메일을 다시 준비했습니다."); }
-        catch (error) { setFormError(authErrorMessage(error)); }
-        finally { setBusy(false); }
-      }}>인증 메일 다시 받기</button>
-      <p className={styles.links}><Link href="/login">인증 후 로그인</Link></p>
+      <h2>가입을 완료했습니다.</h2>
+      <p role="status">가입한 이메일과 비밀번호로 로그인해 주세요. 비밀번호를 잊었다면 이메일로 재설정할 수 있습니다.</p>
+      <p className={styles.links}><Link href="/login">로그인하기</Link></p>
     </div>
   );
 

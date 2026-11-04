@@ -48,7 +48,11 @@ frontend/
 | `BETTER_AUTH_SECRET` | X | Better Auth | 32자 이상 고엔트로피 세션 서명 비밀값 |
 | `BETTER_AUTH_URL` | X | Better Auth / Origin 검사 | 앱의 고정 origin. 로컬 기본 http://localhost:3000 |
 | `RESEND_API_KEY` | X | 인증 메일 발송 | Resend 서버 API 키 |
-| `AUTH_EMAIL_FROM` | X | 인증 메일 발송 | 검증된 팀 도메인의 인증 발신자 |
+| `AUTH_EMAIL_FROM` | X | 인증 메일 발송 | 메일 제공자가 허용한 팀 발신자. 예: Sunny <team@example.com> |
+| `SMTP_HOST` | X | 인증 SMTP | 제공자의 SMTP 호스트명 (URL이 아닌 호스트) |
+| `SMTP_PORT` | X | 인증 SMTP | 기본 587(STARTTLS 필수), 465는 연결부터 TLS |
+| `SMTP_USER` | X | 인증 SMTP | 팀 메일 SMTP 로그인 사용자 |
+| `SMTP_PASSWORD` | X | 인증 SMTP | 제공자가 발급한 SMTP/앱 비밀번호. 일반 계정 비밀번호와 구분 |
 | `KAKAO_ENABLED` | X | 카카오 로그인 | true + 두 키가 있을 때만 활성화 |
 | `KAKAO_CLIENT_ID` | X | 카카오 로그인 | 카카오 앱 REST API 키, 서버 전용 |
 | `KAKAO_CLIENT_SECRET` | X | 카카오 로그인 | 카카오 앱 Client Secret, 서버 전용 |
@@ -197,7 +201,8 @@ AUTH_DATABASE_URL은 sunny_auth, DATABASE_URL은 sunny_app만 사용한다. 관�
 `localhost`와 `127.0.0.1`은 다른 Origin이므로 브라우저 주소와 BETTER_AUTH_URL을 맞춘다.
 
 인증 API·DTO·오류·개발 정책의 정본은 [CONTRACT_API.md 인증 절](../docs/CONTRACT_API.md#인증-계약--pr-92)이다.
-구현 근거와 검증 범위는 [auth-contract.md](auth-contract.md)를 본다.
+구현 근거와 검증 범위 및 #114 새 사용자 요구에 따른 정본과의 차이는 [auth-contract.md](auth-contract.md)를 본다.
+현재 브랜치는 로컬 변경이며 #111/#112의 기존 팀장 결정 및 운영 계약을 대체하지 않는다.
 로그인/가입 화면과 lib/auth.ts는 인증 API에 연결한다. 상품/CMS의 NEXT_PUBLIC_API_MODE와 무관하며
 브라우저 localStorage의 기존 mock 회원 값은 읽거나 자동 이관하지 않는다. 이전에 화면 시안에서 가입했다면 다시 가입한다.
 
@@ -216,25 +221,59 @@ Better Auth의 읽기 전용 migration 대조는 `schemaName=auth`를 명시한�
 목표로 추정하는 CLI 기본값은 `pg_catalog` 우선인 런타임 연결에 사용하지 않으며, 반환된 DDL을 실행하지 않는다.
 게스트 재사용 시 갱신 쿠키, 실제 native 429의 Retry-After, 메일 장애 503과 동시 요청 격리도 검증한다.
 
-실제 발송에는 RESEND_API_KEY와 검증된 AUTH_EMAIL_FROM이 필요하다. 둘 다 없고 로컬 개발 메일도
-켜지지 않았다면 가입/재발송은 DB 변경 전 503이다. 로컬 개발은 frontend/.env.local에 아래를 명시한 후
-개발 서버를 재시작한다. prepare-local은 메일 방식을 임의로 선택하지 않는다.
-발송 도중 실패해도 가입 완료로 응답하지 않는다. 계정이 인증 대기로 남았다면 발송 복구 후 재발송한다.
+실제 발송은 아래 SMTP 설정 또는 기존 RESEND_API_KEY + AUTH_EMAIL_FROM으로 연결한다. 설정이 없고 로컬 개발 메일도
+켜지지 않았다면 비밀번호 재설정 메일 요청은 503이다. 가입과 로그인은 메일 설정 없이 가능하다. 설정 후 개발 서버를 재시작한다.
+prepare-local은 메일 방식을 임의로 선택하지 않는다.
+발송 도중 실패하면 재설정 요청을 성공으로 응답하지 않는다. 발송 복구 후 비밀번호 재설정을 다시 요청한다.
+
+### 로컬 비밀번호 재설정 SMTP — #114
+
+팀 이메일을 만든 뒤 메일 제공자의 SMTP 사용을 허용하고 SMTP 전용/앱 비밀번호를 발급한다.
+실제 값은 `frontend/.env.local` 또는 승인된 Vercel 환경변수에만 입력한다. 채팅·이슈·Git에 비밀번호를 적지 않는다.
+아래는 입력 형태이며 실제 계정이 아니다. Google 등 특정 제공자에 종속되지 않는다.
+
+```dotenv
+AUTH_EMAIL_FROM="Sunny <team@example.com>"
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=team@example.com
+SMTP_PASSWORD=replace-with-provider-smtp-password
+AUTH_DEV_LOCAL_MAIL=false
+```
+
+발신 주소는 로그인 계정 또는 제공자가 허용한 별칭을 사용한다. 465는 implicit TLS,
+그 외 포트(기본 587)는 STARTTLS가 반드시 성공해야 인증·발송한다. 인증서 검증과 TLS 1.2 이상을 강제한다.
+연결·서버 인사·유휴 시간 제한은 각각 10초다. 제공자 원본 오류·주소·비밀번호·인증 링크는 로그에 남기지 않는다.
+이메일에는 새 비밀번호 설정 링크와 1시간·일회 사용 안내가 들어간다. SMTP 서버 수락은 실제 수신함 도착을 보장하지 않는다.
+
+명시적인 개발 파일 메일 → SMTP → 기존 Resend 순서다. SMTP 변수 중 하나라도 입력하면 SMTP 설정을 검사하며,
+불완전하거나 잘못된 설정은 재설정 메일 요청을 DB 변경 전 503으로 차단한다. SMTP 장애 때 다른 제공자로 자동 재발송하지 않는다.
+실제 수신을 시험하려면 `AUTH_DEV_LOCAL_MAIL=false`로 두고 서버를 재시작한다. 인증 활성화·DB·고정 origin은 기존 설정을 따른다.
+운영에서는 실제 HTTPS origin을 사용하며 기존 운영 활성화 조건은 그대로 적용한다.
+
+새 테스트 계정으로 가입(메일 없음) → 로그인 → 비밀번호 재설정 요청 → 메일 수신/스팸함 → 새 비밀번호 설정 → 옛 비밀번호 거부/새 비밀번호 로그인 → 기존 세션 폐기를 확인한다.
+팀 메일 계정 생성·실제 발송/수신·배포 환경 검증은 별도 수행해야 한다. 현재 구현 검증은 로컬 모의 SMTP와 합성 회원 기준이다.
+SMTP 검증은 `cd frontend && node --conditions=react-server --test ../backend/auth/tests/smtp-mail.test.ts`로 실행한다(Node 24·OpenSSL 필요).
+테스트가 만든 일회성 CA만 테스트 자식 프로세스에 신뢰시키며 시스템 인증서·실제 메일 계정·기존 DB는 변경하지 않는다.
+전송 옵션은 [Nodemailer SMTP 문서](https://nodemailer.com/smtp)를 따른다.
+
+### 개발용 파일 메일
+
+실제 SMTP 계정 없이 로컬 인증을 확인하려면 `frontend/.env.local`에 다음을 명시하고 서버를 재시작한다.
 
 ```dotenv
 AUTH_DEV_LOCAL_MAIL=true
 ```
 
 NODE_ENV=development이고 BETTER_AUTH_URL이 localhost/127.0.0.1/[::1]인 경우만 적용된다. 운영에서는
-이 옵션이 true여도 로컬 저장을 허용하지 않는다. 실제 발송 설정이 없으면 운영 가입은 계속 차단된다.
-`frontend/.sunny-auth-mail/`에 가입/재발송마다 HTML/txt 메일이 생성된다(디렉터리 700·파일 600, Git 제외).
-Finder에서 해당 폴더의 최신 HTML을 열고 **이메일 인증 완료하기**를 누르거나 txt의 원문 URL 한 줄을
-주소창에 붙여넣으면 된다. HTML 소스의 &amp; 문구를 주소창에 복사하지 않는다.
-잘못 인코딩된 token=... 쿼리는 정해진 형태만 한 번 복원하며 서명/만료는 그대로 검사한다.
-인증 후에는 토큰 없는 /login?auth=email-verified로 이동하며, 실패하면 재발송 안내를 표시한다.
-인증 링크 자체는 API JSON/터미널에 출력하지 않고 HTTP 메일함도 만들지 않는다. 파일을 공유하지 않는다.
-가입 직후 auth.user/emailVerified=false와 auth.account(비밀번호 해시)가 저장되며, 인증 후 별도 로그인해야
-auth.session이 생긴다. 약관은 현재 UI 확인만 하고 이력을 저장하지 않으며 선택 마케팅 동의는 비활성화했다.
+이 옵션이 true여도 로컬 저장을 허용하지 않는다. 실제 발송 설정이 없으면 재설정 메일 요청은 차단된다.
+`frontend/.sunny-auth-mail/`에 재설정 요청마다 HTML/txt가 생성된다(디렉터리 700·파일 600, Git 제외).
+최신 HTML의 **새 비밀번호 설정하기**를 누른다. 토큰은 URL fragment로 전달하여 서버 요청 로그에 넣지 않고,
+화면에서 읽은 직후 주소창에서도 제거한다. 링크가 만료됐거나 이미 사용됐으면 새 메일을 요청한다.
+비밀번호 변경 후 모든 기존 세션을 폐기하고 별도 로그인한다. 링크는 API JSON/터미널에 출력하지 않는다.
+가입 직후 auth.user/emailVerified=false와 auth.account(기존 scrypt)가 저장되고 메일 없이 별도 로그인할 수 있다.
+emailVerified를 일괄 true로 변경하지 않는다. 카카오가 검증한 이메일/소셜 계정의 경계는 유지한다.
+약관은 UI 확인만 하고 이력을 저장하지 않으며 선택 마케팅 동의는 비활성화했다.
 동의 버전·증빙 DB 수집은 별도 계약/migration이 필요하다.
 
 Next 개발 요청 로그는 /api/auth/를 제외한다. 운영 접근 로그도 인증 query를 마스킹해야 한다.

@@ -31,7 +31,7 @@ export const authNotices: Record<string, string> = {
   "verification-expired": "인증 링크가 만료됐습니다. 인증 메일을 다시 받아 주세요.",
   "kakao-cancelled": "카카오 로그인을 취소했습니다. 다시 시도할 수 있습니다.",
   "kakao-email-required": "카카오 이메일 제공에 동의해야 가입할 수 있습니다. 이메일을 받을 수 없으면 이메일 회원가입을 이용해 주세요.",
-  "kakao-email-unverified": "이메일 인증을 완료한 뒤 카카오로 다시 로그인해 주세요.",
+  "kakao-email-unverified": "카카오 계정에서 이메일 인증을 완료한 뒤 다시 로그인해 주세요.",
   "kakao-account-exists": "같은 이메일의 계정이 있습니다. 기존에 가입한 방법으로 로그인해 주세요. 계정은 자동 연결하지 않습니다.",
   "kakao-failed": "카카오 로그인을 완료하지 못했습니다. 처음부터 다시 시도해 주세요.",
 };
