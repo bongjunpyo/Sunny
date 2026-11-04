@@ -1,12 +1,13 @@
 import type { ProductKind, PhotochromicColor } from "./types.ts";
+export type OrderColor=PhotochromicColor|"mixed";
 export type OrderConsent={accepted:boolean;policyVersion:string};
 export type SquareLayout={squareCount:7;beads:{index:number;photoAssetId:string|null}[]};
 export type MoonLayout={moonCount:1;roundCount:2};
-export type OrderItemInput={productSlug:string;productKind:ProductKind;color:PhotochromicColor;lengthCm:number;quantity:number;
+export type OrderItemInput={productSlug:string;productKind:ProductKind;color:OrderColor;lengthCm:number;quantity:number;
   beadLayout:SquareLayout|MoonLayout;previewConfirmed:true;photoProductionConsent?:OrderConsent;photoBrandUseConsent?:OrderConsent};
 export type OrderInput={items:OrderItemInput[]};
 export type ConsentReceipt=OrderConsent&{acceptedAt:string|null;recordedAt:string};
-export type OrderItemSummary={itemId:string;productSlug:string;productKind:ProductKind;productName:string;color:PhotochromicColor;
+export type OrderItemSummary={itemId:string;productSlug:string;productKind:ProductKind;productName:string;color:OrderColor;
   lengthCm:number;quantity:number;photoCount:number};
 export type OrderItemDetail=OrderItemSummary&{previewConfirmedAt:string;
   beadLayout:SquareLayout|(MoonLayout&{beads:{index:number;shape:"moon"|"round";photoAssetId:null}[]});

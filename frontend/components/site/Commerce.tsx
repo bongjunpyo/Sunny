@@ -4,7 +4,7 @@ import {useEffect,useRef,useState} from "react";
 import {useRouter} from "next/navigation";
 import {useSite} from "./Provider";
 import {c,Intro,Art,TextLink} from "./ui";
-import {productInfo,palette,productHref} from "./data";
+import {productInfo,colorName,productHref} from "./data";
 import {getSessionIdentity,startGuestSession,AUTH_CHANGED_EVENT,authErrorMessage,type SessionIdentity} from "../../lib/auth.ts";
 import {readPhotoURL} from "../../lib/uploads.ts";
 import {toOrderInput,type CartItem} from "../../lib/cart.ts";
@@ -38,7 +38,7 @@ export function Cart(){
  {!ready?<p>구성을 불러오는 중입니다.</p>:!cart.length?<div className={c("empty-state")}><h2>아직 담긴 빛이 없어요.</h2><TextLink href="/collection">컬렉션 둘러보기</TextLink></div>:<>
   <div className={c("commerce-list")}>{cart.map((item,index)=><article key={item.id} className={c("cart-row")}>
    <div><Link href={productHref(item.kind)} aria-label={`${productInfo[item.kind].name} 상세`}><span className={c("small-copy")}>제품 보기 ↗</span></Link><PhotoArt item={item}/></div>
-   <div><h2>{productInfo[item.kind].name}</h2><p className={c("small-copy")}>{palette.find(p=>p.id===item.color)?.name} · {item.length}<br/>{item.kind==="necklace"?"달 1개 · 양옆 원형 2개":`사진 ${item.photoAssetIds.filter(Boolean).length}칸 · 네모 7칸`}</p>
+   <div><h2>{productInfo[item.kind].name}</h2><p className={c("small-copy")}>{colorName(item.color)} · {item.length}<br/>{item.kind==="necklace"?"달 1개 · 양옆 원형 2개":`사진 ${item.photoAssetIds.filter(Boolean).length}칸 · 네모 7칸`}</p>
     <label className={c("field")}>수량 · {productInfo[item.kind].name}<input type="number" min={1} max={10} value={item.quantity} disabled={checkoutBusy} onChange={e=>quantity(index,Number(e.target.value))}/></label>
     <button className={c("text-button")} disabled={checkoutBusy} onClick={()=>remove(index)}>구성 삭제</button>
    </div><span>시연용 구성</span>
@@ -62,7 +62,7 @@ export function Checkout(){
  <section className={c("section-pad")}><div className={c("qna-layout")}><div><h2>선택한 구성</h2>
  {!ready?<p>불러오는 중입니다.</p>:cart.length?cart.map(item=><article key={item.id} className={c("checkout-item")}>
   <PhotoArt item={item} onReady={value=>setPreviews(old=>old[item.id]===value?old:{...old,[item.id]:value})}/>
-  <h3>{productInfo[item.kind].name}</h3><p className={c("small-copy")}>{palette.find(p=>p.id===item.color)?.name} · {item.length} · {item.quantity}개<br/>{item.kind==="necklace"?"원형 – 달 – 원형":"네모 사진 비즈 7칸"}</p>
+  <h3>{productInfo[item.kind].name}</h3><p className={c("small-copy")}>{colorName(item.color)} · {item.length} · {item.quantity}개<br/>{item.kind==="necklace"?"원형 – 달 – 원형":"네모 사진 비즈 7칸"}</p>
  </article>):<div className={c("empty-state")}><p>장바구니가 비어 있습니다.</p><TextLink href="/collection">제품 고르기</TextLink></div>}
  <TextLink href="/cart">장바구니에서 수정하기</TextLink></div>
  <div className={c("qna-form")}><h2>주문 요청 확인</h2><p className={c("body-copy")}>시연용 요청입니다. 배송지와 결제 정보는 입력받지 않으며 실제 청구·제작·배송은 진행하지 않습니다.</p>

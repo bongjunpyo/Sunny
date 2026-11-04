@@ -33,3 +33,13 @@ test("list and detail require actual private API DTOs, and absent orders remain 
   t.mock.method(globalThis,"fetch",async()=>Response.json({error:{code:"ORDER_NOT_FOUND"}},{status:404}));
   await assert.rejects(getOrderRequest(id),OrderClientError);
 });
+
+test("mixed bracelet create/list/detail DTOs are accepted, mixed necklace is rejected",async t=>{
+ const mixed:OrderDetail={...order,items:[{...order.items[0],color:"mixed"}]};
+ t.mock.method(globalThis,"fetch",async(url:string)=>Response.json(url==="/api/orders"?{order:mixed,items:[mixed],nextCursor:null,nextPath:`/orders?submitted=${id}`,noticeCode:"DEMO_ORDER_REQUEST_APPROVED"}:{order:mixed}));
+ assert.equal((await submitOrderRequest({...input,items:[{...input.items[0],color:"mixed"}]},key)).order.items[0].color,"mixed");
+ assert.equal((await getOrderRequests()).items[0].items[0].color,"mixed");assert.equal((await getOrderRequest(id)).items[0].color,"mixed");
+ const invalid={...mixed,items:[{...mixed.items[0],productKind:"necklace"}]};
+ t.mock.method(globalThis,"fetch",async()=>Response.json({order:invalid,items:[invalid],nextCursor:null}));
+ await assert.rejects(getOrderRequest(id),OrderClientError);await assert.rejects(getOrderRequests(),OrderClientError);
+});

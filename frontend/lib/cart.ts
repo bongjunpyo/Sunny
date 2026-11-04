@@ -1,14 +1,14 @@
-import {LENGTH_OPTIONS,PHOTOCHROMIC_COLORS,type ProductKind,type PhotochromicColor} from "./types.ts";
+import {LENGTH_OPTIONS,PHOTOCHROMIC_COLORS,type ProductKind} from "./types.ts";
 import {DEMO_ORDER_POLICIES} from "./order-policy.ts";
-import type {OrderInput,OrderItemInput} from "./order-types.ts";
-export type CartItem={id:string;kind:ProductKind;color:PhotochromicColor;length:string;quantity:number;
+import type {OrderInput,OrderItemInput,OrderColor} from "./order-types.ts";
+export type CartItem={id:string;kind:ProductKind;color:OrderColor;length:string;quantity:number;
   photoAssetIds:(string|null)[];photoOwnerId:string|null};
 export type CartChoice={kind:ProductKind;color:string;length:string;photoAssetIds?:(string|null)[];photoOwnerId?:string|null};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function normalizeCart(value:unknown):CartItem[]{
  if(!Array.isArray(value)||value.length>20)throw new Error("장바구니를 다시 구성해 주세요.");
  const result=value.map(v=>{
-  if(!v||!["bracelet","necklace"].includes(v.kind)||!PHOTOCHROMIC_COLORS.includes(v.color)
+  if(!v||!["bracelet","necklace"].includes(v.kind)||!(PHOTOCHROMIC_COLORS.includes(v.color)||(v.kind==="bracelet"&&v.color==="mixed"))
    ||!LENGTH_OPTIONS[v.kind as ProductKind].includes(v.length)||!Number.isInteger(v.quantity)||v.quantity<1||v.quantity>10)
    throw new Error("장바구니의 제품·색·길이·수량을 다시 확인해 주세요.");
   const photos=v.photoAssetIds??(v.kind==="bracelet"?Array(7).fill(null):[]);

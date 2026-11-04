@@ -49,7 +49,7 @@ function consent(value: unknown): OrderConsent {
 function parseOrderItem(value: unknown): OrderItemInput {
   const b = object(value); keys(b,["productSlug","productKind","color","lengthCm","beadLayout","previewConfirmed","quantity"],Object.keys(DEMO_ORDER_POLICIES));
   if (typeof b.productSlug !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(b.productSlug) || b.productSlug.length>100
-    || !["bracelet","necklace"].includes(b.productKind as string) || !PHOTOCHROMIC_COLORS.includes(b.color as never)
+    || !["bracelet","necklace"].includes(b.productKind as string) || !(PHOTOCHROMIC_COLORS.includes(b.color as never)||(b.productKind==="bracelet"&&b.color==="mixed"))
     || typeof b.lengthCm !== "number" || !LENGTH_OPTIONS[b.productKind as "bracelet"|"necklace"].includes(`${b.lengthCm} cm`)
     || b.previewConfirmed !== true || !Number.isInteger(b.quantity) || Number(b.quantity)<1 || Number(b.quantity)>10) throw new OrderError("INVALID_ORDER_REQUEST");
   const layout = object(b.beadLayout);

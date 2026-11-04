@@ -27,7 +27,7 @@ function isSummary(value:unknown):value is OrderSummary {
  if(!v||typeof v.orderId!=="string"||!uuid.test(v.orderId)||v.status!=="REQUESTED"||v.mode!=="DEMO"||typeof v.createdAt!=="string"
   ||!Array.isArray(v.items)||v.items.length<1||v.items.length>20||v.itemCount!==v.items.length)return false;
  return v.items.every(i=>typeof i.itemId==="string"&&uuid.test(i.itemId)&&typeof i.productName==="string"&&["bracelet","necklace"].includes(i.productKind)
-  &&["red","orange","blue","yellow","violet"].includes(i.color)&&Number.isInteger(i.quantity)&&i.quantity>=1&&i.quantity<=10&&Number.isInteger(i.photoCount))
+  &&(["red","orange","blue","yellow","violet"].includes(i.color)||(i.productKind==="bracelet"&&i.color==="mixed"))&&Number.isInteger(i.quantity)&&i.quantity>=1&&i.quantity<=10&&Number.isInteger(i.photoCount))
   &&v.totalQuantity===v.items.reduce((n,i)=>n+i.quantity,0)&&v.photoCount===v.items.reduce((n,i)=>n+i.photoCount,0);
 }
 function isDetail(value:unknown):value is OrderDetail {

@@ -25,6 +25,8 @@ def main():
     with socket.socket() as port_socket:
         port_socket.bind(("127.0.0.1", 0))
         port = port_socket.getsockname()[1]
+    if port == 5434:
+        raise RuntimeError("Original development DB port refused")
     passwords = {role: secrets.token_urlsafe(32) for role in ("admin", "app", "auth")}
     docker_env = private / "postgres.env"
     docker_env.write_text("\n".join(["POSTGRES_DB=sunny", "POSTGRES_USER=sunny_admin",
@@ -55,23 +57,13 @@ def main():
             result=subprocess.run(["docker","exec","-i",name,"psql","-X","-qAt","-v","ON_ERROR_STOP=1","-U","sunny_admin","-d","sunny"],input=script.encode(),stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             if result.returncode:raise RuntimeError("Isolated migration failed: "+result.stderr.decode()[-2000:])
             return result.stdout.decode()
-        sql(db.migration_script(migrations[:4]))
-        sql('''BEGIN;
-INSERT INTO auth."user"(id,name,email,"emailVerified","isAnonymous") VALUES('11111111-1111-4111-8111-111111111111','LegacyTest','legacy-order@example.invalid',true,false);
-INSERT INTO app.orders(id,owner_id,product_slug,product_kind,product_name,catalog_source,color,length_cm,preview_confirmed,preview_confirmed_at,idempotency_key,request_payload_hash,created_at)
-VALUES('22222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111','light-study-01','bracelet','Legacy snapshot','DEMO_CATALOG','violet',18,true,'2026-11-03T00:00:00Z','33333333-3333-4333-8333-333333333333',repeat('a',64),'2026-11-03T00:00:00Z');
-INSERT INTO app.order_beads SELECT '22222222-2222-4222-8222-222222222222'::uuid,'11111111-1111-4111-8111-111111111111'::uuid,n,NULL FROM generate_series(0,6) n;
-COMMIT;''')
-        before=sql("SELECT to_jsonb(o) FROM app.orders o WHERE id='22222222-2222-4222-8222-222222222222';")
-        beads_before=sql("SELECT jsonb_agg(to_jsonb(b) ORDER BY slot_index) FROM app.order_beads b WHERE order_id='22222222-2222-4222-8222-222222222222';")
+        if [m.version for m in migrations] != [1,2,3,4]:
+            raise RuntimeError("Expected foundation/auth/photos and one initial cart migration")
         script=db.migration_script(migrations)
         for attempt in range(2):
             output=sql(script)
             print("Migration apply/re-run",attempt+1,":","; ".join(l for l in output.splitlines() if l.startswith(("applied ","skipped "))),flush=True)
-        after=sql("SELECT to_jsonb(o)-'checkout_id'-'item_position'-'quantity' FROM app.orders o WHERE id='22222222-2222-4222-8222-222222222222';")
-        beads_after=sql("SELECT jsonb_agg(to_jsonb(b)-'shape' ORDER BY slot_index) FROM app.order_beads b WHERE order_id='22222222-2222-4222-8222-222222222222';")
-        if before!=after or beads_before!=beads_after:raise RuntimeError("Legacy order values changed during 0005")
-        print("PASS: pre-0005 synthetic order and all seven slots preserved.",flush=True)
+        print("PASS: fresh 0001-0004 schema and checksum-preserving re-run.",flush=True)
         settings = "\n".join([f"SUNNY_PG_PORT={port}"] + [f"SUNNY_PG_{role.upper()}_PASSWORD={value}" for role,value in passwords.items()]) + "\n"
         with env_file.open("x") as handle:
             wrote_env = True

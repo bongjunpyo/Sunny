@@ -12,7 +12,7 @@ import { parseOrderInput, parseOrderPage, OrderError, payloadHash } from "../../
 import { orderDemoEnabled } from "../../../frontend/lib/server/orders/runtime.ts";
 import { DEMO_ORDER_POLICIES } from "../../../frontend/lib/order-policy.ts";
 import type { OrderInput, OrderItemInput } from "../../../frontend/lib/order-types.ts";
-import type { Product } from "../../../frontend/lib/types.ts";
+import { PHOTOCHROMIC_COLORS, type Product } from "../../../frontend/lib/types.ts";
 const require=createRequire(new URL("../../../frontend/package.json",import.meta.url));
 const {Pool}=require("pg");
 const base="http://localhost:4302";
@@ -20,7 +20,7 @@ type Who={id:string;cookie:string};
 let admin:InstanceType<typeof Pool>,app:ReturnType<typeof createRuntimePool>,authPool:ReturnType<typeof createRuntimePool>;
 let auth:ReturnType<typeof createAuth>,repo:ReturnType<typeof createOrderRepository>,alice:Who,bob:Who,member:Who;
 const mail:{email:string;url:string}[]=[],ids:string[]=[];
-const products:Product[]=[{slug:"light-study-01",kind:"bracelet",name:"Synthetic Bracelet",summary:"",story:[],colors:["violet","blue"],status:"planning"},{slug:"light-study-02",kind:"necklace",name:"Synthetic Necklace",summary:"",story:[],colors:["violet","blue"],status:"planning"}];
+const products:Product[]=[{slug:"light-study-01",kind:"bracelet",name:"Synthetic Bracelet",summary:"",story:[],colors:[...PHOTOCHROMIC_COLORS],status:"planning"},{slug:"light-study-02",kind:"necklace",name:"Synthetic Necklace",summary:"",story:[],colors:[...PHOTOCHROMIC_COLORS],status:"planning"}];
 function item(photo:string|null=null):OrderItemInput {return {productSlug:"light-study-01",productKind:"bracelet",color:"violet",lengthCm:18,quantity:1,
   beadLayout:{squareCount:7,beads:Array.from({length:7},(_,index)=>({index,photoAssetId:index<2?photo:null}))},previewConfirmed:true,
   ...(photo?{photoProductionConsent:{accepted:true,policyVersion:DEMO_ORDER_POLICIES.photoProductionConsent.version},
@@ -47,6 +47,16 @@ async function photo(owner:string,status="verified"){
     clock_timestamp()+interval '20m',$5,$6,$7,$8,$9,$10)`,[id,owner,status,`pending/${randomUUID()}`,
     status==="verified"?`verified/${randomUUID()}`:null,status==="verified"?"image/png":null,status==="verified"?10:null,
     status==="verified"?1000:null,status==="verified"?1000:null,status==="verified"?"a".repeat(64):null]);return id;
+}
+const stamp="2026-11-03T00:00:00.000Z";
+async function insertGroup(db:import("pg").PoolClient,owner:string){
+ const group=randomUUID();await db.query("INSERT INTO app.order_checkouts(id,owner_id,idempotency_key,request_payload_hash,created_at) VALUES($1,$2,$3,$4,$5)",[group,owner,randomUUID(),"a".repeat(64),stamp]);return group;
+}
+async function insertLine(db:import("pg").PoolClient,owner:string,id:string,{checkout,position=0,kind="bracelet",color="violet"}:{checkout?:string;position?:number;kind?:string;color?:string}={}){
+ const group=checkout??await insertGroup(db,owner);
+ await db.query(`INSERT INTO app.orders(id,owner_id,product_slug,product_kind,product_name,catalog_source,color,length_cm,
+  preview_confirmed,preview_confirmed_at,created_at,checkout_id,item_position,quantity)
+  VALUES($1,$2,'synthetic',$3,'Synthetic','DEMO_CATALOG',$4,$5,true,$6,$6,$7,$8,1)`,[id,owner,kind,color,kind==="bracelet"?18:45,stamp,group,position]);
 }
 before(async()=>{
   assert.ok(process.env.SUNNY_ORDER_TEST_CONFIG,"Run python3 backend/orders/run-isolated-tests.py in an isolated checkout");
@@ -105,10 +115,13 @@ test("invalid later item leaves neither a checkout nor its valid first item",asy
   await fail(await call("create",alice,{items:[item(),item(await photo(bob.id)),necklace()]}),409,"ORDER_PHOTO_NOT_READY");
   assert.deepEqual((await admin.query("SELECT (SELECT count(*) FROM app.orders)::int AS lines,(SELECT count(*) FROM app.order_checkouts)::int AS groups")).rows[0],before);
 });
-test("pre-0005 legacy order remains readable with its original seven slots and snapshot",async()=>{
-  const result=await repo.get("11111111-1111-4111-8111-111111111111","22222222-2222-4222-8222-222222222222");
-  assert.equal(result.itemCount,1);assert.equal(result.totalQuantity,1);assert.equal(result.items[0].productName,"Legacy snapshot");
-  assert.equal(result.items[0].beadLayout.beads.length,7);assert.equal(result.createdAt,"2026-11-03T00:00:00.000Z");
+test("mixed bracelet round-trips but necklace and unsupported catalog mix are rejected",async()=>{
+  const mixed={items:[{...item(),color:"mixed"}]},r=await call("create",alice,mixed);assert.equal(r.status,201);
+  const {order}=await r.json();assert.equal(order.items[0].color,"mixed");
+  assert.equal((await repo.get(alice.id,order.orderId)).items[0].color,"mixed");
+  await fail(await call("create",alice,{items:[{...necklace(),color:"mixed"}]}),400,"INVALID_ORDER_REQUEST");
+  const unsupported=createOrderRepository(app,async()=>products.map(p=>({...p,colors:PHOTOCHROMIC_COLORS.filter(c=>c==="violet")})));
+  await assert.rejects(unsupported.create(alice.id,parseOrderInput(mixed),randomUUID()),e=>e instanceof OrderError&&e.code==="INVALID_ORDER_REQUEST");
 });
 test("deferred cart constraints reject empty groups and wrong necklace shapes, rolling back every item",async()=>{
   const stamp="2026-11-03T00:00:00.000Z";
@@ -119,10 +132,7 @@ test("deferred cart constraints reject empty groups and wrong necklace shapes, r
       if(empty)return;
       for(const [position,kind] of ["bracelet","necklace"].entries()){
         const id=randomUUID();
-        await db.query(`INSERT INTO app.orders(id,owner_id,product_slug,product_kind,product_name,catalog_source,color,length_cm,
-          preview_confirmed,preview_confirmed_at,idempotency_key,request_payload_hash,created_at,checkout_id,item_position,quantity)
-          VALUES($1,$2,'synthetic',$3,'Synthetic','DEMO_CATALOG','violet',$4,true,$5,$6,$7,$5,$8,$9,1)`,
-          [id,alice.id,kind,kind==="bracelet"?18:45,stamp,randomUUID(),"a".repeat(64),group,position]);
+        await insertLine(db,alice.id,id,{checkout:group,position,kind});
         // Valid first bracelet, deliberately invalid all-square necklace.
         for(let index=0;index<(kind==="bracelet"?7:3);index++)await db.query("INSERT INTO app.order_beads(order_id,owner_id,slot_index,shape) VALUES($1,$2,$3,'square')",[id,alice.id,index]);
       }
@@ -178,12 +188,11 @@ test("RLS, no-context access, runtime mutation/DDL and auth role access are deni
   assert.equal((await app.query("SELECT current_setting('app.user_id',true) AS value")).rows[0].value??"","");
   const all=await withUserTransaction(app,alice.id,async db=>(await db.query("SELECT owner_id FROM app.orders")).rows);
   assert.ok(all.length);assert.ok(all.every(r=>r.owner_id===alice.id));
-  await assert.rejects(withUserTransaction(app,alice.id,db=>db.query(`INSERT INTO app.orders(id,owner_id,product_slug,product_kind,
-    product_name,catalog_source,color,length_cm,preview_confirmed,preview_confirmed_at,idempotency_key,request_payload_hash,created_at)
-    VALUES($1,$2,'light-study-01','bracelet','Synthetic','DEMO_CATALOG','violet',18,true,
-      '2026-11-03T00:00:00Z',$3,$4,'2026-11-03T00:00:00Z')`,[randomUUID(),bob.id,randomUUID(),"a".repeat(64)])),
-    (e:unknown)=>(e as {code:string}).code==="42501");
-  for(const sql of ["UPDATE app.orders SET status='REQUESTED'","DELETE FROM app.order_beads","TRUNCATE app.orders CASCADE","CREATE TABLE app.illegal_order_test(id int)"])
+  await assert.rejects(withUserTransaction(app,alice.id,async db=>{
+    const group=await insertGroup(db,alice.id);
+    await insertLine(db,bob.id,randomUUID(),{checkout:group});
+  }),(e:unknown)=>(e as {code:string}).code==="42501");
+  for(const sql of ["UPDATE app.orders SET quantity=1","DELETE FROM app.order_beads","TRUNCATE app.orders CASCADE","CREATE TABLE app.illegal_order_test(id int)"])
     await assert.rejects(app.query(sql),(e:unknown)=>(e as {code:string}).code==="42501");
   await assert.rejects(authPool.query("SELECT * FROM app.orders"),(e:unknown)=>(e as {code:string}).code==="42501");
   const tables=(await admin.query("SELECT relrowsecurity,relforcerowsecurity FROM pg_class WHERE oid IN ('app.orders'::regclass,'app.order_beads'::regclass,'app.order_consents'::regclass,'app.order_checkouts'::regclass)")).rows;
@@ -192,10 +201,8 @@ test("RLS, no-context access, runtime mutation/DDL and auth role access are deni
 test("deferred constraint rejects partial order; rollback leaves neither order nor slots",async()=>{
   const id=randomUUID();
   await assert.rejects(withUserTransaction(app,alice.id,async db=>{
-    await db.query(`INSERT INTO app.orders(id,owner_id,product_slug,product_kind,product_name,catalog_source,color,length_cm,
-      preview_confirmed,preview_confirmed_at,idempotency_key,request_payload_hash,created_at)
-      VALUES($1,$2,'light-study-01','bracelet','Synthetic','DEMO_CATALOG','violet',18,true,'2026-11-03T00:00:00Z',$3,$4,'2026-11-03T00:00:00Z')`,[id,alice.id,randomUUID(),"a".repeat(64)]);
-    for(let index=0;index<6;index++)await db.query("INSERT INTO app.order_beads(order_id,owner_id,slot_index,photo_asset_id) VALUES($1,$2,$3,NULL)",[id,alice.id,index]);
+    await insertLine(db,alice.id,id);
+    for(let index=0;index<6;index++)await db.query("INSERT INTO app.order_beads(order_id,owner_id,slot_index,photo_asset_id,shape) VALUES($1,$2,$3,NULL,'square')",[id,alice.id,index]);
   }),(e:unknown)=>(e as {code:string}).code==="23514");
   assert.equal((await admin.query("SELECT count(*)::int AS n FROM app.orders WHERE id=$1",[id])).rows[0].n,0);
   assert.equal((await admin.query("SELECT count(*)::int AS n FROM app.order_beads WHERE order_id=$1",[id])).rows[0].n,0);
@@ -203,12 +210,17 @@ test("deferred constraint rejects partial order; rollback leaves neither order n
 test("database also rejects seven photo slots without mandatory production consent",async()=>{
   const id=randomUUID(),asset=await photo(alice.id);
   await assert.rejects(withUserTransaction(app,alice.id,async db=>{
-    await db.query(`INSERT INTO app.orders(id,owner_id,product_slug,product_kind,product_name,catalog_source,color,length_cm,
-      preview_confirmed,preview_confirmed_at,idempotency_key,request_payload_hash,created_at)
-      VALUES($1,$2,'light-study-01','bracelet','Synthetic','DEMO_CATALOG','violet',18,true,'2026-11-03T00:00:00Z',$3,$4,'2026-11-03T00:00:00Z')`,[id,alice.id,randomUUID(),"a".repeat(64)]);
-    for(let index=0;index<7;index++)await db.query("INSERT INTO app.order_beads(order_id,owner_id,slot_index,photo_asset_id) VALUES($1,$2,$3,$4)",[id,alice.id,index,asset]);
+    await insertLine(db,alice.id,id);
+    for(let index=0;index<7;index++)await db.query("INSERT INTO app.order_beads(order_id,owner_id,slot_index,photo_asset_id,shape) VALUES($1,$2,$3,$4,'square')",[id,alice.id,index,asset]);
   }),(e:unknown)=>(e as {code:string}).code==="23514");
   assert.equal((await admin.query("SELECT count(*)::int AS n FROM app.orders WHERE id=$1",[id])).rows[0].n,0);
+});
+test("initial DB rejects mixed necklaces and every item must belong to a checkout",async()=>{
+ await assert.rejects(withUserTransaction(app,alice.id,db=>insertLine(db,alice.id,randomUUID(),{kind:"necklace",color:"mixed"})),(e:unknown)=>(e as {code:string}).code==="23514");
+ await assert.rejects(withUserTransaction(app,alice.id,db=>db.query(`INSERT INTO app.orders(id,owner_id,product_slug,product_kind,product_name,catalog_source,color,length_cm,
+  preview_confirmed,preview_confirmed_at,created_at,item_position,quantity) VALUES($1,$2,'synthetic','bracelet','Synthetic','DEMO_CATALOG','violet',18,true,$3,$3,0,1)`,[randomUUID(),alice.id,stamp])),(e:unknown)=>(e as {code:string}).code==="23502");
+ const columns=(await admin.query("SELECT column_name FROM information_schema.columns WHERE table_schema='app' AND table_name='orders'")).rows.map((r:{column_name:string})=>r.column_name);
+ assert.ok(!columns.includes("idempotency_key"));assert.ok(!columns.includes("request_payload_hash"));
 });
 test("concurrent photo blocking serializes with the order eligibility check",async()=>{
   const asset=await photo(alice.id),client=await admin.connect();

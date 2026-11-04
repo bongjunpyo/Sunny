@@ -110,9 +110,9 @@ runtime은 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOINHERIT/NOBYPASSRLS이고 DB CR
 runtime 검색 경로는 `pg_catalog, app` / `pg_catalog, auth`로 시스템 함수를 먼저 찾는다.
 `0001`은 `sunny_meta.schema_migrations`만 만든다. #90의 `0002_authentication.sql`은
 `auth.user/session/account/verification` 4개를 추가한다. #93의 `0003_photo_uploads.sql`은
-사진 메타데이터·검사 시도 업무 테이블을 추가한다. #100의 `0004_order_requests.sql`은 시연 주문·7칸·동의를 추가하며,
-후속 `0005_cart_order_requests.sql`은 기존 주문을 보존하면서 여러 품목·수량과 목걸이 3개 배치를 추가한다.
-기존 sunny DB에는 0004·0005를 아직 적용하지 않았다. 리뷰·결제·설문 테이블은 만들지 않는다.
+사진 메타데이터·검사 시도 업무 테이블을 추가한다. #100의 미적용 주문 SQL은 팀장 리뷰에 따라
+`0004_order_requests.sql` 하나로 통합해 처음부터 여러 품목·수량·팔찌 7칸/목걸이 3개·동의를 만든다.
+기존 sunny 인증 DB는 보존하며 새 주문 구조는 별도 임시 DB에서 검증한다. 리뷰·결제·설문 테이블은 만들지 않는다.
 
 ### DBeaver
 

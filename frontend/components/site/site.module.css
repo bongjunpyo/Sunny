@@ -63,7 +63,8 @@ a.button:active{transform:var(--ui-368)}
 .checkout-item .product-visual { max-height: 360px; }
 .checkout-item h3 { margin: var(--step-2) 0; }
 .checkout-confirm { display: flex; align-items: flex-start; gap: var(--step-1); margin: var(--step-3) 0; line-height: 1.8; }
-.checkout-confirm input { flex: 0 0 auto; margin-top: var(--step-1); }
+.qna-form .checkout-confirm input { flex: 0 0 auto; width: var(--step-2); height: var(--step-2); min-height: 0; padding: 0; margin-top: var(--step-1); }
+.checkout-confirm > span { min-width: 0; }
 .checkout-confirm small { color: var(--muted); }
 .checkout-submit button { width: 100%; background: var(--forest); color: var(--white); padding: var(--step-2) var(--step-3); }
 .checkout-submit button:disabled { opacity: .45; }

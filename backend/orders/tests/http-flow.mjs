@@ -36,12 +36,13 @@ try{
   }
   assert.ok(ready,"Isolated Next server did not become ready");
   let r=await request("/api/auth/sign-in/anonymous",{});assert.equal(r.status,200);
-  const input={items:[{productSlug:"light-study-01",productKind:"bracelet",color:"violet",lengthCm:18,quantity:2,
+  const input={items:[{productSlug:"light-study-01",productKind:"bracelet",color:"mixed",lengthCm:18,quantity:2,
     beadLayout:{squareCount:7,beads:Array.from({length:7},(_,index)=>({index,photoAssetId:null}))},previewConfirmed:true},
     {productSlug:"light-study-02",productKind:"necklace",color:"blue",lengthCm:45,quantity:1,beadLayout:{moonCount:1,roundCount:2},previewConfirmed:true}]};
   // Confirmation is synthetic input; this does not verify a 3D scene.
   const key=randomUUID();r=await request("/api/orders",input,key);assert.equal(r.status,201);
-  const d=await r.json();assert.equal(d.order.status,"REQUESTED");
+  const d=await r.json();assert.equal(d.order.status,"REQUESTED");assert.equal(d.order.items[0].color,"mixed");
+  const invalid=structuredClone(input);invalid.items[1].color="mixed";assert.equal((await request("/api/orders",invalid,randomUUID())).status,400);
   r=await request("/api/orders",input,key);assert.equal(r.status,200);assert.equal((await r.json()).order.orderId,d.order.orderId);
   assert.equal((await request(`/api/orders/${d.order.orderId}`,undefined,undefined,false)).status,401);
   r=await request("/api/orders");assert.equal(r.status,200);assert.equal((await r.json()).items.length,1);

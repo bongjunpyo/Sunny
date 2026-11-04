@@ -5,6 +5,7 @@ import { getOrderRequest, getOrderRequests, orderErrorMessage } from "../../lib/
 import type { OrderDetail, OrderSummary } from "../../lib/order-types.ts";
 import { COLOR_LABEL } from "../../lib/types.ts";
 import styles from "./orders.module.css";
+const colorLabel={...COLOR_LABEL,mixed:"전체 색상 믹스"};
 const kind={bracelet:"팔찌",necklace:"목걸이"};
 export function OrderHistory({orderId,submitted}:{orderId?:string;submitted?:string}){
   const [items,setItems]=useState<OrderSummary[]>([]),[detail,setDetail]=useState<OrderDetail|null>(null);
@@ -27,7 +28,7 @@ export function OrderHistory({orderId,submitted}:{orderId?:string;submitted?:str
     {error?<div role="alert"><p>{error}</p><button className={styles.button} onClick={()=>setAttempt(a=>a+1)}>다시 확인</button> <Link href="/login">로그인</Link></div>:null}
     {ready&&!error&&!orderId&&items.length===0?<p>아직 이 세션의 주문 요청이 없습니다. <Link href="/custom">커스텀 둘러보기</Link></p>:null}
     {items.length?<ul className={styles.list}>{items.map(o=><li key={o.orderId}><Link href={`/orders/${o.orderId}`}>
-      <strong>{o.itemCount}품목 · 총 {o.totalQuantity}개</strong>{o.items.map(i=><span key={i.itemId}>{i.productName} · {kind[i.productKind]} · {COLOR_LABEL[i.color]} · {i.lengthCm} cm · {i.quantity}개</span>)}
+      <strong>{o.itemCount}품목 · 총 {o.totalQuantity}개</strong>{o.items.map(i=><span key={i.itemId}>{i.productName} · {kind[i.productKind]} · {colorLabel[i.color]} · {i.lengthCm} cm · {i.quantity}개</span>)}
       <span>주문 요청 · 시연</span><time dateTime={o.createdAt}>{new Date(o.createdAt).toLocaleString("ko-KR")}</time>
     </Link></li>)}</ul>:null}
     {cursor?<button className={styles.button} disabled={busy} onClick={async()=>{setBusy(true);setError(null);
@@ -37,7 +38,7 @@ export function OrderHistory({orderId,submitted}:{orderId?:string;submitted?:str
       <h2>{detail.itemCount}품목 · 총 {detail.totalQuantity}개</h2>
       <p>요청 일시: <time dateTime={detail.createdAt}>{new Date(detail.createdAt).toLocaleString("ko-KR")}</time></p>
       {detail.items.map(item=><section key={item.itemId} className={styles.item}>
-       <h3>{item.productName} · {kind[item.productKind]}</h3><p>{COLOR_LABEL[item.color]} · {item.lengthCm} cm · {item.quantity}개</p>
+       <h3>{item.productName} · {kind[item.productKind]}</h3><p>{colorLabel[item.color]} · {item.lengthCm} cm · {item.quantity}개</p>
        <h4>{"squareCount" in item.beadLayout?"비즈 배치 · 7칸":"비즈 배치 · 달 1개와 양옆 원형 2개"}</h4>
        <ol className={styles.beads}>{item.beadLayout.beads.map(b=><li key={b.index}><b>{b.index+1}번</b><span>{"shape" in b?(b.shape==="moon"?"달":"원형"):b.photoAssetId?"사진 사용":"무늬 없음"}</span></li>)}</ol>
        <p>가시안 확인 기록: {new Date(item.previewConfirmedAt).toLocaleString("ko-KR")}</p>

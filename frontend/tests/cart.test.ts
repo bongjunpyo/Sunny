@@ -25,3 +25,10 @@ test("cart does not silently accept damaged photo ownership or excessive quantit
  assert.throws(()=>normalizeCart([{...cart[0],kind:"necklace",length:"45 cm",photoAssetIds:[asset]}]));
  assert.throws(()=>toOrderInput(cart,owner,false,false,false),/확인/);
 });
+
+test("mixed bracelet survives cart restore and order input; mixed necklace is rejected",()=>{
+ const cart=addCartItem([],{kind:"bracelet",color:"mixed",length:"18 cm"});
+ const restored=normalizeCart(JSON.parse(JSON.stringify(cart)));
+ assert.equal(toOrderInput(restored,owner,true,false,false).items[0].color,"mixed");
+ assert.throws(()=>addCartItem([],{kind:"necklace",color:"mixed",length:"45 cm"}));
+});

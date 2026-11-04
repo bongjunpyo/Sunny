@@ -6,7 +6,7 @@ import type {PhotoRules} from "../../lib/photo.ts";
 import {describeRules} from "../../lib/photo.ts";
 import {getPhotoRules,checkPhoto,uploadPhoto,photoErrorMessage,type UploadAttempt} from "../../lib/uploads.ts";
 import {getSessionIdentity,startGuestSession,authErrorMessage,type SessionIdentity} from "../../lib/auth.ts";
-import {productInfo,palette,kinds} from "./data";
+import {productInfo,colorName,kinds} from "./data";
 import {useSite} from "./Provider";
 import {Art,Intro,c} from "./ui";
 import {ColorPicker,LightPicker} from "./ProductViews";
@@ -47,8 +47,8 @@ export function Custom({initialKind="bracelet"}:{initialKind?:ProductKind}){
   <Art kind={kind} color={color} light={light} photos={kind==="bracelet"?photos:[]}/><div className={c("preview-bar")}><span className={c("micro")}>YOUR PIECE / LIVE PREVIEW</span><LightPicker value={light} onChange={setLight}/></div>
   <p className={c("custom-help")}>선택한 색{kind==="bracelet"?"과 사진":""}이 구성 그림에 반영됩니다.<br/>실물 치수와 발색 시험을 재현한 화면은 아닙니다.</p>
  </div><div className={c("custom-options")}>
-  <section className={c("option-section")}><h2><small>01 / FORM</small>빛을 지닐 자리</h2><div className={c("choice-row")}>{kinds.map(k=><button key={k} className={c("choice")} disabled={busy} aria-pressed={kind===k} onClick={()=>{setKind(k);setLength(productInfo[k].lengths[1]);setSlot(0);setError("");}}>{productInfo[k].kind}</button>)}</div></section>
-  <section className={c("option-section")}><h2><small>02 / COLOR</small>나를 닮은 색</h2><p className={c("option-label")}>햇빛 아래 반응색 · {palette.find(p=>p.id===color)?.name}</p><ColorPicker value={color} onChange={setColor}/></section>
+  <section className={c("option-section")}><h2><small>01 / FORM</small>빛을 지닐 자리</h2><div className={c("choice-row")}>{kinds.map(k=><button key={k} className={c("choice")} disabled={busy} aria-pressed={kind===k} onClick={()=>{if(k==="necklace"&&color==="mixed")setColor("violet");setKind(k);setLength(productInfo[k].lengths[1]);setSlot(0);setError("");}}>{productInfo[k].kind}</button>)}</div></section>
+  <section className={c("option-section")}><h2><small>02 / COLOR</small>나를 닮은 색</h2><p className={c("option-label")}>햇빛 아래 반응색 · {colorName(color)}</p><ColorPicker value={color} onChange={setColor} allowMixed={kind==="bracelet"}/></section>
   <section className={c("option-section")}><h2><small>03 / LENGTH</small>편안한 길이</h2><div className={c("choice-row")}>{productInfo[kind].lengths.map(l=><button key={l} className={c("choice")} aria-pressed={l===length} onClick={()=>setLength(l)}>{l}</button>)}</div><p className={c("small-copy")}>길이는 디자인 검토용 예시입니다.</p></section>
   {kind==="bracelet"?<section className={c("option-section")}><h2><small>04 / MEMORY</small>간직하고 싶은 장면</h2>
    <div className={c("photo-slots")}>{photos.map((p,i)=><button key={i} className={c("photo-slot")} aria-label={`${i+1}번 비즈`} aria-pressed={slot===i} disabled={busy} onClick={()=>setSlot(i)}>{p?<img src={p.url} alt="확인된 사진"/>:<span>+</span>}<span className={c("slot-index")}>{i+1}</span></button>)}</div>
@@ -62,7 +62,7 @@ export function Custom({initialKind="bracelet"}:{initialKind?:ProductKind}){
    {!rules?<button className={c("text-button")} onClick={()=>{setError("");setRulesAttempt(v=>v+1);}}>사진 규칙 다시 확인</button>:null}
   </section>:null}
   <aside className={c("custom-summary")}><div className={c("summary-head")}>당신의 작은 기록 <span>YOUR SUNNY</span></div>
-   {[["형태",productInfo[kind].kind],["반응색",palette.find(p=>p.id===color)?.name],["길이",length],["구성",kind==="bracelet"?"네모 7칸 · 원형 교대":"달 1개 · 양옆 원형 2개"]].map(([k,v])=><div className={c("summary-row")} key={k}><span>{k}</span><span>{v}</span></div>)}
+   {[["형태",productInfo[kind].kind],["반응색",colorName(color)],["길이",length],["구성",kind==="bracelet"?"네모 7칸 · 원형 교대":"달 1개 · 양옆 원형 2개"]].map(([k,v])=><div className={c("summary-row")} key={k}><span>{k}</span><span>{v}</span></div>)}
    {error?<p role="alert" className={c("small-copy")}>{error}</p>:null}<button className={c("button full")} disabled={busy||checkoutBusy} onClick={toCart}>이 구성 장바구니에 담기 ↗</button><p className={c("small-copy")}>시연용 주문 요청으로 연결됩니다. 실제 결제·제작은 진행하지 않습니다.</p>
   </aside>
  </div></div></section></>;
