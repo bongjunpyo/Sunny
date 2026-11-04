@@ -13,7 +13,7 @@
 Next.js 서버 API (frontend/app/api/)            이재원
    │  frontend/lib/server/ 의 서버 전용 클라이언트
    ├──▶ Sanity CMS        공개 콘텐츠: 컬렉션 · 제품 · 제작 기록 · 이미지
-   ├──▶ PostgreSQL        비공개 데이터: 주문 요청 · 선호 색상 설문 · 인증 세션 (접근 정책 적용)
+   ├──▶ PostgreSQL        비공개 데이터: 주문 요청 · 인증 세션 (접근 정책 적용)
    ├──▶ Cloudflare R2     비공개 파일: 고객 사진 (서버가 짧은 수명 서명 URL 발급)
    └──▶ 기상청 API         자외선지수
 ```
@@ -37,8 +37,8 @@ Next.js 서버 API (frontend/app/api/)            이재원
 
 1. **서버 전용 키는 브라우저에 가지 않는다** — `NEXT_PUBLIC_` 금지, 서버 API 안에서만 읽는다
 2. **서버 API는 관리자·`BYPASSRLS` DB 계정을 쓰지 않는다.** 기본은 앱 전용 계정 + 접근 정책(RLS). 사용자 ID는 서버가 검증한 세션에서만 얻는다
-3. **주문·설문 테이블은 RLS 없이 만들지 않는다.** 주문 요청의 이름·연락처·사진은 개인정보다
-4. **공개 콘텐츠의 정본은 Sanity, 주문·설문의 정본은 PostgreSQL.** 같은 데이터를 두 곳에 두지 않는다
+3. **주문 테이블은 RLS 없이 만들지 않는다.** 주문 요청의 이름·연락처·사진은 개인정보다
+4. **공개 콘텐츠의 정본은 Sanity, 주문의 정본은 PostgreSQL.** 같은 데이터를 두 곳에 두지 않는다
 5. **자외선지수를 못 받아오면 오류를 숨기지 않는다** — 마지막으로 받은 값과 갱신 시각, 안내 문구를 함께 준다
 6. **고객 사진은 서버 검사를 통과하기 전까지 주문에 연결하지 않는다.** 브라우저 검사와 파일명·확장자·요청 MIME은 신뢰하지 않는다
 
@@ -47,8 +47,7 @@ Next.js 서버 API (frontend/app/api/)            이재원
 - [ ] **제품** (Sanity) — 종류 `bracelet` \| `necklace`, 이름, 비즈 구성, 사진, 설명
 - [ ] **비즈 · 광변색** — 색상: 기획서 수정본 기준 **빨강·주황·파랑·노랑·보라 5색** / 농도 저·중·고. (`web-demo/lib/bead.ts`는 3색 견본이다 — 확정 시 errata)
 - [ ] **제작 기록** (Sanity) — 제목, 날짜, 단계(모델링·몰드·성형·전사·도포·조립), 사진, 본문
-- [ ] **주문 요청** (PostgreSQL) — 필드, 이용 동의 항목, RLS 정책
-- [ ] **선호 색상 설문** (PostgreSQL) — 문항, 익명 여부, RLS 정책
+- [ ] **주문 요청** (PostgreSQL) — 아래 시연 계약안의 공동 합의·운영 정책/카탈로그·이용 동의·RLS 검토
 - [ ] **인증** (Better Auth) — 아래 PR #92 정본 절의 API·`lib/auth.ts` DTO 공동 검토와 운영 정책 확정; 비밀번호 재설정은 미구현
 - [ ] **자외선지수** — `GET /api/uv` 응답 형태, 지역 기준, 캐시 주기, 실패 응답
 - [ ] **커스텀 사진 업로드** — 아래 계약 초안에서 `provisional` 값과 보관 기간을 확정한 뒤 체크
@@ -67,8 +66,9 @@ Next.js 서버 API (frontend/app/api/)            이재원
 | `POST /api/uploads/presign` | 비공개 pending 객체의 짧은 수명 PUT URL 발급 | PostgreSQL 메타데이터 · Cloudflare R2 객체 |
 | `POST /api/uploads/[assetId]/complete` | 업로드 완료 알림 · 실제 바이트 검사 · verified 확정 | PostgreSQL 메타데이터 · Cloudflare R2 객체 |
 | `POST /api/uploads/[assetId]/read-url` | 본인 소유 verified 객체의 짧은 수명 GET URL 발급 | PostgreSQL 소유권·상태 · Cloudflare R2 객체 |
-| `POST /api/orders` | 커스텀 주문 요청 | PostgreSQL |
-| `POST /api/survey` | 선호 색상 설문 | PostgreSQL |
+| `POST /api/orders` | 시연 주문 요청 원자 저장 | PostgreSQL |
+| `GET /api/orders` | 본인 시연 주문 목록 | PostgreSQL |
+| `GET /api/orders/[orderId]` | 본인 시연 주문 상세 | PostgreSQL |
 
 ## 인증 계약 — PR #92
 
@@ -203,7 +203,7 @@ JSON 실패의 모양은 다음과 같다. 메일/DB/provider 원본 예외·주
 
 인증 API·DTO·DB 세션/쿠키·Origin·실패 응답은 위 [인증 정본 절](#인증-계약--pr-92)을 따른다. 사진 API는 그 절의 검증 회원/게스트 자격을 사용한다. 사진 계약(#65)은 먼저 머지되었으며, 구현 PR #94는 이 사진 절을 대조 기준으로 삼는다. #92 인증 정본의 공동 검토와 운영 정책 검토는 별개이며 머지는 팀장만 한다.
 
-이 사진 절의 주문 항목은 사진 배치·동의 연결에 한정한다. 주문 제품 옵션 전체는 후속 주문 계약에서 정한다. 웹 설문·결제 제외와 회원 리뷰 보류는 #88/PR #89의 2026-11-02 팀장 결정에 따르며, 정본의 기존 설문 문구 정리는 별도 errata에서 처리한다.
+이 사진 절의 주문 항목은 사진 배치·동의 연결에 한정한다. 주문 제품 옵션 전체는 후속 주문 계약에서 정한다. 웹 설문·결제 제외와 회원 리뷰 보류는 #88/PR #89의 2026-11-02 팀장 결정에 따른다.
 
 ### 흐름과 신뢰 경계
 
@@ -426,9 +426,11 @@ complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적�
 
 ### 주문 동의 필드
 
-제품 종류·길이와 무관하게 네모 비즈는 **정확히 7칸**이고, 각 칸에 사진 한 장 또는 `null`을 배치한다. 사진은 선택 사항이며 서로 다른 사진은 0~7장이다. 동일한 사진을 여러 칸에 쓸 수 있고 이 경우 업로드는 한 번만 한다. 주문 화면은 3D 가시안을 보여준 뒤 명시적인 확인을 받아야 제출할 수 있다. 주문 API는 `previewConfirmed: true`를 요구하고 서버 수신 시각을 확인 기록으로 저장한다. 이 값은 사용자의 확인 의사를 기록하며 실제 시청 시간을 증명하지는 않는다.
+팔찌의 네모 사진 비즈는 **정확히 7칸**이고, 각 칸에 사진 한 장 또는 `null`을 배치한다. 사진은 선택 사항이며 서로 다른 사진은 0~7장이다. 동일한 사진을 여러 칸에 쓸 수 있고 이 경우 업로드는 한 번만 한다. 주문 화면은 3D 가시안을 보여준 뒤 명시적인 확인을 받아야 제출할 수 있다. 주문 API는 `previewConfirmed: true`를 요구하고 서버 수신 시각을 확인 기록으로 저장한다. 이 값은 사용자의 확인 의사를 기록하며 실제 시청 시간을 증명하지는 않는다.
 
-요청의 사진 배치 예시(7칸 전체):
+목걸이는 사진 커스텀 없이 원형–달–원형 3개 구성이며, 여러 품목 주문의 전체 입력은 아래 주문 계약을 따른다.
+
+팔찌 품목의 사진 배치 예시(7칸 전체):
 
 ```json
 {
@@ -462,7 +464,7 @@ complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적�
 - 사진이 한 칸이라도 있으면 `photoProductionConsent.accepted`가 `true`여야 한다. 모두 `null`이면 두 사진 동의 필드는 필요 없다.
 - `photoBrandUseConsent`는 제작 동의를 대신하지 않으며, 거부해도 주문할 수 있다.
 - 클라이언트는 accepted/policyVersion만 제출하고 acceptedAt은 보내지 않는다. 서버가 유효한 정책 버전을 대조해 동의 영수증과 시각을 기록한다. 위 EXAMPLE 버전은 유효 정책이 아니며 실제 문구·버전·시행일·철회는 `TBD`다. 거절의 acceptedAt은 null, recordedAt은 서버 수신 시각이다.
-- 주문 생성 시 사진 소유권·verified 상태·목적을 다시 검사한다. 주문·정확히 7개 배치·동의 기록은 원자적으로 저장하며, 슬롯 범위와 PK만으로 7행이 보장된다고 가정하지 않는다. 전체 제품 옵션/상태·FK/RLS SQL은 후속 주문/DB 계약에서 확정한다.
+- 주문 생성 시 사진 소유권·verified 상태·목적을 다시 검사한다. 주문 묶음·품목별 배치(팔찌7칸/목걸이3개)·동의 기록은 원자적으로 저장하며, 슬롯 범위와 PK만으로 7행이 보장된다고 가정하지 않는다. 전체 제품 옵션/상태·FK/RLS SQL은 후속 주문/DB 계약에서 확정한다.
 
 서버가 기록한 동의 결과의 예시(주문 응답 전체 DTO는 후속 계약 대상):
 
@@ -497,8 +499,80 @@ complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적�
 
 참고: [R2 서명 URL의 재사용·PUT/GET·S3 도메인](https://developers.cloudflare.com/r2/api/s3/presigned-urls/), [R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/), [Better Auth DB 세션](https://better-auth.com/docs/concepts/session-management), [anonymous 옵션](https://better-auth.com/docs/plugins/anonymous). 2026-10-16 공식 문서 대조. 구체적인 버전·SDK·adapter는 구현 이슈에서 고정한다.
 
+## 주문 요청 저장·본인 조회 — 시연 계약안
+
+> 공동 검토용 개발 시연 계약이다. 2026-11-03 사용자 확정: 목걸이는 달 1개/좌우 원형 2개, 팔찌 사진은 7칸, 여러 상품/수량을 한 주문으로 저장한다. ‘결제하기’는 실제 결제 없이 저장 성공 후 주문 목록으로 이동한다. 정책 문구/버전은 시연 전용이며 운영 승인은 아니다.
+
+### 제품 구성과 화면 흐름
+
+- 팔찌: 네모 사진 비즈 7칸, 각 칸은 본인 verified 사진 또는 null. 0~7장·같은 사진 반복을 허용한다.
+- 목걸이: 원형–달–원형 순서의 3개 구성이다. 사진 커스텀/사진 동의를 받지 않는다. 팔찌의 7칸 규칙을 목걸이에 적용하지 않는다.
+- 여러 제품/색/길이 구성을 장바구니에 담고 품목별 수량 1~10을 선택한다. 서로 다른 사진 배치는 서로 다른 품목이다. 시연 상한은 20품목·전체100개다.
+- 가시안/옵션 확인과 필요한 사진 동의 → 명시적 ‘결제하기’ → 한 트랜잭션 저장 → `/orders?submitted=<orderId>`. 상태는 REQUESTED/DEMO다. Toss SDK/키/결제 테이블·청구·실제 제작/배송을 도입하지 않는다.
+- 현재 구성 그림의 확인 의사를 기록하며 실제 3D 시청 시간을 증명하지 않는다. 구성/사진이 바뀌면 확인을 해제한다. 실패·미인증·타임아웃을 성공으로 표시하거나 주문 목록으로 이동하지 않는다.
+- 사진 검사/accept/용량/해상도/임시값 표시는 `GET /api/uploads/photo-rules` 응답을 그대로 따른다. 규칙 수신 전에는 업로드를 막고 자체 WebP/8MB 상수를 사용하지 않는다.
+- 사진 원본·서명 URL·토큰은 장바구니 저장소에 보관하지 않는다. verified asset ID는 생성 당시 owner UUID와 묶어 현재 세션이 다르면 제출을 막는다. 게스트→회원 사진 이전은 없다.
+
+### API 입력
+
+`POST /api/orders`는 같은 Origin·application/json·64KiB 이하와 UUID Idempotency-Key를 요구한다. 본문은 `items`만 받는다. 팔찌 color는 `red|orange|blue|yellow|violet|mixed`, 목걸이는 `red|orange|blue|yellow|violet`만 허용한다. `mixed`는 팔찌 전체 색상 믹스이며 목걸이 요청은 400 INVALID_ORDER_REQUEST로 거부한다. 서버는 카탈로그의 제품 종류·지원 단색을 대조하고, 팔찌의 다섯 단색을 모두 지원하는 제품만 믹스 주문을 허용한다. DB도 같은 제품별 색상 제약을 적용한다. 배열 순서는 품목 순서이며 1~20개다. 각 품목은 productSlug/productKind/color/lengthCm/quantity/beadLayout/previewConfirmed와 사진 동의만 허용한다.
+
+```json
+{"items":[
+  {"productSlug":"light-study-01","productKind":"bracelet","color":"mixed","lengthCm":18,"quantity":2,
+   "beadLayout":{"squareCount":7,"beads":[
+     {"index":0,"photoAssetId":null},{"index":1,"photoAssetId":null},{"index":2,"photoAssetId":null},
+     {"index":3,"photoAssetId":null},{"index":4,"photoAssetId":null},{"index":5,"photoAssetId":null},{"index":6,"photoAssetId":null}]},
+   "previewConfirmed":true},
+  {"productSlug":"light-study-02","productKind":"necklace","color":"blue","lengthCm":45,"quantity":1,
+   "beadLayout":{"moonCount":1,"roundCount":2},"previewConfirmed":true}
+]}
+```
+
+- 서버 시연 카탈로그 `lib/mock/products.json`과 slug/종류/색을 대조한다. 길이는 팔찌16/18/20·목걸이40/45/50cm다. planning 제품의 시연 허용을 실제 판매 가능 상태로 해석하지 않는다. Sanity 실연결은 후속이다.
+- 팔찌 index는0..6 정확히 한 번씩, 같은 asset ID 반복 가능. 목걸이는 위 moonCount/roundCount만 받고 서버가 index0 원형/index1 달/index2 원형을 확정한다. 목걸이 사진·7칸 입력·사진 동의는 거절한다.
+- 각 품목 previewConfirmed=true 필수. 사진이 있는 팔찌는 photoProductionConsent.accepted=true 필수, 브랜드 공개는 선택/거절 가능하다. 사진 없는 품목은 사진 동의를 넣지 않는다. owner/가격/상태/확인·동의 시각/URL은 입력받지 않는다.
+- 동의는 품목에 속하고 해당 구성의 모든 수량에 적용된다. accepted/policyVersion만 제출하며 시각은 서버가 기록한다. 브랜드 동의 생략을 동의로 만들지 않는다.
+
+### 시연 동의 정책
+
+| 종류 | 시연 버전 | 제안 문구 |
+|---|---|---|
+| 제작 이용 | SUNNY_DEMO_PRODUCTION_V1 | 선택한 사진을 비공개 시연 주문 요청과 가시안 확인에 사용하는 데 동의합니다. 실제 제작·배송은 진행하지 않습니다. |
+| 브랜드 공개 | SUNNY_DEMO_BRAND_V1 | 선택한 사진의 브랜드 공개 이용 의사를 시연 기록으로 남기는 데 동의합니다. 이 기록만으로 사진을 공개하지 않습니다. |
+
+위 버전만 개발 시연에 사용하고 EXAMPLE_*·오래된 버전은409 ORDER_POLICY_MISMATCH다. 동의 영수증에 정확한 문구/해시·서버 recordedAt을 보존하며 true이면 acceptedAt=recordedAt, false이면 null이다. 운영 문구·시행일·보관/철회는 TBD이고 이 시연 기록으로 고객 사진을 공개하지 않는다.
+
+### 원자 저장·멱등·RLS
+
+- app.order_checkouts는 주문 묶음, app.orders는 품목, order_beads/order_consents는 품목별 배치/영수증이다. main에 미적용된 주문 SQL은 `0004_order_requests.sql` 하나에 처음부터 여러 품목 구조로 정의한다. 기존 기반·인증·사진 0001~0003의 SQL과 checksum은 변경하지 않는다.
+- 묶음/모든 품목/수량/7칸 또는3개 배치/동의가 하나의 트랜잭션으로 커밋된다. 품목 하나라도 잘못되면 부분 주문을 남기지 않는다. DB 지연 제약은 품목 수·위치·전체수량, 팔찌7칸, 목걸이3개 모양·사진 없음, 필수 제작 동의를 검사한다.
+- owner는 검증한 DB 세션에서만 얻고 모든 부모/자식 FK에 owner를 포함한다. 사진을 중복 제거/정렬해 같은 트랜잭션에서 잠그고 verified·목적·본인 소유·접근 차단 아님을 확인한다.
+- 신규 묶음도 ENABLE/FORCE RLS, runtime SELECT/INSERT만 부여한다. UPDATE/DELETE/TRUNCATE/DDL은 금지한다. transaction-local app.user_id를 쓰고 인증 역할의 업무 접근을 허용하지 않는다.
+- owner별 같은 멱등 키·정규화된 같은 전체 본문은 같은 주문을200으로 재반환한다(최초201). 수량·품목/순서·사진/동의가 다르면409 ORDER_IDEMPOTENCY_CONFLICT다. 동시 요청은 advisory lock/UNIQUE로 한 묶음만 저장한다.
+- 응답 유실/503 후에는 같은 키·같은 본문으로 확인한다. 장바구니는 실패 시 유지하고 같은 내용의 키를 새로 만들지 않는다. 주문 생성 성공을 확인한 뒤 제출한 장바구니 품목만 정리한다.
+
+### 응답과 조회
+
+생성/재호출은 `{order,nextPath,noticeCode:"DEMO_ORDER_REQUEST_APPROVED"}`다. order에는 orderId/status/mode/createdAt/itemCount/totalQuantity/photoCount 및 items가 있다. photoCount는 수량을 곱하지 않은 사진 배치 칸 수다. 각 items에는 itemId/productSlug/productKind/productName/color/lengthCm/quantity/photoCount가 있고, 상세에는 previewConfirmedAt/beadLayout/consents를 추가한다.
+
+목걸이 상세 beadLayout은 `{moonCount:1,roundCount:2,beads:[{index:0,shape:"round",photoAssetId:null},{index:1,shape:"moon",photoAssetId:null},{index:2,shape:"round",photoAssetId:null}]}`다. 팔찌 상세는 squareCount7 및 원래7칸을 반환한다.
+
+- `GET /api/orders`는 본인 주문 묶음만 `{items:[요약],nextCursor}`로 반환한다. 기본20/최대50, createdAt DESC/orderId DESC의 검증한 cursor를 사용한다. 알 수 없는/중복 쿼리는400이다.
+- `GET /api/orders/[orderId]`는 `{order}` 상세다. 타인/미존재는 같은404 ORDER_NOT_FOUND다. 게스트 세션을 잃거나 회원으로 바뀌면 이전 게스트 주문을 자동 조회/이전하지 않는다.
+- 모든 API 응답은 no-store/no-referrer. owner·세션/OAuth 토큰·키·서명 URL·멱등 키·해시를 반환하지 않는다. GET도 DB 세션을 재조회하고 Origin이 있으면 같은 Origin만 허용한다.
+
+### 오류와 활성화
+
+오류는 `{error:{code,message}}`만 반환한다. 400 INVALID_ORDER_REQUEST(구성/수량/본문),401 AUTHENTICATION_REQUIRED,403 ORDER_SESSION_NOT_ELIGIBLE/ORDER_ORIGIN_REJECTED,404 ORDER_NOT_FOUND,409 ORDER_IDEMPOTENCY_CONFLICT/ORDER_PHOTO_NOT_READY/ORDER_POLICY_MISMATCH,413 ORDER_BODY_TOO_LARGE,415 ORDER_CONTENT_TYPE_REJECTED,503 ORDER_SERVICE_UNAVAILABLE를 구분한다. 사진의 없거나/타인/미검증/차단 상태를409의 같은 코드로 숨긴다. SQL/저장소 원본 예외는 노출하지 않는다.
+
+시연은 AUTH_ENABLED와 ORDER_DEMO_ENABLED를 명시한 개발 loopback만 허용한다. production/원격 주소는 강제 차단하며 공개 서비스 활성화·실제 DB 적용/배포는 별도 검토다. 사진 API/공유 남용 제한·운영 카탈로그/정책·실제3D 검증은 기존 후속 조건을 유지한다. 목걸이/장바구니/버튼 사용자 확정이 운영 동의 정책의 확정을 의미하지 않는다.
+
 ## 변경 이력
 
+- 2026-11-04: 팀장 리뷰 반영 — 인증/주문 절 병합, 설문 제외, 팔찌 mixed·목걸이 단색 구분, 미적용 주문 migration을 0004 하나로 통합
+
+- 2026-11-03: 사용자 확정 반영 — 목걸이 달1/원형2, 여러 품목/수량의 원자 주문, photo-rules 기준 검사, 결제하기→주문 목록 시연
 - 2026-11-03: PR #92 인증 정본 추가 — 구현 API·표시 DTO·DB 세션/쿠키·Origin·오류와 미구현/운영 미합의 항목 구분
 
 - 2026-11-02: PR #65 2차 리뷰 반영 — 타인 접근 404 통일, 미수신 409, rejected·503 재호출 규칙, 인증 대조 결과와 사진 계약 우선 머지 순서 반영
