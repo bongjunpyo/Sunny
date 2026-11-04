@@ -3,22 +3,32 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getMember, signOut } from "../../lib/auth.ts";
+import { getMember, signOut, authErrorMessage } from "../../lib/auth.ts";
 import type { Member } from "../../lib/types.ts";
 import styles from "../../app/account/page.module.css";
 
-/** 마이페이지 본문. 로그인 상태는 브라우저에서만 알 수 있어 클라이언트에서 읽는다. */
+/** DB 세션 조회가 끝난 뒤에만 회원 정보를 표시한다. */
 export function AccountView() {
   const router = useRouter();
   const [member, setMember] = useState<Member | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setMember(getMember());
-    setReady(true);
-  }, []);
+    let active = true; setReady(false); setError(null);
+    getMember().then(value => { if (active) setMember(value); })
+      .catch(error => { if (active) setError(authErrorMessage(error)); })
+      .finally(() => { if (active) setReady(true); });
+    return () => { active = false; };
+  }, [attempt]);
 
   if (!ready) return <p className={styles.notice}>불러오는 중…</p>;
+
+  if (error && !member) return <div className={styles.empty}>
+    <p role="alert">{error}</p><button onClick={() => setAttempt(value => value + 1)}>다시 확인</button>
+  </div>;
 
   if (!member) {
     return (
@@ -38,16 +48,19 @@ export function AccountView() {
           <p className={styles.email}>{member.email}</p>
         </div>
         <button
+          disabled={busy}
           onClick={async () => {
-            await signOut();
-            router.push("/");
-            router.refresh();
+            setBusy(true); setError(null);
+            try { await signOut(); setMember(null); router.push("/"); router.refresh(); }
+            catch (error) { setError(authErrorMessage(error)); }
+            finally { setBusy(false); }
           }}
         >
           로그아웃
         </button>
       </div>
 
+      {error ? <p role="alert">{error}</p> : null}
       <div className={styles.layout}>
         <nav className={styles.menu} aria-label="마이페이지 메뉴">
           <a href="#orders">주문 내역</a>
@@ -81,7 +94,7 @@ export function AccountView() {
             <p className={styles.notice}>
               별명 · 비밀번호 변경과 회원 탈퇴는 서버 연결 후 열립니다.
               <br />
-              지금 보이는 정보는 이 브라우저에만 저장된 시안 값입니다. 로그아웃하면 지워집니다.
+              회원 정보는 서버의 로그인 세션을 통해 확인한 값입니다.
             </p>
           </section>
         </div>
