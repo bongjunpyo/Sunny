@@ -49,7 +49,7 @@ Next.js 서버 API (frontend/app/api/)            이재원
 - [ ] **제작 기록** (Sanity) — 제목, 날짜, 단계(모델링·몰드·성형·전사·도포·조립), 사진, 본문
 - [ ] **주문 요청** (PostgreSQL) — 필드, 이용 동의 항목, RLS 정책
 - [ ] **선호 색상 설문** (PostgreSQL) — 문항, 익명 여부, RLS 정책
-- [ ] **인증** (Better Auth) — 가입(이메일 인증)·로그인·재설정·카카오·비회원 세션 API와 `lib/auth.ts` 입력/반환
+- [ ] **인증** (Better Auth) — 아래 PR #92 정본 절의 API·`lib/auth.ts` DTO 공동 검토와 운영 정책 확정; 비밀번호 재설정은 미구현
 - [ ] **자외선지수** — `GET /api/uv` 응답 형태, 지역 기준, 캐시 주기, 실패 응답
 - [ ] **커스텀 사진 업로드** — 아래 계약 초안에서 `provisional` 값과 보관 기간을 확정한 뒤 체크
 - [ ] 공통 에러 응답 형태 — `{ error: { code, message } }` 여부
@@ -69,6 +69,117 @@ Next.js 서버 API (frontend/app/api/)            이재원
 | `POST /api/uploads/[assetId]/read-url` | 본인 소유 verified 객체의 짧은 수명 GET URL 발급 | PostgreSQL 소유권·상태 · Cloudflare R2 객체 |
 | `POST /api/orders` | 커스텀 주문 요청 | PostgreSQL |
 | `POST /api/survey` | 선호 색상 설문 | PostgreSQL |
+
+## 인증 계약 — PR #92
+
+> **PR #92 구현 기준·공동 검토 대상.** 이 절이 인증 API·DTO의 정본이다. 개발 구현과 운영 정책 승인은 구분한다. 환경변수·실행 절차는 [backend/README.md](../backend/README.md), 검증 근거와 남은 작업은 [backend/auth-contract.md](../backend/auth-contract.md)에 위임한다.
+
+### 세션·소유권과 신뢰 경계
+
+- Better Auth **1.7.10**, pg **8.23.1**, PostgreSQL의 `auth.user/session/account/verification`과 UUID PK·FK를 사용한다. 서버는 실제 DB 세션을 재조회하며 쿠키 캐시를 인증 근거로 사용하지 않는다.
+- 인증은 `sunny_auth`, 업무는 `sunny_app` 역할로 분리한다. 두 역할 모두 관리자·테이블 소유자·BYPASSRLS 권한을 갖지 않는다. auth의 서비스 역할 RLS와 업무의 사용자별 소유권 RLS를 구분한다. 업무 API는 검증한 UUID만 owner로 사용한다.
+- 세션 쿠키는 `sunny` 접두사, `HttpOnly`, `SameSite=Lax`, `Path=/`이며 HTTPS에서는 `Secure`다. 로그인·로그아웃·세션 갱신의 `Set-Cookie`를 경계에서 보존한다. 기존 게스트 재사용에도 갱신 쿠키를 전달한다.
+- 게스트는 `isAnonymous=true`인 별도 DB 사용자다. 기존 게스트 세션은 재사용하고 회원 세션에 게스트 시작을 요청하면 `409 MEMBER_SESSION_EXISTS`다. 가입/로그인 뒤에도 게스트 사용자를 보존하며 사진·주문 소유권을 회원에게 이전하지 않는다. 자동 게스트 삭제는 비활성화한다.
+- 이메일 가입은 인증 대기이며 가입/이메일 인증 직후 회원 세션을 만들지 않는다. 인증 후 별도로 로그인한다. 보호 업무 API는 무효·만료 세션에 `401`, 미인증 회원에 `403`을 적용한다. 사진 API는 검증 회원 또는 검증된 게스트 DB 세션만 허용한다.
+- 브라우저 JSON에 세션 토큰·OAuth access/refresh token·비밀번호·해시·게스트 식별 이메일을 반환하지 않는다. provider 토큰은 DB에 암호화해 저장하고 이메일만 같은 계정을 자동 연결하지 않는다.
+
+### 입력과 엔드포인트
+
+모든 인증 응답은 `Cache-Control: no-store`, `Referrer-Policy: no-referrer`다. POST는 `BETTER_AUTH_URL`과 정확히 같은 Origin, `Content-Type: application/json`, 최대 **8 KiB** JSON 객체를 요구한다. 아래 허용 필드 외 `userId/ownerId` 등을 거절한다. 표시용 별명 입력 이름은 `name`, 반환 이름은 `nickname`이다.
+
+| 메서드 · 경로 | 입력 | 성공 응답/동작 |
+|---|---|---|
+| `POST /api/auth/sign-up/email` | `{name,email,password}` | `200` 인증 대기 DTO; 세션 발급 없음 |
+| `POST /api/auth/send-verification-email` | `{email}` | `200` 계정 존재를 드러내지 않는 동일 안내 |
+| `GET /api/auth/verify-email` | query `token`, `callbackURL` 선택 | `303 /login?auth=...`; 자동 로그인 없음 |
+| `POST /api/auth/sign-in/email` | `{email,password,rememberMe?}` | `200` 회원 표시 DTO + 세션 쿠키 |
+| `POST /api/auth/sign-in/anonymous` | `{}` | `200` 게스트 표시 DTO + 세션 쿠키; 기존 게스트 재사용 |
+| `GET /api/auth/get-session` | 세션 쿠키 | `200` 표시 DTO 또는 `null`; DB 검증 강제 |
+| `POST /api/auth/sign-out` | `{}` | `200 {"success":true}` + 쿠키 폐기 |
+| `POST /api/auth/sign-in/social` | `{"provider":"kakao"}` | `200 {"url":"https://kauth.kakao.com/oauth/authorize?..."}` |
+| `GET /api/auth/callback/kakao` | native OAuth `code/state`, 검증 쿠키 | 성공 `302/303 /account`, 실패 `303 /login?auth=...` |
+
+`sign-in/social`의 인가 URL에는 OAuth state가 포함된다. 서버가 provider와 인가 URL의 origin/path를 확인하며, 세션/OAuth 토큰을 JSON으로 내보내는 endpoint가 아니다. callback GET은 Origin 없이 들어올 수 있으나 native state/쿠키 검증을 생략하지 않는다.
+
+이 목록 외 Better Auth native 경로(비밀번호 재설정·프로필 수정·사용자 삭제·토큰 발급 포함)는 **미구현/비공개이며 404**다. Better Auth 브라우저 client를 직접 붙여 native 응답을 가정하지 않는다. 인증은 상품/CMS의 `NEXT_PUBLIC_API_MODE=mock`과 무관하게 DB 세션을 사용한다.
+
+### 표시 DTO와 화면 adapter
+
+회원의 로그인·세션 응답 예시(합성 값):
+
+```json
+{
+  "user": {"id":"00000000-0000-4000-8000-000000000001","nickname":"예시 회원","email":"member@example.invalid","isAnonymous":false},
+  "session": {"expiresAt":"2026-11-10T00:00:00.000Z"}
+}
+```
+
+게스트 응답은 `email`을 생략한다. 무효·만료·위조 쿠키의 `get-session`은 `200 null`이며 보호 업무 API가 이 값을 인증 실패로 처리한다.
+
+```json
+{
+  "user": {"id":"00000000-0000-4000-8000-000000000002","nickname":"Anonymous","isAnonymous":true},
+  "session": {"expiresAt":"2026-11-10T00:00:00.000Z"}
+}
+```
+
+가입과 재발송 성공 응답은 각각 다음과 같다. 가입 때 `auth.user/account`가 생성되어도 `emailVerified=false`이며 회원 세션은 없다.
+
+```json
+{"verificationPending":true,"message":"메일함에서 인증을 마쳐 주세요."}
+```
+
+```json
+{"message":"인증이 필요한 경우 메일을 보냈습니다."}
+```
+
+명시적으로 켠 loopback 개발 로컬 메일 모드만 가입 DTO에 `verificationDelivery: "local"`을 추가한다. 링크는 Git 제외 비공개 파일로 전달하고 JSON에 넣지 않는다. 운영·원격 Origin에서는 사용할 수 없다.
+
+화면은 `frontend/lib/auth.ts` adapter를 사용한다. `getMember(): Promise<Member|null>`은 회원만 `{email,nickname}`으로 반환하며 게스트/무효 세션은 `null`이다. `signIn(email,password)`는 `Promise<Member>`, `signUp(email,nickname,password)`는 인증 대기 결과, `resendVerification(email)`·`signOut()`은 `Promise<void>`, `signInWithKakao()`는 검증된 인가 URL의 `Promise<string>`이다. 실패 시 표시용 `AuthError(code,message)`를 던진다. 게스트의 UUID·세션이 필요한 업무 흐름은 위 서버 DTO를 사용하며 `getMember()`의 `null`을 게스트 세션 폐기로 해석하지 않는다.
+
+### 이메일·카카오 결과 처리
+
+- 이메일 링크는 `token`과 선택 `callbackURL`만 허용한다. callback 입력은 `/`, `/login`, `/signup`, `/account`로 제한하며 실제 인증 결과 화면은 `/login`으로 고정한다. 허용한 깨진 쿼리 인코딩만 한 번 정규화하고 서명·만료 검증은 Better Auth에서 수행한다. 중복/알 수 없는 필드·외부 callback·이중 인코딩은 거절한다.
+- 이메일 결과의 `auth` 코드는 `email-verified`, `verification-invalid`, `verification-expired`다. 토큰·원본 오류를 리디렉션 URL에 싣지 않는다.
+- 메일 미설정은 가입/재발송의 DB 변경 전에 `503 AUTH_EMAIL_UNAVAILABLE`로 거절한다. 실제 발송 실패는 인증 대기 계정이 남을 수 있으므로 메일 복구 후 재발송한다. Better Auth가 내부에서 흡수한 가입 메일 실패도 요청별 비동기 컨텍스트로 확인해 동일한 `503`으로 전달한다. 실패를 가입/인증 성공으로 표시하지 않는다.
+- 카카오는 서버 설정이 있을 때만 활성화한다. `account_email/profile_nickname`만 요청하고 프로필 이미지를 수집하지 않는다. 제공자가 검증한 이메일은 인정하며, 미인증 이메일은 서비스 메일 인증 후 카카오로 재로그인한다. 이메일 미제공은 거절하고 임의 이메일을 만들지 않는다. 기존 credential 계정과 이메일이 같아도 자동 연결하지 않는다.
+- 카카오 실패 안내 코드는 `kakao-cancelled`, `kakao-email-required`, `kakao-email-unverified`, `kakao-account-exists`, `kakao-failed`다. 서버가 성공 `/account`와 실패 `/login`을 고정하며 외부 리디렉션·원본 provider 오류를 전달하지 않는다. 카카오 재로그인은 provider 계정으로 같은 회원 UUID를 사용한다.
+
+### 실패 응답
+
+JSON 실패의 모양은 다음과 같다. 메일/DB/provider 원본 예외·주소·링크·자격증명을 포함하지 않는다. 이메일 인증·카카오 callback의 실패는 위 고정 화면으로 리디렉션한다.
+
+```json
+{"error":{"code":"AUTH_EMAIL_UNAVAILABLE","message":"인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요."}}
+```
+
+| HTTP | code · 조건 | 화면/호출자 처리 |
+|---|---|---|
+| 400 | `INVALID_AUTH_REQUEST`, `INVALID_SIGNUP_INPUT`, `INVALID_SOCIAL_PROVIDER` | 입력을 수정; 허용하지 않은 필드/본문 크기·JSON 확인 |
+| 415 | `INVALID_CONTENT_TYPE` | JSON으로 요청 |
+| 401 | `INVALID_EMAIL_OR_PASSWORD` | 동일한 로그인 실패 안내 |
+| 403 | `EMAIL_NOT_VERIFIED`, `ORIGIN_NOT_ALLOWED` | 이메일 인증 또는 접속 Origin 확인 |
+| 404 | `AUTH_ENDPOINT_NOT_AVAILABLE` | 지원하지 않는 native 경로를 호출하지 않음 |
+| 405 | `METHOD_NOT_ALLOWED` + `Allow` | 해당 경로의 허용 메서드 사용 |
+| 409 | `MEMBER_SESSION_EXISTS` | 기존 회원 세션 사용; 자동 게스트 전환 금지 |
+| 429 | `AUTH_RATE_LIMITED` + 유효한 `Retry-After`(정수 초) | 지정 시간 뒤 재시도; 검증한 native `X-Retry-After`도 표준 헤더로 전달 |
+| 503 | `AUTH_EMAIL_UNAVAILABLE` | 메일 설정/발송 복구 후 재발송; 가입/로그인 성공 처리 금지 |
+| 503 | `AUTH_SERVICE_UNAVAILABLE`, `AUTH_SESSION_UNAVAILABLE`, `KAKAO_UNAVAILABLE` | 인증 비활성·DB/설정·세션 재조회·카카오 설정/응답 장애 안내 |
+| native 실패 상태 유지 | 허용한 `PASSWORD_TOO_SHORT`, `PASSWORD_TOO_LONG`, `INVALID_EMAIL`, `INVALID_TOKEN`, `TOKEN_EXPIRED` 외 `AUTH_REQUEST_FAILED`로 정규화 | 원본 예외를 노출하지 않고 재입력/재시도 안내 |
+
+### 개발값·미완료와 운영 전 검토
+
+| 항목 | PR #92의 개발 구현값 | 운영 전 남은 일 |
+|---|---|---|
+| 회원·게스트 DB 세션 | 7일, 갱신 간격 1일 | 수명 합의·게스트 세션 분실 복구 |
+| 이메일 인증 토큰 | 24시간, 인증 뒤 자동 로그인 없음 | 실제 메일 도메인/수신 검증·운영 정책 |
+| 가입 비밀번호·별명 | 8..128자·영문+숫자, 별명 2..12자 | 화면/서버 공용 validate 사용·운영 검토 |
+| 요청 제한 | 메모리 저장소, 공통 60초/30회 | 공유 저장소·IP/프록시 신뢰 경계 |
+| 개별 요청 제한 | 로그인 60초/10회; 게스트·가입·카카오 시작 각각 60초/5회; 재발송 60초/3회 | 계정 보조 제한·게스트 남용·메일 한도 합의 |
+| 서비스 자체 동의 이력 | 미구현; UI 약관 확인만, 선택 마케팅 동의 비활성 | 문구/버전/증빙 저장 공동 계약 |
+| 비밀번호 재설정·프로필 변경 | 미구현/공개 endpoint 없음 | 후속 이슈·계약 |
+
+개발 수치는 운영 합의값이 아니다. 메모리 제한은 재시작·다중 인스턴스 간 한도를 보장하지 않는다. `AUTH_ENABLED` 기본 false를 유지하며 공동 계약 검토·공유 제한·검증한 프록시/HTTPS/PostgreSQL TLS·메일 준비 전 운영 활성화하지 않는다. 모의 메일/카카오 및 실제 로컬 PostgreSQL 검증은 외부 실서비스·Vercel 운영 검증과 구분한다. 적용된 migration·기존 인증 데이터·비밀번호·인증 secret 변경은 이 계약 정리 범위에 포함하지 않는다.
 
 ## 커스텀 사진 업로드 계약 — #26 검토 초안
 
@@ -90,7 +201,7 @@ Next.js 서버 API (frontend/app/api/)            이재원
 
 게스트의 자동 삭제를 막는 `disableDeleteAnonymousUser: true`와 업무 owner FK의 CASCADE 삭제 금지를 유지한다. 세션 분실 후 회원에게 자동 이전하거나 주문번호만으로 복구하지 않으며 복구 방식은 `TBD`다.
 
-인증 동작은 PR #92의 `backend/auth-contract.md`([c14e105](https://github.com/bongjunpyo/Sunny/blob/c14e10572825f95176ee7c9b398ff1f842aa2636/backend/auth-contract.md))와 대조했다(2026-11-01 팀장 리뷰, 2026-11-02 재확인). DB 세션 재조회 · 게스트 별도 사용자 · 이메일 미인증 회원 세션 없음 · Origin 불일치 403 · 무효 세션 401이 이 절과 일치한다. 인증 계약의 정본 절은 #92에서 이 문서에 추가하며, Better Auth 버전 · 세션 수명 · 인증 요청 제한은 그 절에서 확정한다. 사진 계약은 #81 → #92의 머지를 기다리지 않고 먼저 공동 검토·머지하며, 구현 PR #94를 대조하는 기준으로 삼는다. 머지는 팀장만 한다.
+인증 API·DTO·DB 세션/쿠키·Origin·실패 응답은 위 [인증 정본 절](#인증-계약--pr-92)을 따른다. 사진 API는 그 절의 검증 회원/게스트 자격을 사용한다. 사진 계약(#65)은 먼저 머지되었으며, 구현 PR #94는 이 사진 절을 대조 기준으로 삼는다. #92 인증 정본의 공동 검토와 운영 정책 검토는 별개이며 머지는 팀장만 한다.
 
 이 사진 절의 주문 항목은 사진 배치·동의 연결에 한정한다. 주문 제품 옵션 전체는 후속 주문 계약에서 정한다. 웹 설문·결제 제외와 회원 리뷰 보류는 #88/PR #89의 2026-11-02 팀장 결정에 따르며, 정본의 기존 설문 문구 정리는 별도 errata에서 처리한다.
 
@@ -376,7 +487,7 @@ complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적�
 
 ### 공동 검토와 구현 수용 기준
 
-- #92의 인증 대조 결과를 정본 인증 절에도 반영하고, 회원/게스트 자격·401/403·쿠키/Origin/CSRF를 구현과 대조한다. 다른 사용자·게스트→회원 전환 후 이전 사진의 접근은 존재하지 않는 사진과 같은 404로 거부한다.
+- 위 인증 정본 절의 회원/게스트 자격·401/403·쿠키/Origin/CSRF를 구현과 대조한다. 다른 사용자·게스트→회원 전환 후 이전 사진의 접근은 존재하지 않는 사진과 같은 404로 거부한다.
 - 기존 7칸·동일 사진 재사용·0장·409 재시도·429 발급 상한을 회원/게스트 각각 확인한다.
 - pending 덮어쓰기·동시 complete·검사 후 원본 변경에도 검사한 정제본만 verified로 확정하고 같은 complete는 동일 최종 결과를 반환한다.
 - PUT 미수신은 pending 유지·409 UPLOAD_NOT_RECEIVED, rejected 재호출은 최초 HTTP/code 유지, 503과 검사 중 409가 섞여도 추가 호출 합계 10회 상한·안내·중단을 확인한다.
@@ -387,6 +498,8 @@ complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적�
 참고: [R2 서명 URL의 재사용·PUT/GET·S3 도메인](https://developers.cloudflare.com/r2/api/s3/presigned-urls/), [R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/), [Better Auth DB 세션](https://better-auth.com/docs/concepts/session-management), [anonymous 옵션](https://better-auth.com/docs/plugins/anonymous). 2026-10-16 공식 문서 대조. 구체적인 버전·SDK·adapter는 구현 이슈에서 고정한다.
 
 ## 변경 이력
+
+- 2026-11-03: PR #92 인증 정본 추가 — 구현 API·표시 DTO·DB 세션/쿠키·Origin·오류와 미구현/운영 미합의 항목 구분
 
 - 2026-11-02: PR #65 2차 리뷰 반영 — 타인 접근 404 통일, 미수신 409, rejected·503 재호출 규칙, 인증 대조 결과와 사진 계약 우선 머지 순서 반영
 - 2026-10-16: PR #65 최신 main 충돌 해소안 — Better Auth 회원/게스트 경계, private R2의 재사용 가능한 PUT/GET, 동일 바이트 검증·별도 verified 객체·복구/정리, 서버 동의 시각 기록으로 정렬 (공동 합의 전)
