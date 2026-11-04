@@ -1,36 +1,9 @@
 import { authNotice } from "../../lib/auth-flow.ts";
 import { kakaoOptions } from "../../lib/server/auth-kakao.ts";
-import type { Metadata } from "next";
-import { LoginForm } from "../../components/auth/LoginForm.tsx";
-import { Header } from "../../components/common/Header.tsx";
-import { Footer } from "../../components/common/Footer.tsx";
-import styles from "../../components/auth/auth.module.css";
-
-export const metadata: Metadata = { title: "SUNNY — 로그인" };
-
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ auth?: string | string[] }> }) {
-  const query = await searchParams;
-  const status = typeof query.auth === "string" ? query.auth : undefined;
-  return (
-    <>
-      <Header dark={false} />
-      <main className={styles.page}>
-        <div className={styles.layout}>
-          <div className={styles.intro}>
-            <span className={styles.eyebrow}>WELCOME BACK</span>
-            <h1 className={styles.title}>다시 만나 반가워요.</h1>
-            <p>
-              인증한 이메일과 비밀번호로 로그인해 주세요. 빛에 따라 달라지는 색처럼, 기록도
-              시간에 따라 쌓입니다.
-            </p>
-            <p className={styles.warn}>가입한 이메일의 인증을 먼저 완료해 주세요.</p>
-          </div>
-          <div className={styles.form}>
-            <LoginForm initialNotice={authNotice(status)} authStatus={status} kakaoReady={Boolean(kakaoOptions())} />
-          </div>
-        </div>
-      </main>
-      <Footer />
-    </>
-  );
-}
+import { Header } from '../../components/common/Header';
+import { Footer } from '../../components/common/Footer';
+import { LoginForm } from '../../components/auth/LoginForm';
+import { c } from '../../components/site/ui';
+import { imagePath } from '../../components/site/data';
+export const metadata = { title: 'SUNNY — 로그인' };
+export default async function Page({searchParams}:{searchParams:Promise<{auth?:string|string[]}>}) { const query=await searchParams;const status=typeof query.auth==="string"?query.auth:undefined; return <><Header /><main id="main" className={c('login-page')}><div className={c('login-photo')}><img src={imagePath('shadows.jpg')} alt="나란히 걷는 그림자 · AI 콘셉트"/><div className={c('login-photo-copy')}><p className={c('eyebrow')}>WELCOME TO YOUR SUNNY</p><h2>당신의 하루도,<br />이곳에 남겨주세요.</h2></div></div><div className={c('login-form')}><p className={c('eyebrow')}>A MOMENT TO KEEP</p><h1>다시 만나 반가워요.</h1><p className={c('small-copy')}>가입한 이메일의 인증을 완료한 뒤 로그인해 주세요.</p><LoginForm initialNotice={authNotice(status)} authStatus={status} kakaoReady={Boolean(kakaoOptions())} /></div></main><Footer /></>; }
