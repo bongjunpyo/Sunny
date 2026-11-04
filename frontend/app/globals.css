@@ -21,3 +21,5 @@
 html{overflow-anchor:none}body{font-size:14px}textarea:focus-visible{outline:2px solid var(--forest);outline-offset:3px}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 
 :root{--tone-violet:#b5a9cf;--tone-blue:#a9c4d5;--tone-orange:#e1b69e;--tone-yellow:#e1d295;--tone-red:#d39e9d;--cart-columns:minmax(140px,240px) 1fr auto;--cart-columns-mobile:110px 1fr;--cart-count-width:80px;--control-height:44px;--tracking-label:.16em;--hero-credit-bottom:110px;--credit-size:8px;--soft-opacity:.6;--header-actions-gap:10px}
+
+:root{--tone-mixed:conic-gradient(var(--tone-violet) 0deg 72deg,var(--tone-blue) 72deg 144deg,var(--tone-orange) 144deg 216deg,var(--tone-yellow) 216deg 288deg,var(--tone-red) 288deg 360deg)}

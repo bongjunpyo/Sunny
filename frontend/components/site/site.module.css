@@ -67,3 +67,5 @@ a.button:active{transform:var(--ui-368)}
 .checkout-confirm small { color: var(--muted); }
 .checkout-submit button { width: 100%; background: var(--forest); color: var(--white); padding: var(--step-2) var(--step-3); }
 .checkout-submit button:disabled { opacity: .45; }
+
+.site .tone-mixed{background:var(--tone-mixed)}
