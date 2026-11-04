@@ -73,8 +73,10 @@ def main():
         config.write_text(json.dumps({"container":name,"port":port,"privateDirectory":str(private),
             **{role:f"postgresql://sunny_{role}:{value}@127.0.0.1:{port}/sunny" for role,value in passwords.items()}}))
         config.chmod(0o600)
-        node_directory = Path(os.environ.get("SUNNY_NODE_BIN", "/Users/a0/.nvm/versions/node/v24.14.0/bin"))
-        env = {**os.environ, "PATH":str(node_directory)+os.pathsep+os.environ["PATH"], "SUNNY_ORDER_TEST_CONFIG":str(config)}
+        env = {**os.environ, "SUNNY_ORDER_TEST_CONFIG":str(config)}
+        node_directory = os.environ.get("SUNNY_NODE_BIN")
+        if node_directory:
+            env["PATH"] = node_directory + os.pathsep + os.environ.get("PATH", "")
         commands=[] if "--ui-only" in sys.argv else [["npm","run","test:orders"],["npm","run","test:auth"],["npm","run","test:uploads"]]
         commands.append(["node","../backend/orders/tests/http-flow.mjs"])
         for command in commands:
