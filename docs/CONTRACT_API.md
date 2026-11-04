@@ -13,7 +13,7 @@
 Next.js 서버 API (frontend/app/api/)            이재원
    │  frontend/lib/server/ 의 서버 전용 클라이언트
    ├──▶ Sanity CMS        공개 콘텐츠: 컬렉션 · 제품 · 제작 기록 · 이미지
-   ├──▶ PostgreSQL        비공개 데이터: 주문 요청 · 선호 색상 설문 · 인증 세션 (접근 정책 적용)
+   ├──▶ PostgreSQL        비공개 데이터: 주문 요청 · 인증 세션 (접근 정책 적용)
    ├──▶ Cloudflare R2     비공개 파일: 고객 사진 (서버가 짧은 수명 서명 URL 발급)
    └──▶ 기상청 API         자외선지수
 ```
@@ -37,8 +37,8 @@ Next.js 서버 API (frontend/app/api/)            이재원
 
 1. **서버 전용 키는 브라우저에 가지 않는다** — `NEXT_PUBLIC_` 금지, 서버 API 안에서만 읽는다
 2. **서버 API는 관리자·`BYPASSRLS` DB 계정을 쓰지 않는다.** 기본은 앱 전용 계정 + 접근 정책(RLS). 사용자 ID는 서버가 검증한 세션에서만 얻는다
-3. **주문·설문 테이블은 RLS 없이 만들지 않는다.** 주문 요청의 이름·연락처·사진은 개인정보다
-4. **공개 콘텐츠의 정본은 Sanity, 주문·설문의 정본은 PostgreSQL.** 같은 데이터를 두 곳에 두지 않는다
+3. **주문 테이블은 RLS 없이 만들지 않는다.** 주문 요청의 이름·연락처·사진은 개인정보다
+4. **공개 콘텐츠의 정본은 Sanity, 주문의 정본은 PostgreSQL.** 같은 데이터를 두 곳에 두지 않는다
 5. **자외선지수를 못 받아오면 오류를 숨기지 않는다** — 마지막으로 받은 값과 갱신 시각, 안내 문구를 함께 준다
 6. **고객 사진은 서버 검사를 통과하기 전까지 주문에 연결하지 않는다.** 브라우저 검사와 파일명·확장자·요청 MIME은 신뢰하지 않는다
 
@@ -48,7 +48,6 @@ Next.js 서버 API (frontend/app/api/)            이재원
 - [ ] **비즈 · 광변색** — 색상: 기획서 수정본 기준 **빨강·주황·파랑·노랑·보라 5색** / 농도 저·중·고. (`web-demo/lib/bead.ts`는 3색 견본이다 — 확정 시 errata)
 - [ ] **제작 기록** (Sanity) — 제목, 날짜, 단계(모델링·몰드·성형·전사·도포·조립), 사진, 본문
 - [ ] **주문 요청** (PostgreSQL) — 아래 시연 계약안의 공동 합의·운영 정책/카탈로그·이용 동의·RLS 검토
-- [ ] **선호 색상 설문** (PostgreSQL) — 문항, 익명 여부, RLS 정책
 - [ ] **인증** (Better Auth) — 아래 PR #92 정본 절의 API·`lib/auth.ts` DTO 공동 검토와 운영 정책 확정; 비밀번호 재설정은 미구현
 - [ ] **자외선지수** — `GET /api/uv` 응답 형태, 지역 기준, 캐시 주기, 실패 응답
 - [ ] **커스텀 사진 업로드** — 아래 계약 초안에서 `provisional` 값과 보관 기간을 확정한 뒤 체크
@@ -70,7 +69,6 @@ Next.js 서버 API (frontend/app/api/)            이재원
 | `POST /api/orders` | 시연 주문 요청 원자 저장 | PostgreSQL |
 | `GET /api/orders` | 본인 시연 주문 목록 | PostgreSQL |
 | `GET /api/orders/[orderId]` | 본인 시연 주문 상세 | PostgreSQL |
-| `POST /api/survey` | 선호 색상 설문 | PostgreSQL |
 
 ## 인증 계약 — PR #92
 
@@ -205,7 +203,7 @@ JSON 실패의 모양은 다음과 같다. 메일/DB/provider 원본 예외·주
 
 인증 API·DTO·DB 세션/쿠키·Origin·실패 응답은 위 [인증 정본 절](#인증-계약--pr-92)을 따른다. 사진 API는 그 절의 검증 회원/게스트 자격을 사용한다. 사진 계약(#65)은 먼저 머지되었으며, 구현 PR #94는 이 사진 절을 대조 기준으로 삼는다. #92 인증 정본의 공동 검토와 운영 정책 검토는 별개이며 머지는 팀장만 한다.
 
-이 사진 절의 주문 항목은 사진 배치·동의 연결에 한정한다. 주문 제품 옵션 전체는 후속 주문 계약에서 정한다. 웹 설문·결제 제외와 회원 리뷰 보류는 #88/PR #89의 2026-11-02 팀장 결정에 따르며, 정본의 기존 설문 문구 정리는 별도 errata에서 처리한다.
+이 사진 절의 주문 항목은 사진 배치·동의 연결에 한정한다. 주문 제품 옵션 전체는 후속 주문 계약에서 정한다. 웹 설문·결제 제외와 회원 리뷰 보류는 #88/PR #89의 2026-11-02 팀장 결정에 따른다.
 
 ### 흐름과 신뢰 경계
 
@@ -517,11 +515,11 @@ complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적�
 
 ### API 입력
 
-`POST /api/orders`는 같은 Origin·application/json·64KiB 이하와 UUID Idempotency-Key를 요구한다. 본문은 `items`만 받는다. 배열 순서는 품목 순서이며 1~20개다. 각 품목은 productSlug/productKind/color/lengthCm/quantity/beadLayout/previewConfirmed와 사진 동의만 허용한다.
+`POST /api/orders`는 같은 Origin·application/json·64KiB 이하와 UUID Idempotency-Key를 요구한다. 본문은 `items`만 받는다. 팔찌 color는 `red|orange|blue|yellow|violet|mixed`, 목걸이는 `red|orange|blue|yellow|violet`만 허용한다. `mixed`는 팔찌 전체 색상 믹스이며 목걸이 요청은 400 INVALID_ORDER_REQUEST로 거부한다. 서버는 카탈로그의 제품 종류·지원 단색을 대조하고, 팔찌의 다섯 단색을 모두 지원하는 제품만 믹스 주문을 허용한다. DB도 같은 제품별 색상 제약을 적용한다. 배열 순서는 품목 순서이며 1~20개다. 각 품목은 productSlug/productKind/color/lengthCm/quantity/beadLayout/previewConfirmed와 사진 동의만 허용한다.
 
 ```json
 {"items":[
-  {"productSlug":"light-study-01","productKind":"bracelet","color":"violet","lengthCm":18,"quantity":2,
+  {"productSlug":"light-study-01","productKind":"bracelet","color":"mixed","lengthCm":18,"quantity":2,
    "beadLayout":{"squareCount":7,"beads":[
      {"index":0,"photoAssetId":null},{"index":1,"photoAssetId":null},{"index":2,"photoAssetId":null},
      {"index":3,"photoAssetId":null},{"index":4,"photoAssetId":null},{"index":5,"photoAssetId":null},{"index":6,"photoAssetId":null}]},
@@ -547,7 +545,7 @@ complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적�
 
 ### 원자 저장·멱등·RLS
 
-- app.order_checkouts는 주문 묶음, app.orders는 품목, order_beads/order_consents는 품목별 배치/영수증이다. 기존 단건 주문과 0001~0004는 변경하지 않고 0005로 확장한다. 기존 단건 행/동의/사진 참조는 보존하고 조회에서 한 품목짜리 주문으로 보여준다.
+- app.order_checkouts는 주문 묶음, app.orders는 품목, order_beads/order_consents는 품목별 배치/영수증이다. main에 미적용된 주문 SQL은 `0004_order_requests.sql` 하나에 처음부터 여러 품목 구조로 정의한다. 기존 기반·인증·사진 0001~0003의 SQL과 checksum은 변경하지 않는다.
 - 묶음/모든 품목/수량/7칸 또는3개 배치/동의가 하나의 트랜잭션으로 커밋된다. 품목 하나라도 잘못되면 부분 주문을 남기지 않는다. DB 지연 제약은 품목 수·위치·전체수량, 팔찌7칸, 목걸이3개 모양·사진 없음, 필수 제작 동의를 검사한다.
 - owner는 검증한 DB 세션에서만 얻고 모든 부모/자식 FK에 owner를 포함한다. 사진을 중복 제거/정렬해 같은 트랜잭션에서 잠그고 verified·목적·본인 소유·접근 차단 아님을 확인한다.
 - 신규 묶음도 ENABLE/FORCE RLS, runtime SELECT/INSERT만 부여한다. UPDATE/DELETE/TRUNCATE/DDL은 금지한다. transaction-local app.user_id를 쓰고 인증 역할의 업무 접근을 허용하지 않는다.
@@ -558,9 +556,9 @@ complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적�
 
 생성/재호출은 `{order,nextPath,noticeCode:"DEMO_ORDER_REQUEST_APPROVED"}`다. order에는 orderId/status/mode/createdAt/itemCount/totalQuantity/photoCount 및 items가 있다. photoCount는 수량을 곱하지 않은 사진 배치 칸 수다. 각 items에는 itemId/productSlug/productKind/productName/color/lengthCm/quantity/photoCount가 있고, 상세에는 previewConfirmedAt/beadLayout/consents를 추가한다.
 
-목걸이 상세 beadLayout은 `{moonCount:1,roundCount:2,beads:[{index:0,shape:"round",photoAssetId:null},{index:1,shape:"moon",photoAssetId:null},{index:2,shape:"round",photoAssetId:null}]}`다. 팔찌 상세는 squareCount7 및 원래7칸을 반환한다. 기존 단건 시연 기록은 저장 당시의 배치를 그대로 반환한다.
+목걸이 상세 beadLayout은 `{moonCount:1,roundCount:2,beads:[{index:0,shape:"round",photoAssetId:null},{index:1,shape:"moon",photoAssetId:null},{index:2,shape:"round",photoAssetId:null}]}`다. 팔찌 상세는 squareCount7 및 원래7칸을 반환한다.
 
-- `GET /api/orders`는 본인 주문 묶음과 기존 단건 기록만 `{items:[요약],nextCursor}`로 반환한다. 기본20/최대50, createdAt DESC/orderId DESC의 검증한 cursor를 사용한다. 알 수 없는/중복 쿼리는400이다.
+- `GET /api/orders`는 본인 주문 묶음만 `{items:[요약],nextCursor}`로 반환한다. 기본20/최대50, createdAt DESC/orderId DESC의 검증한 cursor를 사용한다. 알 수 없는/중복 쿼리는400이다.
 - `GET /api/orders/[orderId]`는 `{order}` 상세다. 타인/미존재는 같은404 ORDER_NOT_FOUND다. 게스트 세션을 잃거나 회원으로 바뀌면 이전 게스트 주문을 자동 조회/이전하지 않는다.
 - 모든 API 응답은 no-store/no-referrer. owner·세션/OAuth 토큰·키·서명 URL·멱등 키·해시를 반환하지 않는다. GET도 DB 세션을 재조회하고 Origin이 있으면 같은 Origin만 허용한다.
 
@@ -572,8 +570,10 @@ complete/read-url의 소유권·접근 검사는 상태 검사보다 먼저 적�
 
 ## 변경 이력
 
-- 2026-11-03: PR #92 인증 정본 추가 — 구현 API·표시 DTO·DB 세션/쿠키·Origin·오류와 미구현/운영 미합의 항목 구분
+- 2026-11-04: 팀장 리뷰 반영 — 인증/주문 절 병합, 설문 제외, 팔찌 mixed·목걸이 단색 구분, 미적용 주문 migration을 0004 하나로 통합
+
 - 2026-11-03: 사용자 확정 반영 — 목걸이 달1/원형2, 여러 품목/수량의 원자 주문, photo-rules 기준 검사, 결제하기→주문 목록 시연
+- 2026-11-03: PR #92 인증 정본 추가 — 구현 API·표시 DTO·DB 세션/쿠키·Origin·오류와 미구현/운영 미합의 항목 구분
 
 - 2026-11-02: PR #65 2차 리뷰 반영 — 타인 접근 404 통일, 미수신 409, rejected·503 재호출 규칙, 인증 대조 결과와 사진 계약 우선 머지 순서 반영
 - 2026-10-16: PR #65 최신 main 충돌 해소안 — Better Auth 회원/게스트 경계, private R2의 재사용 가능한 PUT/GET, 동일 바이트 검증·별도 verified 객체·복구/정리, 서버 동의 시각 기록으로 정렬 (공동 합의 전)
