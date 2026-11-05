@@ -77,6 +77,51 @@ class MigrationTests(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(db.DBError):
                 db.read_migrations(self.directory)
 
+    def test_non_ascii_identifiers_cannot_hide_transaction_or_psql_commands(self):
+        for text in (
+            "CREATE TABLE app.bypass_before(id int); SELECT 1 AS 😀$a$; END; "
+            "CREATE TABLE app.bypass_after(id int); SELECT 1/0 AS y$a$;",
+            "SELECT $é$'$é$;\n\\! touch /tmp/sunny_validator_meta_probe #'",
+            "SELECT éE'not escaped\\'; COMMIT; -- '",
+        ):
+            self.write("0001_first.sql", text)
+            with self.subTest(text=text), self.assertRaises(db.DBError):
+                db.read_migrations(self.directory)
+
+    def test_non_ascii_dollar_tags_and_identifiers_preserve_literal_boundaries(self):
+        for text in ("SELECT $é$'END; \\gexec$é$;", "SELECT $😀$COMMIT; \\!$😀$;",
+                     "SELECT $한글$END;$한글$;", "SELECT 1 AS 😀$a$; SELECT 2 AS éE;",
+                     "SELECT 1 AS END😀;", "SELECT 1 AS COMMITé;"):
+            self.write("0001_first.sql", text)
+            with self.subTest(text=text):
+                self.assertEqual(db.read_migrations(self.directory)[0].sql, text)
+
+    def test_standard_atomic_function_and_rollback_to_savepoint_are_allowed(self):
+        for text in (
+            "CREATE FUNCTION app.f() RETURNS int LANGUAGE sql BEGIN ATOMIC SELECT 1; END;",
+            "CREATE OR REPLACE FUNCTION app.f() RETURNS int LANGUAGE sql BEGIN ATOMIC "
+            "SELECT CASE WHEN true THEN 1 ELSE 0 END; END; SELECT 2;",
+            "CREATE FUNCTION app.f() RETURNS int LANGUAGE sql BEGIN ATOMIC SELECT 1 AS end; "
+            "SELECT 2 AS case; END;",
+            "SAVEPOINT a; SELECT 1; ROLLBACK TO SAVEPOINT a; RELEASE SAVEPOINT a;",
+            'SAVEPOINT "END;"; ROLLBACK WORK TO "END;";',
+            "SAVEPOINT a; ROLLBACK TRANSACTION TO SAVEPOINT a;",
+        ):
+            self.write("0001_first.sql", text)
+            with self.subTest(text=text):
+                self.assertEqual(db.read_migrations(self.directory)[0].sql, text)
+
+    def test_atomic_body_does_not_allow_outer_transaction_termination(self):
+        function = "CREATE FUNCTION app.f() RETURNS int LANGUAGE sql BEGIN ATOMIC SELECT 1; END; "
+        for suffix in ("END;", "END WORK;", "COMMIT;", "ABORT;", "ROLLBACK WORK;",
+                       "PREPARE TRANSACTION 'x';", "\\gexec"):
+            self.write("0001_first.sql", function + suffix)
+            with self.subTest(suffix=suffix), self.assertRaises(db.DBError):
+                db.read_migrations(self.directory)
+        self.write("0001_first.sql", function.replace("END; ", "END WORK; "))
+        with self.assertRaises(db.DBError):
+            db.read_migrations(self.directory)
+
     def test_integration_setup_refuses_pending_migrations(self):
         first = db.Migration(1, "0001_first.sql", "a" * 64, "SELECT 1;")
         second = db.Migration(2, "0002_second.sql", "b" * 64, "SELECT 2;")
@@ -219,6 +264,57 @@ class DatabaseIntegrationTests(unittest.TestCase):
 
     def test_runtime_permissions_and_ownership_checks(self):
         db.check(self.settings)
+
+    def test_unicode_bypasses_are_rejected_before_any_database_command(self):
+        for text in ("CREATE TABLE app.bypass_before(id int); SELECT 1 AS 😀$a$; END; "
+                     "CREATE TABLE app.bypass_after(id int); SELECT 1/0 AS y$a$;",
+                     "SELECT $é$'$é$;\n\\! touch /tmp/sunny_validator_meta_probe #'"):
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as temporary:
+                Path(temporary, "0001_probe.sql").write_text(text)
+                with patch.object(db, "command", wraps=db.command) as command:
+                    with self.assertRaises(db.DBError):
+                        db.read_migrations(Path(temporary))
+                    command.assert_not_called()
+                self.assertEqual(db.sql(self.settings, "SELECT to_regclass('app.bypass_before') IS NULL "
+                                        "AND to_regclass('app.bypass_after') IS NULL;"), "t")
+                self.assertEqual(db.history(self.settings), self.initial_history)
+
+    def test_standard_atomic_body_and_savepoint_execute_inside_runner_transaction(self):
+        suffix = secrets.token_hex(4)
+        function, table = f"app.atomic_probe_{suffix}", f"app.savepoint_probe_{suffix}"
+        text = f"""CREATE FUNCTION {function}() RETURNS int LANGUAGE sql
+            BEGIN ATOMIC SELECT CASE WHEN true THEN 1 ELSE 0 END; END;
+            SAVEPOINT a; CREATE TABLE {table}(id int); ROLLBACK TO SAVEPOINT a;
+            DO $$ BEGIN
+                IF {function}() <> 1 OR to_regclass('{table}') IS NOT NULL THEN
+                    RAISE EXCEPTION 'standard body/savepoint failed';
+                END IF;
+                RAISE EXCEPTION 'standard body and savepoint verified; rollback probe';
+            END $$;"""
+        with tempfile.TemporaryDirectory() as temporary:
+            Path(temporary, "0001_probe.sql").write_text(text)
+            parsed = db.read_migrations(Path(temporary))[0]
+        version = len(self.migrations) + 1
+        probe = db.Migration(version, f"{version:04d}_standard_probe.sql", parsed.checksum, parsed.sql)
+        with self.assertRaisesRegex(db.DBError, "standard body and savepoint verified; rollback probe"):
+            db.sql(self.settings, db.migration_script([*self.migrations, probe]))
+        self.assertEqual(db.sql(self.settings, f"SELECT to_regprocedure('{function}()') IS NULL "
+                                f"AND to_regclass('{table}') IS NULL;"), "t")
+        self.assertEqual(db.history(self.settings), self.initial_history)
+
+    def test_check_rejects_admin_owned_domain_and_enum_but_allows_owner_types(self):
+        for schema, definition in (("app", "DOMAIN {name} AS text"), ("auth", "TYPE {name} AS ENUM ('x')")):
+            name = f"{schema}.type_owner_probe_{secrets.token_hex(4)}"
+            kind = "DOMAIN" if definition.startswith("DOMAIN") else "TYPE"
+            with self.subTest(kind=kind):
+                db.sql(self.settings, "CREATE " + definition.format(name=name) + ";")
+                try:
+                    with self.assertRaisesRegex(db.DBError, "owner"):
+                        db.check(self.settings)
+                    db.sql(self.settings, f"ALTER {kind} {name} OWNER TO sunny_owner;")
+                    db.check(self.settings)
+                finally:
+                    db.sql(self.settings, f"DROP {kind} {name};")
 
     def test_session_lock_serializes_migrators(self):
         command = [*db.compose_args(), "exec", "-T", "db", "sh", "-c",

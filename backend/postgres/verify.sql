@@ -22,7 +22,7 @@ SELECT role_name,
        pg_has_role(role_name, 'sunny_owner', 'MEMBER') AS is_owner_member
 FROM (VALUES ('sunny_app'), ('sunny_auth')) AS runtime_roles(role_name);
 
--- All rows must have sunny_owner as owner, including sequences and functions.
+-- All rows must have sunny_owner as owner, including standalone types/domains.
 SELECT n.nspname AS schema, c.relname AS object, c.relkind::text AS kind,
        pg_get_userbyid(c.relowner) AS owner
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -32,6 +32,10 @@ SELECT n.nspname, p.proname || '(' || pg_get_function_identity_arguments(p.oid) 
        'function', pg_get_userbyid(p.proowner)
 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname IN ('sunny_meta', 'auth', 'app')
+UNION ALL
+SELECT n.nspname, t.typname, 'type', pg_get_userbyid(t.typowner)
+FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+WHERE n.nspname IN ('sunny_meta', 'auth', 'app') AND t.typrelid = 0 AND t.typelem = 0
 ORDER BY 1, 2;
 
 -- Global PUBLIC EXECUTE must be absent; no schema-specific grant may add it back.
