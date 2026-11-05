@@ -128,12 +128,17 @@ export async function handleAuth(request: Request, auth: SunnyAuth, config: { ba
   // Only the callback above may issue an OAuth redirect.
   if (response.status >= 300 && response.status < 400) return new Response(null, { status: response.status, headers: outHeaders });
   const data = await response.json().catch(() => null);
+  // A lookup can finish after logout -> a new OAuth callback. Its old cookie
+  // is invalid in the DB, but expiring the browser cookie here would also
+  // erase the NEW session. Only explicit sign-out should clear it. Keep the
+  // Set-Cookie of a valid session response (sliding renewal) unchanged.
+  if (path === "get-session" && (!response.ok || data === null)) outHeaders.delete("Set-Cookie");
   if (!response.ok) {
     const code = data?.code;
     const limited = response.status === 429;
     const safeCode = limited ? "AUTH_RATE_LIMITED" : ["EMAIL_NOT_VERIFIED", "INVALID_EMAIL_OR_PASSWORD", "PASSWORD_TOO_SHORT", "PASSWORD_TOO_LONG", "INVALID_EMAIL", "INVALID_TOKEN", "TOKEN_EXPIRED"].includes(code) ? code : "AUTH_REQUEST_FAILED";
     const error = authError(response.status, safeCode, limited ? "요청이 많습니다. 잠시 후 다시 시도해 주세요." : code === "EMAIL_NOT_VERIFIED" ? "이메일 인증을 먼저 완료해 주세요." : "인증 요청을 완료하지 못했습니다.");
-    for (const cookie of response.headers.getSetCookie()) error.headers.append("Set-Cookie", cookie);
+    for (const cookie of outHeaders.getSetCookie()) error.headers.append("Set-Cookie", cookie);
     const retryAfter = response.headers.get("Retry-After") ?? response.headers.get("X-Retry-After");
     if (retryAfter && /^(?:0|[1-9][0-9]{0,5})$/.test(retryAfter)) error.headers.set("Retry-After", retryAfter);
     return error;

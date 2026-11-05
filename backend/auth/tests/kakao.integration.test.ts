@@ -100,6 +100,35 @@ test("valid Kakao callback creates UUID member + encrypted provider account + co
  assert.equal((await (await call("get-session",undefined,cookie(second))).json()).user.id,id);
  await call("sign-out",{},cookie(second)); assert.equal(await (await call("get-session",undefined,cookie(second))).json(),null);
 });
+test("a delayed session lookup from before Kakao re-login must not erase the new session", async t => {
+ const email=`${prefix}-delayed-session@example.invalid`;
+ const remote=mockProvider(t,profile(email));
+ const browser=new Map<string,string>();
+ const apply=(response:Response)=>{
+   for(const line of response.headers.getSetCookie()) {
+     const pair=line.split(";",1)[0], split=pair.indexOf("=");
+     const name=pair.slice(0,split), value=pair.slice(split+1);
+     if(/(?:^|;)\s*Max-Age=0(?:;|$)/i.test(line))browser.delete(name);else browser.set(name,value);
+   }
+ };
+ const jar=()=>[...browser].map(([name,value])=>`${name}=${value}`).join("; ");
+ async function login() {
+   const start=await call("sign-in/social",{provider:"kakao"},jar());apply(start);
+   const state=new URL((await start.json()).url).searchParams.get("state")!;states.add(state);
+   const response=await call(`callback/kakao?code=${remote.code}&state=${state}`,undefined,jar());
+   assert.equal(response.headers.get("location"),`${baseURL}/account`);apply(response);
+ }
+ await login();const id=await track(email);assert.ok(id);
+ for(let round=0;round<3;round++) {
+   const oldCookie=jar();apply(await call("sign-out",{},oldCookie));
+   // The old HTTP response is intentionally delivered after the new callback.
+   const stale=await call("get-session",undefined,oldCookie);
+   assert.equal(await stale.clone().json(),null);
+   await login();apply(stale);
+   const session=await (await call("get-session",undefined,jar())).json();
+   assert.equal(session?.user.id,id,"late logged-out lookup erased a fresh Kakao session");
+ }
+});
 test("missing email is rejected; unverified email stays sessionless until email verification",async t=>{
  const missing=mockProvider(t,{id:randomInt(100000000,2000000000),kakao_account:{profile:{nickname:"NoEmail"}}});
  const first=await begin(); const denied=await call(`callback/kakao?code=${missing.code}&state=${first.state}`,undefined,first.jar);
