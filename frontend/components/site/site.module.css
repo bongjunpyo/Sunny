@@ -70,3 +70,19 @@ a.button:active{transform:var(--ui-368)}
 .checkout-submit button:disabled { opacity: .45; }
 
 .site .tone-mixed{background:var(--tone-mixed)}
+
+.site span.filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 760px) {
+  .site .archive-page .filter-row {
+    gap: var(--step-1);
+  }
+
+  .site .archive-page span.filter {
+    padding-inline: var(--ui-72);
+  }
+}
