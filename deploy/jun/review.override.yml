@@ -1,0 +1,7 @@
+# 검증용 임시 컨테이너. 서버의 compose.yml(환경변수·env_file·네트워크)을 그대로 쓰고
+# 이름과 이미지만 바꾼다. 터널은 sunny-web만 가리키므로 공개 사이트에는 영향이 없다.
+services:
+  web:
+    container_name: sunny-web-review
+    image: ${SUNNY_REVIEW_IMAGE:?SUNNY_REVIEW_IMAGE}
+    restart: "no"

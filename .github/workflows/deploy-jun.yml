@@ -1,0 +1,59 @@
+# main 머지 → jun 서버(self-hosted runner)에서 빌드·검증 → 게이트 통과 시 공개 사이트 교체.
+# 공개 저장소의 self-hosted runner라서 pull_request에는 절대 반응하지 않는다.
+# 실제 교체 게이트: push는 저장소 변수 SUNNY_AUTO_DEPLOY=true 일 때만, 수동 실행은 activate 체크일 때만.
+name: deploy-jun
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      activate:
+        description: "검증 뒤 공개 사이트(sunny-web)를 이 커밋으로 교체"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-jun
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'bongjunpyo/Sunny'
+    runs-on: [self-hosted, linux, ARM64, jun]
+    timeout-minutes: 90
+    env:
+      ACTIVATE: ${{ (github.event_name == 'push' && vars.SUNNY_AUTO_DEPLOY == 'true') || (github.event_name == 'workflow_dispatch' && inputs.activate == true) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: 이미지 이름
+        run: echo "IMAGE=stdrd/sunny-web:$(date +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: 빌드 (메모리 2GB 제한 빌더)
+        run: bash deploy/jun/release.sh build "$IMAGE"
+
+      - name: 검증 (임시 컨테이너, 공개 사이트 영향 없음)
+        run: bash deploy/jun/release.sh verify "$IMAGE"
+
+      - name: 교체 (게이트 통과 시에만)
+        if: env.ACTIVATE == 'true'
+        run: bash deploy/jun/release.sh activate "$IMAGE"
+
+      - name: 정리
+        if: always()
+        run: bash deploy/jun/release.sh prune
+
+      - name: 요약
+        if: always()
+        run: |
+          {
+            echo "- 이미지: \`$IMAGE\`"
+            echo "- 공개 사이트 교체: $ACTIVATE (push는 SUNNY_AUTO_DEPLOY 변수, 수동은 activate 입력)"
+            echo "- 현재 sunny-web: \`$(docker inspect sunny-web --format '{{.Config.Image}}' 2>/dev/null || echo '-')\`"
+          } >> "$GITHUB_STEP_SUMMARY"
