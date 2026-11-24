@@ -32,7 +32,7 @@ export function ProductionGallery() {
         ))}
       </ol>
       <Link href="/making/process" className={styles.sharedLink}>
-        <span>빛을 관찰하는 기록</span>
+        <span>전체 제작 과정 보기</span>
         <span aria-hidden="true">↗</span>
       </Link>
     </section>
