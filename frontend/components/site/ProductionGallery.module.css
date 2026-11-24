@@ -1,0 +1,144 @@
+.bar {
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--step-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.grid li {
+  min-width: 0;
+}
+
+.photoLink {
+  display: block;
+}
+
+.photoLink .photoFrame {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .photoLink .photoFrame img {
+    transition: var(--ui-80);
+  }
+
+  .photoLink .photoFrame:hover img,
+  .photoLink:focus-visible .photoFrame img {
+    transform: var(--ui-81);
+  }
+}
+
+.sharedLink {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--ui-42);
+  min-height: var(--control-height);
+  border-top: var(--ui-25);
+  margin-top: var(--ui-139);
+  padding-top: var(--ui-62);
+  font-size: var(--ui-6);
+  line-height: var(--ui-83);
+}
+
+.caption {
+  display: grid;
+  gap: var(--step-1);
+  padding-top: var(--step-2);
+}
+
+.caption p {
+  color: var(--muted);
+}
+
+.caption h3 {
+  font-size: var(--ui-139);
+  font-weight: var(--ui-54);
+  letter-spacing: var(--ui-162);
+}
+
+.processList {
+  display: grid;
+  gap: var(--step-5);
+  max-width: var(--ui-240);
+  list-style: none;
+  padding: 0;
+  margin: 0 auto;
+}
+
+.processStep {
+  scroll-margin-top: var(--step-3);
+  display: grid;
+  grid-template-columns: minmax(0, var(--ui-195)) minmax(0, 1fr);
+  gap: var(--step-5);
+  align-items: center;
+  min-width: 0;
+  padding-bottom: var(--step-5);
+  border-bottom: var(--ui-25);
+}
+
+.photoFrame {
+  aspect-ratio: 4 / 5;
+  background: var(--paper-deep);
+}
+
+.photoFrame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.grid .photoFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+}
+
+.grid .photoFrame img {
+  position: absolute;
+  inset: 0;
+}
+
+.copy {
+  min-width: 0;
+}
+
+.copy h2 {
+  font-size: var(--ui-69);
+  font-weight: var(--ui-54);
+  letter-spacing: var(--ui-162);
+  margin: var(--step-2) 0;
+}
+
+.copy > p {
+  font-size: var(--text-small);
+  line-height: var(--ui-60);
+  color: var(--muted);
+  margin-bottom: var(--step-2);
+}
+
+@media (max-width: 760px) {
+  .processStep {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--step-3);
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ui-77);
+  }
+
+  .caption {
+    overflow-wrap: anywhere;
+  }
+
+  .caption h3 {
+    font-size: var(--ui-50);
+  }
+}
