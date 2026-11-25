@@ -114,7 +114,9 @@ runtime은 NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOINHERIT/NOBYPASSRLS이고 DB CR
 runtime 검색 경로는 `pg_catalog, app` / `pg_catalog, auth`로 시스템 함수를 먼저 찾는다.
 `0001`은 `sunny_meta.schema_migrations`만 만든다. #90의 `0002_authentication.sql`은
 `auth.user/session/account/verification` 4개를 추가한다. #93의 `0003_photo_uploads.sql`은
-사진 메타데이터·검사 시도 업무 테이블을 추가한다. 주문·배치·동의·리뷰 테이블은 아직 생성하지 않는다.
+사진 메타데이터·검사 시도 업무 테이블을 추가한다. #100의 미적용 주문 SQL은 팀장 리뷰에 따라
+`0004_order_requests.sql` 하나로 통합해 처음부터 여러 품목·수량·팔찌 7칸/목걸이 3개·동의를 만든다.
+기존 sunny 인증 DB는 보존하며 새 주문 구조는 별도 임시 DB에서 검증한다. 리뷰·결제·설문 테이블은 만들지 않는다.
 
 ### DBeaver
 
@@ -141,14 +143,13 @@ DBeaver Create Table/컬럼 편집으로 schema를 변경하지 않는다.
 
 `postgres/migrations/0001_database_foundation.sql`은 schema·이력 table·권한을 만든다.
 새 SQL 파일은 마지막 파일 다음 연속 순번을 쓰며, 적용한 파일을 고치거나 이름을 바꾸지 않는다.
-SQL 파일에 psql 메타 명령이나 트랜잭션 제어(BEGIN/START/COMMIT/END/ROLLBACK/ABORT/PREPARE TRANSACTION)를 쓰지 않는다.
-runner는 SQL 문자열·식별자·달러 본문·주석을 제외한 영역을 검사하고 파일별 트랜잭션을 소유한다.
+SQL 파일의 psql 메타 명령과 트랜잭션 종료/시작은 거부한다. PostgreSQL과 같은 비ASCII 식별자·달러 태그 경계로 검사하며, SQL 함수의 `BEGIN ATOMIC … END`와 `ROLLBACK [WORK|TRANSACTION] TO [SAVEPOINT]`는 허용한다. runner가 파일별 트랜잭션을 소유한다.
 같은 psql 세션의 advisory lock 안에서 이력/checksum을 확인하고 DDL과 이력을 함께 commit한다.
 동일 파일의 재실행은 skip이며 이력 변조·누락·순번 불일치는 실패한다.
 0001은 schema를 만드는 관리자 기반 migration이다. 0002 이후에는 runner가 `SET LOCAL ROLE sunny_owner`를 적용해
 table·sequence·function을 소유 역할로 생성한다. 파일마다 역할·검색 경로를 초기화한다.
 함수의 PUBLIC EXECUTE 기본 권한은 schema별이 아닌 전역에서 회수한다. runtime 함수 실행은 후속 migration이 명시적으로 부여한다.
-`check`는 객체 소유자·전역 함수 기본 권한·비밀번호 인증·타 DB 접속 거부까지 검증한다.
+`check`는 domain·enum 등 독립 타입을 포함한 객체 소유자·전역 함수 기본 권한·비밀번호 인증·타 DB 접속 거부까지 검증한다. 직접 역할 전환은 별도 정적 차단하지 않으며, 이로 인한 잘못된 소유자는 적용 후 `check`에서 탐지한다.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -Werror -m unittest discover -s backend/postgres/tests -v
@@ -334,3 +335,13 @@ source-map-js 1.2.1(high) 권고가 확인됐다. Better Auth/pg 신규 직접 �
 기존 메일/실 사용자 링크를 대신 사용하지 않는다. 테스트는 로컬 origin·개발 파일 메일 설정만 허용한다.
 검증용 EmailProof 회원과 비공개 OS 임시 fixture를 남겨 브라우저 확인에 사용할 수 있다.
 테스트 도중 실패하면 생성된 합성 회원/메일이 남을 수 있다. 실제 고객 데이터/기존 볼륨은 삭제하지 않는다.
+
+## 주문 요청 시연 — #100 / 계약 #101
+
+| 변수 | 위치 | 설명 |
+|---|---|---|
+| `ORDER_DEMO_ENABLED` | frontend/.env.local · 서버 전용 | 기본 false. AUTH_ENABLED=true·NODE_ENV=development·BETTER_AUTH_URL의 http loopback Origin일 때만 주문 시연 허용 |
+
+기존 `DATABASE_URL`의 sunny_app과 `AUTH_DATABASE_URL`의 sunny_auth를 재사용한다. 새 결제 키/SDK/외부 서비스는 없다.
+production·원격 주소는 flag와 무관하게 차단한다. 정본/시연 정책은 [주문 계약안](../docs/CONTRACT_API.md#주문-요청-저장본인-조회--시연-계약안),
+독립 DB 검증/화면 연결·남은 리뷰는 [orders/README.md](orders/README.md)를 본다. 기존 DB에 새 주문 migration을 적용하거나 운영을 활성화하지 않았다.

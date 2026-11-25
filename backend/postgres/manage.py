@@ -29,6 +29,12 @@ SECRET_KEYS = (
 )
 ROLE_KEYS = dict(zip(("sunny_admin", "sunny_app", "sunny_auth"), SECRET_KEYS))
 FILE_PATTERN = re.compile(r"([0-9]{4})_([a-z][a-z0-9_]*)\.sql")
+# PostgreSQL's UTF-8 scanner accepts every non-ASCII character in identifiers.
+# Use the same boundary for dollar tags, dollar quotes and E-string prefixes.
+IDENT_START = r"[A-Za-z_\u0080-\U0010ffff]"
+IDENT_CHAR = r"[A-Za-z0-9_$\u0080-\U0010ffff]"
+DOLLAR_TAG = re.compile(r"\$(?:" + IDENT_START + r"[A-Za-z0-9_\u0080-\U0010ffff]*)?\$")
+SQL_TOKEN = re.compile(IDENT_START + IDENT_CHAR + r"*|[^\s]", re.ASCII)
 
 
 class DBError(Exception):
@@ -74,7 +80,7 @@ def sql_structure(sql: str) -> str:
         elif sql[index] in ("'", '"'):
             quote = sql[index]
             escaped = (quote == "'" and index > 0 and sql[index - 1] in "eE"
-                       and (index < 2 or not re.match(r"[\w$]", sql[index - 2])))
+                       and (index < 2 or not re.match(IDENT_CHAR, sql[index - 2])))
             index += 1
             while index < len(sql):
                 if escaped and sql[index] == "\\":
@@ -89,12 +95,12 @@ def sql_structure(sql: str) -> str:
                     index += 1
             else:
                 raise DBError("Unterminated SQL quoted value")
-        elif sql[index] == "$" and (index == 0 or not re.match(r"[\w$]", sql[index - 1])):
-            delimiter = re.match(r"\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$", sql[index:])
+        elif sql[index] == "$" and (index == 0 or not re.match(IDENT_CHAR, sql[index - 1])):
+            delimiter = DOLLAR_TAG.match(sql, index)
             if not delimiter:
                 index += 1
                 continue
-            end = sql.find(delimiter[0], index + len(delimiter[0]))
+            end = sql.find(delimiter[0], delimiter.end())
             if end < 0:
                 raise DBError("Unterminated SQL dollar body")
             index = end + len(delimiter[0])
@@ -103,6 +109,48 @@ def sql_structure(sql: str) -> str:
             continue
         masked[start:index] = " " * (index - start)
     return "".join(masked)
+
+
+def validate_transaction_boundaries(structure: str) -> None:
+    """Distinguish a SQL function's END from transaction termination.
+
+    SQL BEGIN ATOMIC contains SQL statements, not procedural blocks. Each bare
+    END closes a function body; CASE/column labels stay inside their SQL command.
+    Keep checking every command inside the body so it cannot hide COMMIT/ABORT.
+    This is a boundary check, not a replacement for PostgreSQL's syntax parser.
+    """
+    atomic_bodies = 0
+    for statement in structure.split(";"):
+        tokens = [token.upper() for token in SQL_TOKEN.findall(statement)]
+        if not tokens:
+            continue
+        command = tokens[0]
+        if command == "END" and atomic_bodies and (
+                len(tokens) == 1 or tokens[1] not in ("WORK", "TRANSACTION", "AND")):
+            # Function options (for example LANGUAGE sql) may follow END.
+            atomic_bodies -= 1
+            continue
+        rollback_to = command == "ROLLBACK" and (
+            tokens[1:2] == ["TO"] or
+            (tokens[1:2] in (["WORK"], ["TRANSACTION"]) and tokens[2:3] == ["TO"]))
+        if ((command in ("BEGIN", "START", "COMMIT", "END", "ROLLBACK", "ABORT") and not rollback_to)
+                or tokens[:2] == ["PREPARE", "TRANSACTION"]):
+            raise DBError("Runner owns transaction boundaries")
+        header = tokens[1:]
+        if header[:2] == ["OR", "REPLACE"]:
+            header = header[2:]
+        if command == "CREATE" and header[:1] in (["FUNCTION"], ["PROCEDURE"]):
+            parentheses = 0
+            for index, token in enumerate(tokens):
+                if token == "(":
+                    parentheses += 1
+                elif token == ")":
+                    parentheses -= 1
+                elif parentheses == 0 and token == "BEGIN" and tokens[index + 1:index + 2] == ["ATOMIC"]:
+                    atomic_bodies += 1
+                    break
+    if atomic_bodies:
+        raise DBError("Unterminated SQL BEGIN ATOMIC body")
 
 
 def read_migrations(directory: Path = MIGRATIONS) -> list[Migration]:
@@ -119,9 +167,7 @@ def read_migrations(directory: Path = MIGRATIONS) -> list[Migration]:
         structure = sql_structure(sql)
         if not structure.strip() or "\\" in structure:
             raise DBError(f"Migration must contain SQL only: {path.name}")
-        if any(re.match(r"\s*(BEGIN|START|COMMIT|END|ROLLBACK|ABORT)\b|\s*PREPARE\s+TRANSACTION\b",
-                        statement, re.I) for statement in structure.split(";")):
-            raise DBError(f"Runner owns transaction boundaries: {path.name}")
+        validate_transaction_boundaries(structure)
         migrations.append(Migration(int(match[1]), path.name, hashlib.sha256(raw).hexdigest(), sql))
     if not migrations or [m.version for m in migrations] != list(range(1, len(migrations) + 1)):
         raise DBError("Migration versions must be unique and contiguous, starting at 0001")
@@ -388,9 +434,12 @@ def check(settings: dict[str, str]) -> None:
         UNION ALL
         SELECT p.proowner FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname IN ('sunny_meta','auth','app')
+        UNION ALL
+        SELECT t.typowner FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+        WHERE n.nspname IN ('sunny_meta','auth','app') AND t.typrelid = 0 AND t.typelem = 0
     ) objects WHERE owner <> 'sunny_owner'::regrole;""")
     if ownership != "0":
-        raise DBError("Schema/table/sequence/function owner must be sunny_owner")
+        raise DBError("Schema/table/sequence/function/type owner must be sunny_owner")
     public_execute = sql(settings, """SELECT EXISTS (
         SELECT 1 FROM aclexplode(COALESCE((
             SELECT defaclacl FROM pg_default_acl

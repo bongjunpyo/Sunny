@@ -73,9 +73,9 @@ export function AccountView() {
           <section className={styles.section} id="orders">
             <h2>주문 내역</h2>
             <div className={styles.empty}>
-              아직 주문이 없습니다.
+              현재 세션으로 저장한 시연 주문 요청을 확인할 수 있습니다.
               <br />
-              주문 기능은 서버 연결 후 열립니다. <Link href="/collection">컬렉션 둘러보기</Link>
+              <Link href="/orders">내 주문 요청 보기 ↗</Link>
             </div>
           </section>
 
