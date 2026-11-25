@@ -73,7 +73,8 @@ case "$cmd" in
       { print }' "$rel/compose.before.yml" > "$rel/compose.next.yml"
     changed=$(diff "$rel/compose.before.yml" "$rel/compose.next.yml" | grep -c '^>' || true)
     [ "$changed" -eq 1 ] || { echo "expected exactly one changed line in compose.yml, got $changed" >&2; exit 1; }
-    docker compose -f "$rel/compose.next.yml" config --quiet
+    # env_file 같은 상대 경로는 서비스 폴더($base) 기준으로 풀어야 한다. 릴리스 폴더 기준이면 "web.env not found"로 실패한다.
+    docker compose --project-directory "$base" -f "$rel/compose.next.yml" config --quiet
     docker inspect sunny-web --format '{{.Config.Image}}' > "$rel/previous-image.txt" 2>/dev/null || echo none > "$rel/previous-image.txt"
     rollback() {
       log "activation failed — restoring $(cat "$rel/previous-image.txt")"
