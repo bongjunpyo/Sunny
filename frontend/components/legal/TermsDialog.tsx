@@ -68,8 +68,7 @@ export function TermsDialog({
                 {doc.title}
               </h2>
               <p className={styles.meta}>
-                버전 {doc.version} · 작성 {doc.writtenAt} ·{" "}
-                {doc.effectiveAt ? `시행 ${doc.effectiveAt}` : "시행일 미정"}
+                버전 {doc.version} · 작성 {doc.writtenAt} · 시행 {doc.effectiveAt}
               </p>
             </div>
             <button className={styles.close} onClick={onClose} aria-label="닫기">

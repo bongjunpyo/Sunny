@@ -134,7 +134,7 @@ export function SignupForm() {
           </span>
         ) : null}
         <p className={styles.eyebrow} style={{ marginTop: "var(--step-1)" }}>
-          약관 이름을 누르면 전문을 볼 수 있습니다. 지금 문서는 검토 전 초안입니다.
+          약관 이름을 누르면 전문을 볼 수 있습니다.
         </p>
       </div>
 

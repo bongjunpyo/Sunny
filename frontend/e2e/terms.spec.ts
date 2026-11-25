@@ -8,7 +8,9 @@ test("가입 화면에서 약관 이름을 누르면 그 자리에서 열린다"
   await page.locator("form").getByRole("button", { name: "이용약관" }).click();
   await expect(dialog).toBeVisible();
   await expect(page.getByRole("heading", { name: "이용약관" })).toBeVisible();
-  await expect(dialog).toContainText("법률 검토를 받지 않은 초안");
+  await expect(dialog).toContainText("버전 1.0");
+  await expect(dialog).toContainText("시행 2026-12-01");
+  await expect(dialog).not.toContainText("초안");
   // 페이지는 그대로다
   await expect(page).toHaveURL(/\/signup$/);
 });
